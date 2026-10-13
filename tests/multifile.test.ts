@@ -31,9 +31,28 @@ test('the same line with another quantity in another file stays on both sides as
 test('of two equal readings the clearer is kept, unless the kept one was already confirmed',()=>{
   const fileOf=(r:InventoryRow)=>r.page>=10?1:0;
   const poor=row('000001','A01','5',1,{issues:[POOR_NAME],attention:true,reviewed:false,name:'品頂'});const clean=row('000001','A01','5',10);
-  assert.deepEqual(mergeRows([poor],[clean],fileOf).rows,[clean]);
-  const confirmed={...poor,reviewed:true};assert.deepEqual(mergeRows([confirmed],[clean],fileOf).rows,[confirmed]);
-  assert.deepEqual(mergeRows([clean],[poor],fileOf).rows,[clean]);
+  assert.deepEqual(mergeRows([poor],[clean],fileOf).rows,[{...clean,sourceFiles:[0,1]}]);
+  const confirmed={...poor,reviewed:true};assert.deepEqual(mergeRows([confirmed],[clean],fileOf).rows,[{...confirmed,sourceFiles:[0,1]}]);
+  assert.deepEqual(mergeRows([clean],[poor],fileOf).rows,[{...clean,sourceFiles:[1,0]}]);
+});
+test('deduplication preserves per-file multiplicity across pages, order and PDF cloning',()=>{
+  const fileOf=(r:InventoryRow)=>Math.floor(r.page/10);
+  const a=[row('000001','A01','5',1),row('000001','A01','5',2)];
+  const b=row('000001','A01','5',10);
+  const c=[row('000001','A01','5',20),row('000001','A01','5',21),row('000001','A01','5',22)];
+  for(const order of [[b,...a,...c],[...a,b,...c],[...c,b,...a]]){
+    let rows:InventoryRow[]=[];let duplicates=0;
+    for(const item of order){const merged=mergeRows(rows,[item],fileOf);rows=merged.rows;duplicates+=merged.duplicates;}
+    assert.equal(rows.length,3);assert.equal(duplicates,3);
+    const output=mergeRows([],structuredClone(rows),fileOf);
+    assert.equal(output.rows.length,3,'PDF deduplication must preserve already matched occurrences');
+    assert.equal(output.duplicates,0);
+  }
+  assert.equal(mergeRows([b],a,fileOf).rows.length,2,'one match cannot consume two lines from A');
+  const poor={...b,issues:[POOR_NAME],reviewed:false,attention:true};
+  let rows=mergeRows([poor],[a[0]],fileOf).rows;
+  rows=mergeRows(rows,[row('000001','A01','5',11)],fileOf).rows;
+  assert.equal(rows.length,2,'clearer replacement keeps the previous file provenance');
 });
 test('store titles: equal names continue, two different exact titles stop, anything unsure asks',()=>{
   assert.deepEqual(compareStores([{storeName:'26北-測試店',exact:true},{storeName:'26北-測試店 ',exact:false}]),{result:'same',name:'26北-測試店'});
@@ -91,6 +110,19 @@ test('two reports of one store: checked first, merged, duplicates removed, negat
   assert.equal(conflicts,1,'000002 at A02 has -3 in a.pdf and -4 in b.pdf');
   assert.ok(engine.files.get(0)?.textLayout&&engine.files.get(1)?.textLayout,'each file learns its own columns');
   assert.deepEqual(sortRows(rows,'location').map(r=>r.sku),['000002','000002','000001','000003','000004']);
+});
+test('first-pages-first reading preserves repeated lines on a later page and in PDF output',async()=>{
+  const a=document('a.pdf',[textPage('26北-測試店',[['000002','OTHER','A02','1']]),textPage('26北-測試店',[['000001','FIRST','A01','5'],['000001','FIRST','A01','5']])]);
+  const b=document('b.pdf',[textPage('26北-測試店',[['000001','FIRST','A01','5']])]);
+  for(const files of [[a,b],[b,a]]){
+    const {job,rows,errors,pages}=await read(files);
+    assert.equal(job.state,'complete');assert.deepEqual(errors,[]);
+    assert.equal(rows.filter(r=>r.sku==='000001').length,2);
+    assert.equal(pages.reduce((sum,p)=>sum+(p.duplicates??0),0),1);
+    const set=new SourceSet(files as any);
+    const output=mergeRows([],structuredClone(rows),r=>set.fileIndex(r.page));
+    assert.equal(output.rows.filter(r=>r.sku==='000001').length,2);
+  }
 });
 test('reports of different stores stop before the remaining pages are read',async()=>{
   const a=document('a.pdf',[textPage('26北-測試店',[['000001','FIRST','A01','5']]),textPage('26北-測試店',[['000003','THIRD','A03','7']])]);

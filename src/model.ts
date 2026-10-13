@@ -6,6 +6,8 @@ export type InventoryRow = {
   confidence: Record<Field, number>; issues: string[]; reviewed: boolean;
   /** Once a row needs attention, it remains in the consolidated review queue. */
   attention: boolean;
+  /** Files represented by this occurrence after cross-file deduplication. */
+  sourceFiles?: number[];
   /** OCR only: the two column-pass readings, later joined by per-cell readings in a vote. */
   ocrReadings?: { sku: [string, string]; bookQty: [string | null, string | null] };
   /** OCR only: fields the vote could not settle, with the candidates and an image of the cell for the reviewer. */
@@ -190,12 +192,16 @@ export function mergeRows(kept: InventoryRow[], incoming: InventoryRow[], fileOf
   rows.forEach(add);
   for (const row of incoming) {
     const key = lineKey(row); const others = key ? (lines.get(key) ?? []).filter(other => fileOf(other) !== fileOf(row)) : [];
-    const match = others.find(other => sameQuantity(row, other));
+    const sources = row.sourceFiles ?? [fileOf(row)];
+    const match = others.find(other => sameQuantity(row, other) &&
+      sources.every(file => !(other.sourceFiles ?? [fileOf(other)]).includes(file)));
     if (match) {
       duplicates++;
-      if (hasDoubt(match) && !hasDoubt(row) && !match.reviewed) {
-        rows[rows.indexOf(match)] = row; const list = lines.get(key!)!; list[list.indexOf(match)] = row;
-      }
+      // One occurrence can represent at most one printed line from each file.
+      // Keep provenance even when choosing a clearer reading or cloning for PDF output.
+      const clearer = hasDoubt(match) && !hasDoubt(row) && !match.reviewed ? row : match;
+      const merged = { ...clearer, sourceFiles: [...(match.sourceFiles ?? [fileOf(match)]), ...sources] };
+      rows[rows.indexOf(match)] = merged; const list = lines.get(key!)!; list[list.indexOf(match)] = merged;
       continue;
     }
     for (const other of others) conflicts.push([row, other]);
