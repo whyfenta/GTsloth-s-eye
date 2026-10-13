@@ -24,8 +24,19 @@ export function imageSize(bytes: Uint8Array, png: boolean): { width: number; hei
   }
   return undefined;
 }
-export class DocumentSource {
-  file: File; pages = 1; pdf?: pdfjs.PDFDocumentProxy; bitmap?: ImageBitmap;
+/** What reading needs from a source: one file, or several files numbered as one document. */
+export interface PageSource {
+  pages: number;
+  render(pageNumber: number, dpi?: number): Promise<HTMLCanvasElement>;
+  textPage(pageNumber: number, dpi?: number): Promise<TextPage | undefined>;
+  /** First page of each file, ascending; a single file starts at page 1. */
+  starts?: number[];
+  /** Index of the file that holds this page. */
+  fileIndex?(pageNumber: number): number;
+}
+export class DocumentSource implements PageSource {
+  // An image is decoded only while it is drawn, so many queued photos do not keep their pixels in memory.
+  file: File; pages = 1; pdf?: pdfjs.PDFDocumentProxy; image?: { width: number; height: number };
   constructor(file: File) { this.file = file; }
   static async open(file: File): Promise<DocumentSource> {
     if (file.size > LIMITS.bytes) throw new Error('檔案超過 200 MB，請先分成較小的檔案。');
@@ -45,8 +56,9 @@ export class DocumentSource {
       const size = imageSize(new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer()), png);
       const tooLarge = '圖片尺寸過大，請縮小到六千萬像素以下。';
       if (size && size.width * size.height > 60_000_000) throw new Error(tooLarge);
-      source.bitmap = await createImageBitmap(file);
-      if (source.bitmap.width * source.bitmap.height > 60_000_000) { await source.dispose(); throw new Error(tooLarge); }
+      const bitmap = await createImageBitmap(file);
+      try { if (bitmap.width * bitmap.height > 60_000_000) throw new Error(tooLarge); source.image = { width: bitmap.width, height: bitmap.height }; }
+      finally { bitmap.close(); }
     } else throw new Error('請選擇真正的 PDF、JPG 或 PNG 檔案。');
     return source;
   }
@@ -62,10 +74,13 @@ export class DocumentSource {
       canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
       await page.render({ canvasContext: context, canvas, viewport, background: 'rgb(255,255,255)' }).promise;
       page.cleanup();
-    } else if (this.bitmap) {
-      const scale = Math.min(1, LIMITS.longestEdge / Math.max(this.bitmap.width, this.bitmap.height));
-      canvas.width = Math.round(this.bitmap.width * scale); canvas.height = Math.round(this.bitmap.height * scale);
-      context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(this.bitmap, 0, 0, canvas.width, canvas.height);
+    } else if (this.image) {
+      const bitmap = await createImageBitmap(this.file);
+      try {
+        const scale = Math.min(1, LIMITS.longestEdge / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+        context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      } finally { bitmap.close(); }
     } else throw new Error('來源檔案已清除。');
     return canvas;
   }
@@ -113,7 +128,7 @@ export class DocumentSource {
    * file does not, so it is assumed to show one A4 sheet (short side 8.27 in).
    */
   async scanDpi(pagesToCheck = 3): Promise<number | undefined> {
-    if (this.bitmap) return Math.round(Math.min(this.bitmap.width, this.bitmap.height) / A4_SHORT_INCHES);
+    if (this.image) return Math.round(Math.min(this.image.width, this.image.height) / A4_SHORT_INCHES);
     if (!this.pdf) return undefined;
     const found: number[] = [];
     for (let n = 1; n <= Math.min(pagesToCheck, this.pages); n++) {
@@ -147,5 +162,5 @@ export class DocumentSource {
       return { items, viewport: viewport.transform, width: Math.ceil(viewport.width), height: Math.ceil(viewport.height), hasImages: operators.fnArray.some(fn => imageOperators.has(fn)) };
     } finally { page.cleanup(); }
   }
-  async dispose(): Promise<void> { await this.pdf?.destroy(); this.pdf = undefined; this.bitmap?.close(); this.bitmap = undefined; }
+  async dispose(): Promise<void> { await this.pdf?.destroy(); this.pdf = undefined; this.image = undefined; }
 }
