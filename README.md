@@ -1,6 +1,6 @@
 # GTsloth-s-eye · 點庫門市盤點工具
 
-公開版本 **v1.0.8**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
+公開版本 **v1.0.9**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
 
 繁體中文的瀏覽器庫存 OCR 與 A4 條碼盤點表。使用 Vite、TypeScript、PDF.js、Tesseract.js、pdf-lib 與 JsBarcode。
 
@@ -56,7 +56,7 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 1. 從 GitHub main 建立修訂分支，修改 source；發布前以 `npm version patch --no-git-tag-version`（或適當的 minor/major）同步 package.json 與 lockfile。網頁頁尾版本直接由 package.json 產生。
 2. 提交、push、確認該完整 GitHub commit 的 CI 全數通過，再請有 Sites 權限的 Codex session 依 Sites skill 發布該 commit。
 3. 發布者 fresh clone GitHub 的指定完整 SHA，完成 audit/test/build；以 Sites 原生 credential 與 source helper 開啟乾淨 Sites checkout。只同步經審查的 GitHub tracked source，不複製 Git metadata、node_modules、dist、私有 PDF、fixtures、handoff 或 credentials。不要覆寫 dirty checkout。
-4. 以 Sites source helper 執行剩餘檢查/build，commit/push 至原 Sites project `appgprj_6ac91361a0d08191ae079a01fdd25874`，封装 `.openai/hosting.json` 與 dist。核對封包路徑與版本、排除敏感資料；依序 save_site_version、deploy_site_version，確認終態 succeeded。
+4. 以 Sites source helper 執行剩餘檢查/build，commit/push 至原 Sites project `appgprj_6ac91361a0d08191ae079a01fdd25874`，封裝 `.openai/hosting.json` 與 dist。核對封包路徑與版本、排除敏感資料；依序 save_site_version、deploy_site_version，確認終態 succeeded。
 5. 在發布紀錄保存 GitHub SHA、Sites source SHA、對應 source tree、archive SHA-256、Sites version/deployment ID 和公開網址。兩個來源庫的歷史不同，commit SHA 可以不同；必須核對對應內容。
 
 GitHub Actions 自動測試與建置，尚未自動部署 Sites。現有原生 Sites 工具需要 session 中短效 credential，沒有在這個工作流配置公開網站的永久部署憑證或 GitHub webhook；GitHub push 不會自行更新公開網站。禁止把 Sites token 放進 repo、shell arguments 或 log，僅由原生 helper 的 stdin 使用。Windows package helper 可能需要 Git Bash 在 PATH，以及 `/c/...` 格式的 archive path。

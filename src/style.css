@@ -12,5 +12,10 @@ input.doubtful{background:#fff1d6;border-color:#d9b26a}
 
 /* Printed-code hierarchy is carried through the in-browser preview as well. */
 .preview-code{font-size:16px}.preview-row>span:nth-last-child(2){font-weight:700}
+.preview-row{--preview-code-width:100px;--preview-gap:15px;background:#fff}
+.preview-row:nth-child(even){background:linear-gradient(to right,#fff calc(var(--preview-code-width) + var(--preview-gap)),#EBF2ED 0)}
+.preview-code{background:#fff}
+@media(max-width:850px){.preview-row{--preview-code-width:80px;--preview-gap:8px}}
+@media(max-width:560px){.preview-row{--preview-code-width:60px;--preview-gap:7px}}
 @media(max-width:560px){.preview-code{font-size:13px}}
 #review-body tr.flagged>td{background:#fffaf0}#review-body tr.flagged.strong>td{background:#fff1d6}#review-body .issue-text{display:block;margin-top:4px}
