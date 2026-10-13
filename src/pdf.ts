@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import JsBarcode from 'jsbarcode';
-import { asset, formatQuantity, sortRows, type InventoryRow, type SortMode } from './model';
+import { asset, formatQuantity, isNegativeQuantity, sortRows, type InventoryRow, type SortMode } from './model';
 export const mm = (value: number) => value * 72 / 25.4;
 // Keep the 10 mm bars and 16 pt human-readable code.  These heights are not
 // compressed; only the surrounding white space is 80% of template 0015-09.
@@ -77,11 +77,13 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   const groups: typeof prepared[] = []; let group: typeof prepared = []; let available = top-bottom;
   for(const item of prepared) { if(item.rowHeight > available && group.length) { groups.push(group); group=[]; available=top-bottom; } group.push(item); available-=item.rowHeight; }
   if(group.length) groups.push(group);
+  const negatives = rows.filter(row => isNegativeQuantity(row.bookQty)).length;
+  const order = `${options.sortMode==='sku'?'商品代號排序':'儲位排序'}${negatives?`（負數帳量 ${negatives} 筆在前）`:''}`;
   const today = new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   for(let p=0;p<groups.length;p++) {
     const page = document.addPage([mm(210),mm(297)]);
     page.drawText(options.title ?? '門市庫存盤點表',{x:mm(10),y:mm(279),size:17,font,color:rgb(.12,.23,.2)});
-    const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${options.sortMode==='sku'?'商品代號排序':'儲位排序'}${options.source ? `  |  ${options.source}` : ''}`;
+    const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${order}${options.source ? `  |  ${options.source}` : ''}`;
     const metaLines = wrapText(meta,font,8,mm(190));
     page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(274),size:8,lineHeight:9,font});
     const headerTop = top + mm(8); page.drawRectangle({x:xs[0],y:top,width:mm(190),height:mm(8),color:rgb(...PRINT.headerFill)});

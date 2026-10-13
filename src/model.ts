@@ -16,6 +16,8 @@ export type PageReport = {
   status: 'accepted' | 'rejected'; reason: string; rowCount: number; skippedZero: number; storeName: string;
   /** text: read from the PDF text layer (exact); ocr: recognised from the image. */
   mode?: 'text' | 'ocr';
+  /** Rows of this page already read from another file (same code, location and quantity), so not kept twice. */
+  duplicates?: number;
 };
 export type JobState = 'idle' | 'loading' | 'running' | 'paused' | 'cancelled' | 'complete' | 'error';
 export type SortMode = 'sku' | 'location';
@@ -104,6 +106,11 @@ export function formatQuantity(value: string): string {
   const [whole, fraction] = canonical.split('.');
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction === undefined ? '' : '.' + fraction);
 }
+/** True only for a syntactically valid numeric quantity below zero. */
+export function isNegativeQuantity(value: string): boolean {
+  const canonical = canonicalQuantity(value);
+  return canonical !== null && Number(canonical) < 0;
+}
 /** True only for a syntactically valid numeric quantity whose value is zero. */
 export function isZeroQuantity(value: string): boolean {
   const canonical = canonicalQuantity(value);
@@ -137,7 +144,7 @@ export function admit(rows: InventoryRow[]): InventoryRow[] {
   return rows;
 }
 // Rows with these issues must be confirmed one by one; "confirm page" skips them.
-const individualIssue = /名稱前綴無法完整解析|可能合併|代號不是六位數|代號只在|多次辨識不一致/;
+const individualIssue = /名稱前綴無法完整解析|可能合併|代號不是六位數|代號只在|多次辨識不一致|同代號同儲位/;
 export function needsIndividualReview(row: Pick<InventoryRow, 'issues'>): boolean {
   return row.issues.some(issue => individualIssue.test(issue));
 }
@@ -145,9 +152,12 @@ export function canExport(rows: InventoryRow[], pages: PageReport[], complete: b
   return complete && rows.length > 0 && pages.length > 0 && pages.every(p => p.status === 'accepted') &&
     rows.some(r => !isZeroQuantity(r.bookQty)) && rows.every(r => r.reviewed && validationErrors(r).length === 0);
 }
+/** Negative book quantities come first under either order, so they are checked before everything else. */
 export function sortRows(rows: InventoryRow[], mode: SortMode): InventoryRow[] {
   const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
+  const negative = new Set(rows.filter(row => isNegativeQuantity(row.bookQty)));
   return [...rows].sort((a, b) => {
+    const sign = Number(negative.has(b)) - Number(negative.has(a)); if (sign) return sign;
     if (mode === 'location') {
       if (!a.location.trim() && b.location.trim()) return 1;
       if (a.location.trim() && !b.location.trim()) return -1;
@@ -157,3 +167,56 @@ export function sortRows(rows: InventoryRow[], mode: SortMode): InventoryRow[] {
   });
 }
 export const emptyBox: Box = { x: 0, y: 0, width: 1, height: 1 };
+const locationKey = (location: string) => location.normalize('NFKC').replace(/\s+/g, '');
+/** One stock line: a complete code at one location. Rows without a valid code are never merged. */
+const lineKey = (row: InventoryRow) => /^\d{6}$/.test(row.sku) ? row.sku + '\u0000' + locationKey(row.location) : undefined;
+const sameQuantity = (a: InventoryRow, b: InventoryRow) => {
+  const x = canonicalQuantity(a.bookQty), y = canonicalQuantity(b.bookQty);
+  return x !== null && y !== null && Number(x) === Number(y);
+};
+export type MergeResult = { rows: InventoryRow[]; duplicates: number; conflicts: [InventoryRow, InventoryRow][] };
+/**
+ * Adds newly read rows to the kept rows. The same code at the same location read
+ * from another file is the same stock line: with an equal quantity it is a
+ * duplicate and only one reading is kept (the clearer one, unless the kept one
+ * was already confirmed); with a different quantity both stay and are returned
+ * as conflicts for review. Rows of one file are never merged with each other,
+ * because every printed line of one report is its own record.
+ */
+export function mergeRows(kept: InventoryRow[], incoming: InventoryRow[], fileOf: (row: InventoryRow) => number): MergeResult {
+  const rows = [...kept]; const conflicts: [InventoryRow, InventoryRow][] = []; let duplicates = 0;
+  const lines = new Map<string, InventoryRow[]>();
+  const add = (row: InventoryRow) => { const key = lineKey(row); if (key) { const list = lines.get(key); if (list) list.push(row); else lines.set(key, [row]); } };
+  rows.forEach(add);
+  for (const row of incoming) {
+    const key = lineKey(row); const others = key ? (lines.get(key) ?? []).filter(other => fileOf(other) !== fileOf(row)) : [];
+    const match = others.find(other => sameQuantity(row, other));
+    if (match) {
+      duplicates++;
+      if (hasDoubt(match) && !hasDoubt(row) && !match.reviewed) {
+        rows[rows.indexOf(match)] = row; const list = lines.get(key!)!; list[list.indexOf(match)] = row;
+      }
+      continue;
+    }
+    for (const other of others) conflicts.push([row, other]);
+    rows.push(row); add(row);
+  }
+  return { rows, duplicates, conflicts };
+}
+/** A store title for comparison: no spacing, width variants or printed date/time. */
+export function storeKey(name: string): string {
+  return name.normalize('NFKC').replace(/\d{3,4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}:\d{2}(?::\d{2})?/g, '').replace(/\s+/g, '');
+}
+export type StoreCheck = { result: 'same'; name: string } | { result: 'different' } | { result: 'unsure' };
+/**
+ * Whether several files are reports of one store, from the store title on each
+ * file's first page. Titles from PDF text are exact, so two different exact
+ * titles are different stores. A missing title, or a difference that involves
+ * an OCR reading, needs a person to confirm.
+ */
+export function compareStores(files: { storeName: string; exact: boolean }[]): StoreCheck {
+  const keys = files.map(file => storeKey(file.storeName));
+  if (keys.length && keys.every(key => key && key === keys[0])) return { result: 'same', name: files[0].storeName };
+  const exact = new Set(keys.filter((key, i) => key && files[i].exact));
+  return exact.size > 1 ? { result: 'different' } : { result: 'unsure' };
+}

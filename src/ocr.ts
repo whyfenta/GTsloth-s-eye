@@ -3,7 +3,7 @@ import { binarize, cropCanvas, deskewAngle, rotateCanvas, scaleCanvas } from './
 import { asset, canonicalQuantity, dropZeroRows, type Box, type InventoryRow, type PageReport } from './model';
 import { decide } from './vote';
 import { continuationValid, detectLayout, extractRows, headerAnchor, LOCATION_OVERFLOW, splitTrailingQuantity, type Layout, type Reading, type Span } from './parser';
-import type { DocumentSource } from './source';
+import type { PageSource } from './source';
 import { extractTextPage } from './textlayer';
 export type OCRProgress = (message: string, fraction?: number) => void;
 function unpack(data: any, x = 0, y = 0): Reading {
@@ -20,12 +20,25 @@ function cellImage(canvas: HTMLCanvasElement, box: { x: number; y: number; width
   const raw = cropCanvas(canvas, box); const small = scaleCanvas(raw, Math.min(1, 40 / Math.max(1, raw.height))); raw.width = raw.height = 1;
   try { return small.toDataURL('image/png'); } finally { small.width = small.height = 1; }
 }
+/**
+ * What one file teaches about its own pages. layout: from an OCR page;
+ * textLayout: from a text-layer page (kept apart, frames differ); rotation: the
+ * orientation its pages were read in (preset for a manual retry).
+ */
+export type FileLayout = { layout?: Layout; textLayout?: Layout; rotation?: number };
 export class OCREngine {
-  // layout: from an OCR page; textLayout: from a text-layer page (kept apart, frames differ).
-  chinese?: Worker; numeric?: Worker; layout?: Layout; textLayout?: Layout; rotation?: number; workers?: Promise<void>;
+  chinese?: Worker; numeric?: Worker; workers?: Promise<void>;
   progress: OCRProgress; terminated = false; busyCanvases = 0; peakCanvases = 0;
   headerDebug: unknown[] = [];
+  // Each file is learnt from its own pages: a scan or photo of another file has
+  // its own framing, so its columns and orientation never carry over.
+  files = new Map<number, FileLayout>(); private current = this.fileLayout(0);
   constructor(progress: OCRProgress) { this.progress = progress; }
+  fileLayout(index: number): FileLayout { let state = this.files.get(index); if (!state) this.files.set(index, state = {}); return state; }
+  /** The file of the page read last. */
+  get layout() { return this.current.layout; } set layout(value) { this.current.layout = value; }
+  get textLayout() { return this.current.textLayout; } set textLayout(value) { this.current.textLayout = value; }
+  get rotation() { return this.current.rotation; } set rotation(value) { this.current.rotation = value; }
   /** Workers load on first OCR use, so a system-printed PDF never downloads the models. */
   async initialize(): Promise<void> {}
   private ensureWorkers(): Promise<void> {
@@ -79,7 +92,8 @@ export class OCREngine {
     }
     return {header:broad,layout};
   }
-  async extract(source: DocumentSource, page: number, forcedRotation?: number): Promise<{ report: PageReport; rows: InventoryRow[] }> {
+  async extract(source: PageSource, page: number, forcedRotation?: number): Promise<{ report: PageReport; rows: InventoryRow[] }> {
+    this.current = this.fileLayout(source.fileIndex?.(page) ?? 0);
     // A forced rotation is a manual retry of a page the text layer could not read.
     if (forcedRotation === undefined) {
       this.progress('讀取 PDF 文字');
