@@ -1,0 +1,25 @@
+Inventory Count Sheet dependency assets
+
+OCR models: Tesseract.js 4.0.0_best_int eng and chi_tra, sourced from
+https://github.com/naptha/tessdata/tree/806cd9adc8c6e8abc11c782db1818c990576bebc/4.0.0_best_int
+Models originate in tesseract-ocr/tessdata_best and are Apache-2.0 licensed.
+The pinned naptha/tessdata repository LICENSE is also Apache-2.0.
+The npm package metadata says MIT, which conflicts with its upstream repository.
+This distribution includes the actual upstream Apache-2.0 LICENSE files.
+Model gzip data is unchanged.
+Published @tesseract.js-data package version 1.0.0 was independently compared by SHA-256.
+
+Fonts: https://github.com/google/fonts/tree/51303ca9e8ac9dcea7b12d307ba568fd0e6fcfca/ofl
+Noto Sans TC and Libre Barcode 128 are SIL Open Font License 1.1 fonts.
+NotoSansTC-Regular.ttf is the official variable TTF; its default weight is 100.
+Regular PDF weight: select fontkit.create(bytes).getVariation({ wght: 400 })
+via PDFDocument.registerFontkit create wrapper with subset: true.
+The file has not been renamed internally or otherwise transformed.
+Use an actual Code 128 encoder; do not directly apply the barcode font to digits.
+Encoder documentation: https://graphicore.github.io/librebarcode/documentation/code128
+
+All asset hashes, source URLs, byte sizes and upstream pins are in manifest.json.
+User inventory files are never part of these downloads.
+
+PDF font NotoSansTC-PDF.ttf is a static wght=400 instance derived with fontTools 4.60.1. It is embedded in full (no subset). Source and output hashes are in manifest.json.
+

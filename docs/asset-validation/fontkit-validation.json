@@ -1,0 +1,9 @@
+{
+  "fontkit": "1.1.1",
+  "pdfLib": "1.17.1",
+  "pdfBytes": 11312,
+  "notoAxisDefault": 100,
+  "notoSelectedWeight": 400,
+  "subset": true,
+  "missingGlyphs": []
+}

@@ -1,0 +1,7 @@
+* text=auto eol=lf
+public/assets/** -text
+*.ttf -text
+*.wasm -text
+*.bcmap -text
+*.pfb -text
+*.gz -text

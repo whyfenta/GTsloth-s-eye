@@ -1,0 +1,19 @@
+{
+  "version": "7.0.0",
+  "engineMode": "LSTM_ONLY",
+  "syntheticNumericText": "012345 001234 9,876",
+  "results": [
+    {
+      "languages": "eng",
+      "text": "012345 001234 9,876\n",
+      "confidence": 96,
+      "durationMs": 372
+    },
+    {
+      "languages": "chi_tra+eng",
+      "text": "012345 001234 9,876\n",
+      "confidence": 89,
+      "durationMs": 461
+    }
+  ]
+}
