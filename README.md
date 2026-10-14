@@ -1,4 +1,4 @@
-# GTsloth-s-eye · 點庫門市盤點工具
+# GTsloth-s-eye · 樹懶的盤點 · 門市盤點工具
 
 公開版本 **v1.0.9**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
 

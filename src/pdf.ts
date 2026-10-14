@@ -12,7 +12,7 @@ export const PRINT = { width: 210, height: 297, margin: 10, columns: [40,60,22,2
   barcodeTopGap: 2.4, barcodeSkuBaseline: 18.65, skuSize: 16, nameSize: 16, locationSize: 10, quantitySize: 20, lineSpacing: 1.3,
   headerFill: [.84,.90,.86] as const, alternatingRowFill: [.92,.95,.93] as const };
 export function barcodeBits(sku: string): string {
-  if (!/^\d{6}$/.test(sku)) throw new Error('條碼只接受完整六位商品代號。');
+  if (!/^\d{6}$/.test(sku)) throw new Error('條碼只接受完整商品六編碼。');
   const target: { encodings?: { data: string }[] } = {};
   JsBarcode(target, sku, { format: 'CODE128C', displayValue: false, width: 1, height: 10, margin: 0 });
   return target.encodings!.map(e => e.data).join('');
@@ -60,7 +60,7 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   // Full embedding: fontkit's CJK subsets keep the text layer but render blank glyphs
   // (re-checked 2026-10-10 with the static font), so each PDF stays ~4.4 MB.
   const font = await document.embedFont(bytes, { subset: false, features: {locl:false} }); const numeric = await document.embedFont(StandardFonts.Courier); const numericBold = await document.embedFont(StandardFonts.CourierBold);
-  document.setTitle(options.title ?? '門市庫存盤點表'); document.setAuthor('點庫'); document.setSubject('在瀏覽器產生的 A4 盤點表');
+  document.setTitle(options.title ?? '門市庫存盤點表'); document.setAuthor('樹懶的盤點'); document.setSubject('在瀏覽器產生的 A4 盤點表');
   const ordered = sortRows(rows, options.sortMode); const widths = PRINT.columns.map(mm); const xs = [mm(10)]; for(const width of widths) xs.push(xs.at(-1)! + width);
   const top = mm(261); const bottom = mm(18); const leading = (size: number) => size * PRINT.lineSpacing;
   const prepared = ordered.map(row => {
