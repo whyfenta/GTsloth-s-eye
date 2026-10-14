@@ -1,6 +1,6 @@
 # GTsloth-s-eye · 樹懶的盤點 · 門市盤點工具
 
-公開版本 **v1.0.9**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
+公開版本 **v1.1.1**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
 
 繁體中文的瀏覽器庫存 OCR 與 A4 條碼盤點表。使用 Vite、TypeScript、PDF.js、Tesseract.js、pdf-lib 與 JsBarcode。
 
