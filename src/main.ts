@@ -41,7 +41,7 @@ app.innerHTML = `
         <div id="error" role="alert" class="error-box" hidden></div>
         <div id="progress-panel" hidden><div class="progress-line"><strong id="progress-title"></strong><span id="progress-counter"></span></div><div class="progress-track"><div id="progress-bar"></div></div><p id="progress-description" aria-live="polite"></p><div class="job-controls"><button id="pause" class="button secondary">暫停</button><button id="resume" class="button secondary" hidden>繼續辨識</button><button id="cancel" class="button quiet">取消辨識</button></div></div>
         <div class="import-note"><span>合計最多 200 頁・200 MB</span><p>可分次加入多份庫存表，全部加入後按「開始辨識」。多份檔案會先確認是同一門市，再合併資料、刪除重複品項。大檔會逐頁處理，請保持頁面開啟；重新整理後，這次資料會清除。</p></div>
-        <div class="import-note"><span>如何取得庫存簡表？</span><p>在樺穎的 IM1C1 依照自訂條件設定簡表範圍後，將印表機設定為「列印至 PDF」，即可生成 PDF 格式的庫存簡表。</p></div>
+        <div class="import-note"><span>如何取得庫存簡表？</span><p>在樺穎的 IM1C1 依照自訂條件設定簡表範圍後，將印表機設定為「列印至 PDF」，即可生成 PDF 格式的庫存簡表。如使用快照轉成 PDF，解析度低於 300 dpi 會提高辨識錯誤的風險。</p></div>
       </section>
       <aside class="guide-card card"><span class="eyebrow">BEFORE THE COUNT</span><h2>年度盤點小提醒</h2><ol class="reminder-list"><li>預盤時應同時整理儲位，避免藥品錯置與分散，並補上新入庫藥品的儲位。</li><li>歸屬於內場項目、卻不屬於第 9 類品項（處方藥品）者，如針頭、試紙等，應訂一儲位大項。匯入製作本盤點表時，可作為第二份補充文件（第一份文件即設定第 9 類品項）。</li><li>預盤及正式盤點前，應對預包處方（含欠藥區）做全面檢查，避免調劑錯誤被計算成盤差。</li><li>300 顆以上已拆封的罐裝藥品，應做預點及貼封，加快當日整理速度。</li><li>應確認有無尚不可驗收的盤商貨單。如無急迫，可整份不歸入庫存，或實際盤點量填寫歸入前的總量。</li><li>應確認有無「已批價但客人尚未取走的冷藏藥或客訂品」。</li></ol><button id="scan-test" class="text-button">下載掃描器測試頁 ${icon('arrow')}</button></aside>
     </div>
