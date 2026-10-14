@@ -332,7 +332,7 @@ el<HTMLSelectElement>('sort').addEventListener('change',event=>{sortMode=(event.
 el<HTMLSelectElement>('row-height').addEventListener('change',event=>{rowHeight=Number((event.target as HTMLSelectElement).value) as RowHeight;invalidatePDF();updateExport();});
 el<HTMLInputElement>('final-confirm').addEventListener('change',event=>{finalConfirmed=(event.target as HTMLInputElement).checked;updateExport();});
 const exportReady=()=>canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages)&&finalConfirmed;
-const pdfName=()=>`${storeName||'門市'}_盤點表_${sortMode==='sku'?'代號':'儲位'}.pdf`;
+const pdfName=()=>`${storeName||'門市'}_盤點表_${sortMode==='sku'?'六編碼':'儲位'}.pdf`;
 async function preparePDF(){
   if(!exportReady())throw new Error('請先完成全部資料與格式校對。');
   if(pdfBytes&&pdfRevision===generation)return;generating=true;updateProgress();updateExport();const version=generation;

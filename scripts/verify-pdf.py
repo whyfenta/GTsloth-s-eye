@@ -25,7 +25,7 @@ for filename in files:
         bars=[d['rect'] for d in drawings if d['fill']==(0,0,0) and abs(d['rect'].height-mm(10))<.02]
         bar_tops=sorted(set(round(r.y0,2) for r in bars))
         # Count column (157-200 mm) must stay blank: no boxes or text inside the table body.
-        count_x0,count_x1=mm(157),mm(200);body_top,body_bottom=mm(297-261),mm(297-18)
+        count_x0,count_x1=mm(157),mm(200);body_top,body_bottom=mm(297-264),mm(297-15)
         boxes=[d['rect'] for d in drawings if d['rect'].x0>count_x0+.5 and d['rect'].x1<count_x1-.5 and d['rect'].height>.5]
         spans=[s for b in p.get_text('dict')['blocks'] for line in b.get('lines',[]) for s in line['spans'] if s['text'].strip()]
         count_text=[s['text'] for s in spans if s['bbox'][0]>count_x0+.5 and body_top<s['bbox'][1]<body_bottom]
