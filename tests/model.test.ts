@@ -92,6 +92,16 @@ test('OCR spaces next to Chinese text are removed, Latin/number spacing kept',()
   assert.equal(normalizeOCR('XANAX XR 贊安諾 40MG 0.4ML'),'XANAX XR贊安諾40MG 0.4ML');
   assert.equal(normalizeOCR('冰 U'),'冰U');assert.equal(normalizeOCR('SML(裸)[ 吾輝 ]- 高健保'),'SML(裸)[吾輝]-高健保');
 });
+test('trailing -高健保 / -高價藥 tags are removed; other suffixes and look-alike text stay',()=>{
+  assert.equal(cleanProductName('SML(裸)[ 吾輝 ]- 高健保').name,'SML(裸)[吾輝]');
+  const chain=cleanProductName('C-&28粒/盒測試錠10MG-高健保-高價藥',true);
+  assert.equal(chain.name,'測試錠10MG');assert.deepEqual(chain.removed.slice(-2),['-高健保','-高價藥']);assert.equal(chain.uncertain,false);
+  assert.equal(cleanProductName('測試錠10MG-高價藥-改192909',true).name,'測試錠10MG-改192909');
+  assert.equal(cleanProductName('測試錠-高價藥組',true).name,'測試錠-高價藥組');assert.equal(cleanProductName('高價藥測試錠',true).name,'高價藥測試錠');
+  // A removed suffix is not a removed prefix, so an OCR name like L-THYROXINE is not flagged.
+  assert.equal(cleanProductName('L-THYROXINE 50MCG-高健保').uncertain,false);
+  assert.equal(cleanProductName('C-&10粒/盒-高價藥',true).uncertain,true,'nothing left of the name');
+});
 test('quantities with inner spaces are rejected and leading zeros normalised',()=>{
   assert.equal(canonicalQuantity('12 34'),null);assert.equal(canonicalQuantity(' 1,234 '),'1234');
   assert.equal(canonicalQuantity('0012'),'12');assert.equal(formatQuantity('0012'),'12');assert.equal(canonicalQuantity('0.50'),'0.50');
@@ -139,10 +149,10 @@ test('system-printed report prefixes (exact text layer)',()=>{
     ['C-980粒/盒(7粒/徘)PANHO盼胃好腸溶膜衣錠40MG','PANHO盼胃好腸溶膜衣錠40MG'],
     ['C-1000粒/盒(10粒//排)FELO費落持續釋放膜衣錠10MG','FELO費落持續釋放膜衣錠10MG'],
     ['公費C-10粒/盒Eraflu易剋冒膠囊75MG','Eraflu易剋冒膠囊75MG'],
-    ['限店禁售冷藏追追自費C-1支/盒MOUNJARO猛健樂筆2.5MG/0.6ML-高價藥','MOUNJARO猛健樂筆2.5MG/0.6ML-高價藥'],
+    ['限店禁售冷藏追追自費C-1支/盒MOUNJARO猛健樂筆2.5MG/0.6ML-高價藥','MOUNJARO猛健樂筆2.5MG/0.6ML'],
     ['不售-C-DUORIDONE胃利通錠10MG-診所用','DUORIDONE胃利通錠10MG-診所用'],
     ['近效C-&(2027.09)30粒/瓶RITALIN利長能持續性膠囊40MG(管3)','RITALIN利長能持續性膠囊40MG(管3)'],
-    ['不售自費C-(藥證已註銷)&100粒/瓶ULTRACET及通安錠(複方)(管4)-高價藥-診所用','ULTRACET及通安錠(複方)(管4)-高價藥-診所用'],
+    ['不售自費C-(藥證已註銷)&100粒/瓶ULTRACET及通安錠(複方)(管4)-高價藥-診所用','ULTRACET及通安錠(複方)(管4)-診所用'],
     ['停供C-(停產)&700粒/盒(7粒/排)ONSLEEP入眠順膠囊10MG(管4)','ONSLEEP入眠順膠囊10MG(管4)'],
   ];
   for(const [raw,expected] of cases){const result=cleanProductName(raw,true);assert.equal(result.name,expected,raw);assert.equal(result.uncertain,false,raw);assert.deepEqual(result.notes,[],raw);}

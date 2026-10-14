@@ -12,7 +12,7 @@ export const PRINT = { width: 210, height: 297, margin: 10, columns: [40,60,22,2
   barcodeTopGap: 2.4, barcodeSkuBaseline: 18.65, skuSize: 16, nameSize: 16, locationSize: 10, quantitySize: 20, lineSpacing: 1.3,
   headerFill: [.84,.90,.86] as const, alternatingRowFill: [.92,.95,.93] as const };
 export function barcodeBits(sku: string): string {
-  if (!/^\d{6}$/.test(sku)) throw new Error('條碼只接受完整六位商品代號。');
+  if (!/^\d{6}$/.test(sku)) throw new Error('條碼只接受完整商品六編碼。');
   const target: { encodings?: { data: string }[] } = {};
   JsBarcode(target, sku, { format: 'CODE128C', displayValue: false, width: 1, height: 10, margin: 0 });
   return target.encodings!.map(e => e.data).join('');
@@ -60,9 +60,11 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   // Full embedding: fontkit's CJK subsets keep the text layer but render blank glyphs
   // (re-checked 2026-10-10 with the static font), so each PDF stays ~4.4 MB.
   const font = await document.embedFont(bytes, { subset: false, features: {locl:false} }); const numeric = await document.embedFont(StandardFonts.Courier); const numericBold = await document.embedFont(StandardFonts.CourierBold);
-  document.setTitle(options.title ?? '門市庫存盤點表'); document.setAuthor('點庫'); document.setSubject('在瀏覽器產生的 A4 盤點表');
+  document.setTitle(options.title ?? '門市庫存盤點表'); document.setAuthor('樹懶的盤點'); document.setSubject('在瀏覽器產生的 A4 盤點表');
   const ordered = sortRows(rows, options.sortMode); const widths = PRINT.columns.map(mm); const xs = [mm(10)]; for(const width of widths) xs.push(xs.at(-1)! + width);
-  const top = mm(261); const bottom = mm(18); const leading = (size: number) => size * PRINT.lineSpacing;
+  // Table body 264 → 15 mm (249 mm) holds 11 rows of 22.6 mm. The footer baseline sits 8 mm and the
+  // title top ~10 mm from the paper edge, clear of the 3–5 mm unprintable margin of common printers.
+  const top = mm(264); const bottom = mm(15); const leading = (size: number) => size * PRINT.lineSpacing;
   const prepared = ordered.map(row => {
     const nameLines = wrapText(row.name, font, PRINT.nameSize, widths[1]-mm(4));
     const locationLines = wrapText(row.location, font, PRINT.locationSize, widths[2]-mm(4));
@@ -78,16 +80,16 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   for(const item of prepared) { if(item.rowHeight > available && group.length) { groups.push(group); group=[]; available=top-bottom; } group.push(item); available-=item.rowHeight; }
   if(group.length) groups.push(group);
   const negatives = rows.filter(row => isNegativeQuantity(row.bookQty)).length;
-  const order = `${options.sortMode==='sku'?'商品代號排序':'儲位排序'}${negatives?`（負數帳量 ${negatives} 筆在前）`:''}`;
+  const order = `${options.sortMode==='sku'?'六編碼排序':'儲位排序'}${negatives?`（負數帳量 ${negatives} 筆在前）`:''}`;
   const today = new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   for(let p=0;p<groups.length;p++) {
     const page = document.addPage([mm(210),mm(297)]);
-    page.drawText(options.title ?? '門市庫存盤點表',{x:mm(10),y:mm(279),size:17,font,color:rgb(.12,.23,.2)});
+    page.drawText(options.title ?? '門市庫存盤點表',{x:mm(10),y:mm(282),size:17,font,color:rgb(.12,.23,.2)});
     const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${order}${options.source ? `  |  ${options.source}` : ''}`;
     const metaLines = wrapText(meta,font,8,mm(190));
-    page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(274),size:8,lineHeight:9,font});
+    page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(277),size:8,lineHeight:9,font});
     const headerTop = top + mm(8); page.drawRectangle({x:xs[0],y:top,width:mm(190),height:mm(8),color:rgb(...PRINT.headerFill)});
-    const labels = ['條碼 / 商品代號','名稱','儲位','帳量','實量'];
+    const labels = ['條碼 / 六編碼','名稱','儲位','帳量','實量'];
     labels.forEach((label,i)=>page.drawText(label,{x:xs[i]+mm(2),y:top+mm(2.7),size:9,font}));
     let y = top;
     for(const [index,item] of groups[p].entries()) {
@@ -104,8 +106,8 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
     }
     for(const x of xs) page.drawLine({start:{x,y:headerTop},end:{x,y},thickness:.45,color:rgb(.6,.65,.62)});
     page.drawLine({start:{x:xs[0],y:headerTop},end:{x:xs[5],y:headerTop},thickness:.45,color:rgb(.6,.65,.62)});
-    page.drawText(options.note ?? `A4 原尺寸 100%  ·  最低列高 ${options.rowHeight} mm  ·  實量請手寫`,{x:mm(10),y:mm(11),size:7,font});
-    const footer=`${p+1} / ${groups.length}`;page.drawText(footer,{x:mm(200)-numeric.widthOfTextAtSize(footer,8),y:mm(11),size:8,font:numeric});
+    page.drawText(options.note ?? `A4 原尺寸 100%  ·  最低列高 ${options.rowHeight} mm  ·  實量請手寫`,{x:mm(10),y:mm(8),size:7,font});
+    const footer=`${p+1} / ${groups.length}`;page.drawText(footer,{x:mm(200)-numeric.widthOfTextAtSize(footer,8),y:mm(8),size:8,font:numeric});
   }
   return {bytes:await document.save(),pageCount:groups.length,barcodeCount:rows.length};
 }

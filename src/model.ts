@@ -66,10 +66,13 @@ const fuzzyPackagePattern = new RegExp('^' + fuzzyPackage + '(?:\\s*\\(\\s*' + f
 const innerPackagePattern = new RegExp('^(?:\\(\\s*' + fuzzyPackage + '\\s*\\)\\s*)+[:：]?', 'u');
 // A tag + package left at the start means the marker before it was not recognised.
 const leftoverPrefixPattern = new RegExp('^' + tag + '\\s*' + packageCore, 'iu');
+// Trailing price / reimbursement tags are not part of the name. Only a whole tag is removed, also inside
+// a tag chain: "(管4)-高價藥-診所用" keeps "-診所用"; "-高價藥組" is not a tag.
+const tagSuffixPattern = /\s*-\s*(?:高健保|高價藥)(?=\s*(?:-|$))/gu;
 
 export type CleanResult = { name: string; removed: string[]; uncertain: boolean; notes: string[] };
 /**
- * Removes the leading status / marker / package prefix. exact: the name came
+ * Removes the leading status / marker / package prefix and the trailing -高健保 / -高價藥 tags. exact: the name came
  * from the PDF text layer, so the OCR-damage repairs are not applied.
  */
 export function cleanProductName(raw: string, exact = false): CleanResult {
@@ -88,13 +91,14 @@ export function cleanProductName(raw: string, exact = false): CleanResult {
     if (!found?.[0]) break;
     removed.push(found[0]); name = name.slice(found[0].length).trim(); afterMarker = marker; afterPackage = pack;
   }
+  const suffixes = (name.match(tagSuffixPattern) ?? []).map(suffix => suffix.trim()); name = name.replace(tagSuffixPattern, '').trim();
   // Only known leading tokens are consumed. A damaged token needs human review.
   const uncertain = !name || /^[&:：]/.test(name) || /^\d+\s*[\p{Script=Han}]+\s*[/／]/u.test(name) || /^\d{3,4}\s*[./-]\s*\d/.test(name) ||
     /^(?:C\s*[-&]|近[\p{Script=Han}]|[\p{Script=Han}]光)/u.test(name) || /^\(?-/.test(name) || /^\(\s*\d/.test(name) || leftoverPrefixPattern.test(name) ||
     /^[^A-Za-z]{0,15}\p{Script=Han}\s*[ABC]\s*-/u.test(name) ||
     // After a removed prefix, "L-XALACOM" is usually an OCR-misread "C-"; exact text has real names like U-CA.
     (!exact && removed.length > 0 && /^[A-Za-z([{|]\s*-/.test(name));
-  return { name, removed, uncertain, notes };
+  return { name, removed: [...removed, ...suffixes], uncertain, notes };
 }
 
 export function canonicalQuantity(text: string): string | null {
