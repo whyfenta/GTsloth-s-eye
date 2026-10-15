@@ -1,6 +1,6 @@
 # GTsloth-s-eye · 樹懶的盤點 · 門市盤點工具
 
-公開版本 **v1.1.2**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
+公開版本 **v1.1.2**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub Pages 自動部署版本：https://whyfenta.github.io/GTsloth-s-eye/ （main CI 通過後自動更新，需先依下方「GitHub Pages 自動發布」啟用）。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
 
 繁體中文的瀏覽器庫存 OCR 與 A4 條碼盤點表。使用 Vite、TypeScript、PDF.js、Tesseract.js、pdf-lib 與 JsBarcode。
 
@@ -51,6 +51,18 @@ Node.js 22.12+；`npm ci`、`npm test`、`npm run build`、`npm run dev`。
 
 GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu Node 22/24 及 Windows Node 22；包括 `npm ci`、source audit、單元測試、TypeScript/Vite build、dist audit，並保存 Ubuntu Node 22 的靜態 build artifact 七天。私有原檔測試在未提供本機原檔時明確跳過，CI 通過不代表門市實機或原檔 OCR 驗收。
 
+## GitHub Pages 自動發布
+
+`.github/workflows/pages.yml` 在 main 的「Build and test」push 執行成功後，對同一 commit 重跑 source audit、測試、以 `--base=/GTsloth-s-eye/` 建置及 dist audit，再部署到 GitHub Pages；也可在 Actions 頁手動執行（僅限 main）。這條路徑只用 GitHub 內建的 `GITHUB_TOKEN` 與 OIDC，不需任何 Sites credential，也不會碰 Sites 來源庫。
+
+首次啟用（只需一次）：
+
+1. 私有儲存庫的 Pages 需要 GitHub Pro／Team 等付費方案；免費帳號需先將儲存庫改為 public（Settings → General → Danger Zone → Change visibility）。repo 內沒有私有 PDF 或 credentials，source/dist audit 會擋下禁止路徑與憑證樣式。
+2. Settings → Pages → Build and deployment → Source 選 **GitHub Actions**。
+3. Actions → Deploy GitHub Pages → Run workflow（branch: main），之後每次 main CI 通過都會自動部署。
+
+尚未啟用 Pages 時，workflow 只留下警告並略過部署，不會讓 main 變紅。
+
 ## 版本與 Sites 發布
 
 1. 從 GitHub main 建立修訂分支，修改 source；發布前以 `npm version patch --no-git-tag-version`（或適當的 minor/major）同步 package.json 與 lockfile。網頁頁尾版本直接由 package.json 產生。
@@ -59,7 +71,7 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 4. 以 Sites source helper 執行剩餘檢查/build，commit/push 至原 Sites project `appgprj_6ac91361a0d08191ae079a01fdd25874`，封裝 `.openai/hosting.json` 與 dist。核對封包路徑與版本、排除敏感資料；依序 save_site_version、deploy_site_version，確認終態 succeeded。
 5. 在發布紀錄保存 GitHub SHA、Sites source SHA、對應 source tree、archive SHA-256、Sites version/deployment ID 和公開網址。兩個來源庫的歷史不同，commit SHA 可以不同；必須核對對應內容。
 
-GitHub Actions 自動測試與建置，尚未自動部署 Sites。現有原生 Sites 工具需要 session 中短效 credential，沒有在這個工作流配置公開網站的永久部署憑證或 GitHub webhook；GitHub push 不會自行更新公開網站。禁止把 Sites token 放進 repo、shell arguments 或 log，僅由原生 helper 的 stdin 使用。Windows package helper 可能需要 Git Bash 在 PATH，以及 `/c/...` 格式的 archive path。
+GitHub Actions 自動測試、建置並部署 GitHub Pages，但不會自動部署 Sites。現有原生 Sites 工具需要 session 中短效 credential，沒有在這個工作流配置公開網站的永久部署憑證或 GitHub webhook；GitHub push 不會自行更新公開網站。禁止把 Sites token 放進 repo、shell arguments 或 log，僅由原生 helper 的 stdin 使用。Windows package helper 可能需要 Git Bash 在 PATH，以及 `/c/...` 格式的 archive path。
 
 `public/assets/manifest.json` 記錄依賴版本、來源、SHA-256 和授權；`scripts/assets.mjs` 可重下載公開資源。完成後使用 Python 與 `fonttools==4.60.1` 執行 `scripts/static-font.py` 產生 PDF 靜態字型。一般建置不需重新下載資源。完整授權位於 `public/assets/licenses/`。
 
