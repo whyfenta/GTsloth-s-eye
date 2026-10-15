@@ -1,6 +1,6 @@
 # GTsloth-s-eye · 樹懶的盤點 · 門市盤點工具
 
-公開版本 **v1.1.2**：https://gtsloth-inventory.b93403003.chatgpt.site/ 。GitHub Pages 自動部署版本：https://whyfenta.github.io/GTsloth-s-eye/ （main CI 通過後自動更新，需先依下方「GitHub Pages 自動發布」啟用）。GitHub 私有儲存庫 `whyfenta/GTsloth-s-eye` 是後續修訂來源；Sites 保留獨立發布來源庫。
+公開網址：https://whyfenta.github.io/GTsloth-s-eye/ （GitHub Pages，main CI 通過後自動部署最新版）。舊版 Sites 網址 https://gtsloth-inventory.b93403003.chatgpt.site/ 停在 v1.1.2，僅能經 Codex 手動發布。GitHub 公開儲存庫 `whyfenta/GTsloth-s-eye` 是唯一修訂來源；Sites 保留獨立發布來源庫。
 
 繁體中文的瀏覽器庫存 OCR 與 A4 條碼盤點表。使用 Vite、TypeScript、PDF.js、Tesseract.js、pdf-lib 與 JsBarcode。
 
@@ -57,7 +57,7 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 首次啟用（只需一次）：
 
-1. 私有儲存庫的 Pages 需要 GitHub Pro／Team 等付費方案；免費帳號需先將儲存庫改為 public（Settings → General → Danger Zone → Change visibility）。repo 內沒有私有 PDF 或 credentials，source/dist audit 會擋下禁止路徑與憑證樣式。
+1. 儲存庫已改為 public（私有儲存庫的 Pages 需要 GitHub Pro／Team 等付費方案）。repo 內沒有私有 PDF 或 credentials，source/dist audit 會擋下禁止路徑與憑證樣式；新增檔案時仍須維持這個前提。
 2. Settings → Pages → Build and deployment → Source 選 **GitHub Actions**。
 3. Actions → Deploy GitHub Pages → Run workflow（branch: main），之後每次 main CI 通過都會自動部署。
 
