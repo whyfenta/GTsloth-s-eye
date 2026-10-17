@@ -70,17 +70,18 @@ const leftoverPrefixPattern = new RegExp('^' + tag + '\\s*' + packageCore, 'iu')
 // a tag chain: "(管4)-高價藥-診所用" keeps "-診所用"; "-高價藥組" is not a tag.
 const tagSuffixPattern = /\s*-\s*(?:高健保|高價藥)(?=\s*(?:-|$))/gu;
 
-export type CleanResult = { name: string; removed: string[]; uncertain: boolean; notes: string[] };
+export type CleanResult = { name: string; removed: string[]; uncertain: boolean; notes: string[]; kept?: string[] };
 /**
  * Removes the leading status / marker / package prefix and the trailing -高健保 / -高價藥 tags. exact: the name came
- * from the PDF text layer, so the OCR-damage repairs are not applied.
+ * from the PDF text layer, so the OCR-damage repairs are not applied. keep: status words that are taken out of the
+ * prefix like any other but printed again before the name (management keeps 缺貨); the inventory sheet keeps none.
  */
-export function cleanProductName(raw: string, exact = false): CleanResult {
-  let name = normalizeOCR(raw); const removed: string[] = []; const notes: string[] = [];
+export function cleanProductName(raw: string, exact = false, keep: readonly string[] = []): CleanResult {
+  let name = normalizeOCR(raw); const removed: string[] = []; const notes: string[] = []; const kept: string[] = [];
   let statusRemoved = false; let afterMarker = false; let afterPackage = false;
   for (let i = 0; i < 20; i++) {
     let found = name.match(statusPattern(exact)); let marker = false; let pack = false;
-    if (found?.[0]) statusRemoved = true;
+    if (found?.[0]) { statusRemoved = true; const word = keep.find(w => found![0].startsWith(w)); if (word && !kept.includes(word)) kept.push(word); }
     else if ((found = name.match(markerPattern))?.[0] || (statusRemoved && (found = name.match(letterMarkerPattern))?.[0])) marker = true;
     else if (!exact && (found = name.match(damagedMarkerPattern))?.[0]) { marker = true; notes.push(`前綴標記疑似誤辨「${found[0].trim()}」，已依格式移除，請確認`); }
     else if ((found = name.match(unknownStatusPattern))?.[0]) notes.push(`前綴含未知狀態文字「${found[0]}」，已移除，請確認`);
@@ -98,6 +99,7 @@ export function cleanProductName(raw: string, exact = false): CleanResult {
     /^[^A-Za-z]{0,15}\p{Script=Han}\s*[ABC]\s*-/u.test(name) ||
     // After a removed prefix, "L-XALACOM" is usually an OCR-misread "C-"; exact text has real names like U-CA.
     (!exact && removed.length > 0 && /^[A-Za-z([{|]\s*-/.test(name));
+  if (kept.length) return { name: name ? `${kept.join('')} ${name}` : kept.join(''), removed: [...removed, ...suffixes], uncertain, notes, kept };
   return { name, removed: [...removed, ...suffixes], uncertain, notes };
 }
 
