@@ -28,7 +28,7 @@ let startedAt = 0; let elapsedSeconds = 0; let timer: ReturnType<typeof setInter
 const stats = { renderedPages:0, peakOCRCanvases:0 };
 const busy = () => job?.running || generating || retrying || adding;
 app.innerHTML = `
-  <header class="topbar"><a class="brand" href="/">${icon('box')}<span>樹懶的盤點<span class="brand-sub">門市盤點工具</span></span></a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
+  <header class="topbar"><a class="brand" href="${import.meta.env.BASE_URL}" aria-label="樹懶的盤點，返回樹懶的工作主目錄">${icon('box')}<span>樹懶的盤點<span class="brand-sub">← 返回主目錄</span></span></a><a class="inventory-home" href="${import.meta.env.BASE_URL}">← 主目錄</a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
   <main>
     <section class="intro"><div><div class="eyebrow">INVENTORY, MADE CLEAR</div><h1>把庫存表，<br class="mobile-break">變成好用的盤點表。</h1><p>匯入庫存簡表，校對辨識結果，印出附條碼的 A4 表單。<br>讓每一個品項，都有清楚的盤點位置。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>SCAN · CHECK · COUNT</b></div></section>
     <nav class="steps" aria-label="處理步驟"><div data-step="1" class="active"><span>01</span>匯入與辨識</div><div data-step="2"><span>02</span>校對資料</div><div data-step="3"><span>03</span>下載盤點表</div></nav>

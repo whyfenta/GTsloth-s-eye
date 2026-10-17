@@ -1,4 +1,8 @@
-# GTsloth-s-eye · 樹懶的盤點 · 門市盤點工具
+# GTsloth-s-eye · 樹懶的工作
+
+首頁是「樹懶的工作」視覺主目錄，共六個功能位置：現有的「樹懶的盤點」與五個準備中的保留位置。一般桌面採三欄兩列、手機採兩欄三列；在正常字級與一般螢幕高度下可一頁看完，較小視窗或放大字級時允許捲動以保持可讀性。
+
+盤點工具獨立網址：https://whyfenta.github.io/GTsloth-s-eye/inventory/ ，可直接加入書籤；點盤點頁左上角品牌或手機版「主目錄」即可返回首頁。首頁不載入盤點、PDF 或 OCR 模組。
 
 公開網址：https://whyfenta.github.io/GTsloth-s-eye/ （GitHub Pages，main CI 通過後自動部署最新版）。舊版 Sites 網址 https://gtsloth-inventory.b93403003.chatgpt.site/ 停在 v1.1.2，僅能經 Codex 手動發布。GitHub 公開儲存庫 `whyfenta/GTsloth-s-eye` 是唯一修訂來源；Sites 保留獨立發布來源庫。
 
