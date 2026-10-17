@@ -30,8 +30,8 @@ export function wrapText(text: string, font: PDFFont, size: number, width: numbe
   const fits = (value: string) => font.widthOfTextAtSize(value, size) <= width;
   const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
-    const tokens = paragraph.match(/\s+|\p{Script=Han}[)\]）】,，、。;；:：%]*|[^\s\p{Script=Han}]+?(?:\/|(?=[\s\p{Script=Han}]|$))/gu) ?? [];
-    for (let i = 0; i < tokens.length - 1; i++) { const open = tokens[i].match(/[([（【]+$/); if (open) { tokens[i] = tokens[i].slice(0, -open[0].length); tokens[i + 1] = open[0] + tokens[i + 1]; } }
+    const tokens = paragraph.match(/\s+|\p{Script=Han}[)\]）】」』,，、。;；:：%]*|[^\s\p{Script=Han}]+?(?:\/|(?=[\s\p{Script=Han}]|$))/gu) ?? [];
+    for (let i = 0; i < tokens.length - 1; i++) { const open = tokens[i].match(/[([（【「『]+$/); if (open) { tokens[i] = tokens[i].slice(0, -open[0].length); tokens[i + 1] = open[0] + tokens[i + 1]; } }
     // Keep short bracket groups such as (管4) or (黃盒) on one line.
     for (let i = 0; i < tokens.length; i++) {
       if (!/^[([（【]/.test(tokens[i]) || /[)\]）】]/.test(tokens[i])) continue;

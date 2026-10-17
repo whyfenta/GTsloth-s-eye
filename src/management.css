@@ -1,0 +1,17 @@
+.mg-inputs{grid-template-columns:1fr 1fr}.mg-drop{min-height:150px}.mg-start{margin-top:24px}.mg-progress{margin-top:6px}.mg-progress .button{margin-top:4px}
+.mg-sources{display:grid;grid-template-columns:1fr 1fr;gap:18px}.mg-source{background:#f5f8f2;border-radius:8px;padding:14px 18px}.mg-source h3{font-size:14px;font-weight:600;margin:0 0 10px}
+.mg-source dl{display:grid;grid-template-columns:72px 1fr;gap:6px 10px;margin:0;font-size:12px}.mg-source dt{color:#8b958e}.mg-source dd{margin:0;overflow-wrap:anywhere}.mg-bad{color:#a0522d}
+.mg-warning{background:#fbf6e8;border:1px solid #ecdcb6;color:#7d6431;padding:12px;border-radius:7px;margin-top:15px;font-size:12px;line-height:1.8;white-space:pre-line}
+.mg-confirm{margin:14px 0 0;align-items:flex-start;line-height:1.7}.mg-confirm input{margin-top:4px}
+.mg-table{min-width:820px}.mg-table td{vertical-align:top}.mg-table th:nth-child(1){width:100px}.mg-table th:nth-child(2){width:auto}.mg-table th:nth-child(3){width:250px}.mg-table th:nth-child(4){width:190px}.mg-table th:nth-child(5){width:120px}
+.mg-name{display:block;padding:7px 0 0;overflow-wrap:anywhere}.mg-cols{display:flex;gap:6px}.mg-cols input:first-child{flex:1.2}.mg-cols input{flex:1}
+.mg-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}.mg-actions .text-button{padding:2px 0}
+.mg-pager{display:flex;align-items:center;gap:12px;margin:14px 0 0;font-size:12px;flex-wrap:wrap}
+.mg-details{margin-top:20px;font-size:12px}.mg-details summary{cursor:pointer;color:#3d745e;margin-bottom:10px}
+.mg-missing{margin-top:22px;border-top:1px solid var(--line);padding-top:18px}.mg-missing h3{font-size:14px;font-weight:600;margin:0 0 6px}
+.mg-list{border:1px solid #e7ede0;border-radius:9px;padding:14px 16px;margin-top:16px;background:#fcfdfa}.mg-list.mg-disabled{background:#f6f6f2}.mg-list.mg-disabled strong{color:#9aa299}
+.mg-list-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.mg-list-head .small-label{flex:1;line-height:1.6}.mg-output{display:flex;align-items:center;gap:8px}.mg-output small{font-size:10px;color:#8b958e}
+.mg-preview{min-width:560px;margin-top:12px}.mg-preview td{padding:8px}.mg-preview .num{text-align:right;font-variant-numeric:tabular-nums}
+.mg-reason{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#6b7f72;margin:-6px 0 18px}
+@media(max-width:850px){.mg-inputs,.mg-sources{grid-template-columns:1fr}}
+@media(max-width:560px){.mg-source dl{grid-template-columns:62px 1fr}.mg-output{width:100%}.mg-output .button{flex:1}}
