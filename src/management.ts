@@ -214,7 +214,7 @@ function renderSources() {
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
     ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}
-    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄（超過 ${PARTNER_LIMIT} 個）。庫存簡表未出現的六碼不由本店監控安全量，安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>` : ''}`;
+    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或各儲位庫存合計為 0（超過 ${PARTNER_LIMIT} 個）。本店無庫存的六碼不由本店監控安全量，安全量清單略過這些品項並由後一位遞補，品項數 N 不變（負庫存仍屬本店）。</div>` : ''}`;
 }
 type ReviewItem = { kind: 'usage'; row: UsageRow } | { kind: 'stock'; row: StockRow };
 function reviewItems(): ReviewItem[] {
