@@ -38,7 +38,7 @@ export class DocumentSource implements PageSource {
   // An image is decoded only while it is drawn, so many queued photos do not keep their pixels in memory.
   file: File; pages = 1; pdf?: pdfjs.PDFDocumentProxy; image?: { width: number; height: number };
   constructor(file: File) { this.file = file; }
-  static async open(file: File): Promise<DocumentSource> {
+  static async open(file: File, maxPages = LIMITS.pages): Promise<DocumentSource> {
     if (file.size > LIMITS.bytes) throw new Error('檔案超過 200 MB，請先分成較小的檔案。');
     const source = new DocumentSource(file);
     const signature = new Uint8Array(await file.slice(0, 12).arrayBuffer());
@@ -50,7 +50,7 @@ export class DocumentSource implements PageSource {
         cMapUrl: asset('pdfjs/cmaps/'), cMapPacked: true, standardFontDataUrl: asset('pdfjs/standard_fonts/') });
       try { source.pdf = await task.promise; source.pages = source.pdf.numPages; }
       catch { await task.destroy(); throw new Error('無法開啟 PDF。請確認檔案完整且未加密。'); }
-      if (source.pages > LIMITS.pages) { await source.dispose(); throw new Error('PDF 超過 200 頁，請分檔處理。'); }
+      if (source.pages > maxPages) { await source.dispose(); throw new Error(`PDF 超過 ${maxPages} 頁，請分檔處理。`); }
     } else if (png || jpg) {
       // Check the header first so an oversized image is refused before decoding fills memory.
       const size = imageSize(new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer()), png);

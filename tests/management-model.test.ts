@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assemble,coefficient,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assemble,coefficient,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,partnerSupplied,PARTNER_GAP,safetyList,stockLines,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -55,6 +55,31 @@ test('K = min(floor(10% of N), items with A > 8); A = 8 is out, ties sort by cod
   const few=safetyList(items([use('000001',50,50),use('000002',40,40)]),frac(1n),new Map());
   assert.equal(few.n,2);assert.equal(few.k,0,'fewer than 10 items: floor(10%) is 0, no minimum of 1');
   assert.equal(safetyList(items([...base,use('000005',8001,8001),use('000006',0,0)]).map(i=>({...i})),frac(1000n),new Map()).rows[0]?.sku,'000005','A = 8.001 qualifies');
+});
+test('partner clinic: 50 or more fewer non-zero stock lines than used codes; zero-stock lines are not counted',()=>{
+  assert.equal(PARTNER_GAP,50);
+  assert.equal(partnerSupplied(1669,1719),true,'exactly 50 fewer');assert.equal(partnerSupplied(1670,1719),false,'49 fewer');
+  assert.equal(partnerSupplied(1388,1719),true,'0015: 1,388 non-zero lines against 1,719 codes');
+  const rows=[stock('000001',5,'A1'),stock('000001',2,'B1'),stock('000002',0,'A2'),stock('000003',-1,'A3'),stock('R001',9),{...stock('000004',4),excluded:'重複來源'}];
+  assert.equal(stockLines(rows),3,'every non-zero location counts, zero, non-six-digit and excluded lines do not');
+});
+test('partner clinic: codes missing from the stock sheet are skipped and later codes move up; N and the 10% target stay',()=>{
+  const base=Array.from({length:27},(_,i)=>use(String(200000+i),1,1));
+  // N = 30, limit 3; A > 8: 000001 (30) 000002 (20, no stock line) 000003 (15) 000004 (10) 000005 (9, zero stock line).
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',15,15)]).items;
+  const more=aggregateUsage([...base.slice(2),use('000001',30,30),use('000002',20,20),use('000003',15,15),use('000004',10,10),use('000005',9,9)]).items;
+  const stocked=aggregateStock([stock('000001',4),stock('000003',2),stock('000004',1),stock('000005',0)]);
+  const plain=safetyList(more,frac(1n),stocked);assert.deepEqual(plain.rows.map(r=>r.sku),['000001','000002','000003']);assert.equal(plain.outside,undefined);
+  const partner=safetyList(more,frac(1n),stocked,true);
+  assert.deepEqual([partner.n,partner.limit,partner.eligible,partner.k],[30,3,4,3]);
+  assert.deepEqual(partner.rows.map(r=>r.sku),['000001','000003','000004'],'000004 moves up into the place of 000002');
+  assert.deepEqual(partner.outside,{eligible:1,filled:1});
+  assert.ok(partner.all.some(r=>r.sku==='000002'),'the skipped code is still calculated, only not listed');
+  const short=safetyList(items,frac(1n),stocked,true);
+  assert.deepEqual([short.limit,short.k],[3,2],'no backfill without another qualifying code; K never widens past A > 8');
+  assert.deepEqual(short.outside,{eligible:1,filled:0});
+  const zero=safetyList(more,frac(1n),aggregateStock([stock('000001',4),stock('000002',0),stock('000003',2)]),true);
+  assert.deepEqual(zero.rows.map(r=>r.sku),['000001','000002','000003'],'a zero-stock line is on the sheet, so the code stays ours');
 });
 test('usage rows: invalid values are review items, never zero; non-six-digit codes are excluded records outside N',()=>{
   assert.deepEqual(usageErrors(use('000001','-1','2')),['次數為負數']);

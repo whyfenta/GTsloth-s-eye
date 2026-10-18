@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, formatFrac, matchStores, SIX, stockErrors, usageErrors, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, formatFrac, matchStores, PARTNER_GAP, SIX, stockErrors, usageErrors, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
@@ -19,6 +19,8 @@ const icon = (name: 'chart' | 'upload' | 'file' | 'arrow') => {
 const KINDS: ReportKind[] = ['inventory', 'usage'];
 const LISTS: ListKind[] = ['safety', 'dead', 'empty'];
 const PER_PAGE = 25;
+/** Text-only PDFs, never OCR: a stock sheet printed with zero stock runs to ~150 pages before the usage report is added. */
+const MAX_PAGES = 400;
 type Entry = { kind: ReportKind; source: DocumentSource; hash: string };
 type Output = { bytes: Uint8Array; url: string; version: number; pages: number; rows: number };
 // entries: files in import order; a row's origin.file is its index here. Changing the files clears the results.
@@ -48,7 +50,7 @@ app.innerHTML = `
     <section class="card mg-start"><div id="start-row" class="start-row"><span id="queue-summary" aria-live="polite"></span><button id="clear-all" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始解析</span>${icon('arrow')}</button></div>
       <div id="progress" class="mg-progress" hidden><div class="progress-line"><strong id="progress-title"></strong><span id="progress-counter"></span></div><div class="progress-track"><div id="progress-bar"></div></div><p id="progress-description" aria-live="polite"></p><button id="cancel" class="button quiet">取消解析</button></div>
       <div id="error" role="alert" class="error-box" hidden></div>
-      <div class="import-note"><span>合計最多 200 頁・200 MB</span><p>只接受系統直接列印、沒有圖片的 PDF（掃描檔請改用原系統重新列印）。每頁都須印有表頭、門市、頁次；調劑表另須印有統計期間與給付方式。系統先讀每份檔案的第一頁核對報表與門市，再讀其餘頁面。同一檔案不會重複加入；重複匯入的相同頁只計一次。</p></div></section>
+      <div class="import-note"><span>合計最多 ${MAX_PAGES} 頁・200 MB</span><p>只接受系統直接列印、沒有圖片的 PDF（掃描檔請改用原系統重新列印）。每頁都須印有表頭、門市、頁次；調劑表另須印有統計期間與給付方式。系統先讀每份檔案的第一頁核對報表與門市，再讀其餘頁面。同一檔案不會重複加入；重複匯入的相同頁只計一次。</p></div></section>
     <section id="sources" class="card review-card" hidden></section>
     <section id="review" class="card review-card" hidden></section>
     <section id="lists" class="card export-card" hidden></section>
@@ -110,9 +112,9 @@ async function addFiles(kind: ReportKind, files: File[]) {
         if (byteCount() + file.size > LIMITS.bytes) throw new Error('檔案合計超過 200 MB，請分批處理。');
         const hash = await sha256(file); const same = entries.find(entry => entry.hash === hash);
         if (same) throw new Error(`與已加入的「${same.source.file.name}」內容相同（SHA-256 一致），不重複加入。`);
-        opened = await DocumentSource.open(file);
+        opened = await DocumentSource.open(file, MAX_PAGES);
         if (!opened.pdf) throw new Error('只接受系統列印的 PDF，不接受圖片檔。');
-        if (pageCount() + opened.pages > LIMITS.pages) throw new Error('檔案合計超過 200 頁，請分批處理。');
+        if (pageCount() + opened.pages > MAX_PAGES) throw new Error(`檔案合計超過 ${MAX_PAGES} 頁，請分批處理。`);
         entries.push({ kind, source: opened, hash }); opened = undefined; renderInputs();
       } catch (error) { problems.push(`${file.name}：${error instanceof Error ? error.message : '無法開啟檔案。'}`); }
       finally { await opened?.dispose(); }
@@ -211,7 +213,8 @@ function renderSources() {
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">SOURCE CHECK</span><h2>來源核對</h2></div><span class="small-label">${data.storeMatch === 'same' ? '門市編號與店名一致' : ''}</span></div>
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
-    ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}`;
+    ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}
+    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：庫存簡表非零庫存 ${data.partner.lines} 列，比調劑表 ${data.partner.codes} 個六碼少 ${data.partner.codes - data.partner.lines}（達 ${PARTNER_GAP} 以上）。庫存簡表未出現的六碼不由本店監控安全量，安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>` : ''}`;
 }
 type ReviewItem = { kind: 'usage'; row: UsageRow } | { kind: 'stock'; row: StockRow };
 function reviewItems(): ReviewItem[] {
@@ -251,7 +254,7 @@ function renderReview() {
     <div class="table-scroll"><table class="review-table mg-table"><thead><tr><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="5" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
     ${items.length > PER_PAGE ? `<div class="mg-pager"><button class="button secondary" data-review-page="${reviewPage - 1}" ${reviewPage ? '' : 'disabled'}>上一頁</button><span>${reviewPage + 1} / ${pagesTotal}</span><button class="button secondary" data-review-page="${reviewPage + 1}" ${reviewPage + 1 < pagesTotal ? '' : 'disabled'}>下一頁</button><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>` : shown.length ? '<div class="mg-pager"><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>' : ''}
     ${excluded.length ? `<details class="mg-details" ${excluded.some(row => !autoExclusion(row.sku)) ? 'open' : ''}><summary>排除紀錄 ${excluded.length} 列（不計入品項數 N 與任何清單）</summary><table class="review-table mg-table"><thead><tr><th>代號</th><th>名稱與來源</th><th>排除理由</th><th>操作</th></tr></thead><tbody>${excluded.map(row => `<tr><td>${input(row.id, 'sku', row.sku, '代號', 'sku-input')}</td><td><span class="mg-name">${escape(row.rawName)}</span><span class="source-label">${'unit' in row ? '調劑表' : '庫存簡表'}・${where(row.origin)}</span></td><td><span class="issue-text">${escape(row.excluded!)}</span></td><td class="mg-actions"><button class="text-button" data-trace="${row.id}">原圖</button><button class="text-button" data-restore="${row.id}" ${SIX.test(row.sku) ? '' : 'disabled title="代號須先改為六碼"'}>恢復此列</button></td></tr>`).join('')}</tbody></table></details>` : ''}
-    ${data.missing.length ? `<div class="mg-missing"><h3>調劑表有、庫存簡表沒有的六碼：${data.missing.length} 個</h3><p class="preview-note">不會補成零庫存，也不會從品項數 N 移除（N = ${data.summary.items.length}）。常見原因是庫存簡表的範圍未包含該品項（例如非第 9 類、已無庫存列）。${missingOnList.length ? `其中 ${missingOnList.length} 個在安全量清單內，須確認後才能輸出，清單的庫存量欄會印「${NO_STOCK}」。` : '都不在安全量清單內，不影響三份清單。'}</p>
+    ${data.missing.length ? `<div class="mg-missing"><h3>調劑表有、庫存簡表沒有的六碼：${data.missing.length} 個</h3><p class="preview-note">不會補成零庫存，也不會從品項數 N 移除（N = ${data.summary.items.length}）。${data.partner ? '此門市判定有合作診所供貨，這些六碼視為合作診所供應，不列入安全量清單，由後一位遞補。' : '常見原因是庫存簡表的範圍未包含該品項（例如非第 9 類、已無庫存列）。'}${data.partner ? '' : missingOnList.length ? `其中 ${missingOnList.length} 個在安全量清單內，須確認後才能輸出，清單的庫存量欄會印「${NO_STOCK}」。` : '都不在安全量清單內，不影響三份清單。'}</p>
       ${missingOnList.length ? `<ul class="store-list">${missingOnList.map(item => `<li><span>${item.sku}・${escape(item.name)}</span><strong>調劑表第 ${item.pages.join('、')} 頁</strong></li>`).join('')}</ul><label class="checkbox-label mg-confirm"><input id="missing-ack" type="checkbox" ${decisions.missingAcknowledged === data.missingKey ? 'checked' : ''}>我已核對：以上 ${missingOnList.length} 個六碼不在這份庫存簡表，安全量清單照列並標示「${NO_STOCK}」</label>` : ''}
       <details class="mg-details"><summary>全部 ${data.missing.length} 個缺碼</summary><table class="review-table mg-table"><thead><tr><th>六碼</th><th>調劑表名稱</th><th>調劑表頁次</th></tr></thead><tbody>${data.missing.map(item => `<tr><td>${item.sku}${item.onList ? ' <span class="status-pill amber">安全量清單</span>' : ''}</td><td>${escape(item.name)}</td><td>${item.pages.join('、')}</td></tr>`).join('')}</tbody></table></details></div>` : ''}`;
 }
@@ -373,7 +376,7 @@ el<HTMLDialogElement>('trace-dialog').addEventListener('close', () => { el('trac
 el('close-pdf').addEventListener('click', () => el<HTMLDialogElement>('pdf-dialog').close());
 el('dialog-download').addEventListener('click', () => { try { if (previewKind) save(previewKind); } catch (error) { el<HTMLDialogElement>('pdf-dialog').close(); showError(error instanceof Error ? error.message : 'PDF 已失效。'); } });
 function qaSnapshot() {
-  return { parsed, parsing, error: errorMessage, generation, pages: pages.length, rejected, blockers: data?.blockers, warnings: data?.warnings, ready: data?.ready, available: data?.available, reasons: data?.reasons,
+  return { parsed, parsing, error: errorMessage, generation, pages: pages.length, rejected, blockers: data?.blockers, warnings: data?.warnings, partner: data?.partner, ready: data?.ready, available: data?.available, reasons: data?.reasons,
     months: data?.months && formatFrac(data.months), n: data?.safety?.n, k: data?.safety?.k, eligible: data?.safety?.eligible, missing: data?.missing.length, review: reviewItems().length,
     lists: data && Object.fromEntries(LISTS.map(kind => [kind, listRows(kind, data!)])), outputs: Object.fromEntries(Object.entries(outputs).map(([kind, output]) => [kind, { pages: output.pages, rows: output.rows, version: output.version, bytes: output.bytes.length }])) };
 }

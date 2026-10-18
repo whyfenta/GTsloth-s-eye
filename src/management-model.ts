@@ -200,12 +200,16 @@ export function coefficient(a: Frac): Frac {
 }
 export type SafetyRow = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; coefficient: Frac; safety: bigint;
   stock?: Frac; stockName?: string };
-export type SafetyResult = { n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: SafetyRow[] };
+export type SafetyResult = { n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: SafetyRow[];
+  /** Partner-clinic stores only: A > 8 codes without any stock line, left out, and how many later codes moved up into the list. */
+  outside?: { eligible: number; filled: number } };
 /**
  * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient).
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
+ * With a partner clinic, codes the stock sheet does not print are not ours to watch: they are skipped and the next
+ * qualifying code moves up, so K still aims at floor(N × 10%) with N unchanged.
  */
-export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>): SafetyResult {
+export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false): SafetyResult {
   const all: SafetyRow[] = [];
   for (const item of items) {
     if (item.count.n === 0n) continue; // no division by a zero count; such an item can never have A > 8
@@ -214,10 +218,20 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
     all.push({ sku: item.sku, name: inStock?.name ?? item.name, unit: item.unit, count: item.count, quantity: item.quantity, a, b, ab, coefficient: c, safety: ceil(mul(ab, c)), stock: inStock?.qty, stockName: inStock?.name });
   }
   all.sort((x, y) => cmp(y.a, x.a) || x.sku.localeCompare(y.sku));
-  const eligible = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
+  const qualifying = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
+  const eligible = partner ? qualifying.filter(row => row.stock) : qualifying;
   const k = Math.min(limit, eligible.length);
-  return { n, limit, eligible: eligible.length, k, rows: eligible.slice(0, k), all };
+  const outside = partner ? { eligible: qualifying.length - eligible.length, filled: eligible.slice(0, k).filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
+  return { n, limit, eligible: eligible.length, k, rows: eligible.slice(0, k), all, outside };
 }
+/**
+ * A store that also dispenses drugs supplied by a partner clinic: its stock sheet has at least PARTNER_GAP fewer lines
+ * than the usage report has codes. Zero-stock lines are not counted, because a sheet printed with zero stock lists the
+ * whole product file and would hide the gap (0015: 4,949 lines, 1,388 of them non-zero, against 1,719 used codes).
+ */
+export const PARTNER_GAP = 50;
+export const stockLines = (rows: StockRow[]) => active(rows).filter(row => { const qty = parseDecimal(row.qty); return SIX.test(row.sku) && qty !== null && qty.n !== 0n; }).length;
+export const partnerSupplied = (lines: number, codes: number) => codes - lines >= PARTNER_GAP;
 
 // ---- Dead stock and empty slots -------------------------------------------
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });

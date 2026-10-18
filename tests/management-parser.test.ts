@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive} from '../src/management-report';
+import {derive,listRows,listSpec,NO_STOCK} from '../src/management-report';
 import type {TextItem,TextPage} from '../src/textlayer';
 const weight=(s:string)=>Array.from(s).reduce((n,c)=>n+(c.codePointAt(0)!>=0x2e80?2:1),0);
 const W=1000,H=1400,size=10;
@@ -88,6 +88,23 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.match(result.reasons.empty,/零庫存/,'a sheet without zero rows cannot prove empty slots');
   assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
   assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
+});
+test('a store with a partner clinic: codes the stock sheet does not print leave the safety list without an acknowledgement',()=>{
+  const stock=parsed(fix(stockPage()),'inventory',1,1); // three non-zero lines
+  const usage=(fillers:number)=>parsed(page([...usageHead(1,1),...line(120,'000206','C-A','粒','200','200'),...line(140,'000009','C-合作診所供應','瓶','150','150'),...line(160,'000083','C-B','粒','40','40'),
+    ...Array.from({length:fillers},(_,i)=>line(180+i*20,String(400000+i),`C-品項${i}`,'粒','1','1')).flat()]),'usage',0,1);
+  const own=derive([usage(46),stock],[],decisions); // N = 49: 46 more codes than stock lines
+  assert.equal(own.partner,undefined);assert.deepEqual(own.safety!.rows.map(r=>r.sku),['000206','000009','000083'].slice(0,own.safety!.k));
+  assert.equal(own.missingKey,'000009');assert.match(own.reasons.safety,/找不到/);
+  const partner=derive([usage(50),stock],[],decisions); // N = 53: 50 more
+  assert.deepEqual(partner.partner,{lines:3,codes:53});assert.equal(partner.safety!.n,53,'N keeps the partner code');
+  assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083']);assert.deepEqual(partner.safety!.outside,{eligible:1,filled:0});
+  assert.equal(partner.missing.length,51,'still listed for review');assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');
+  assert.equal(partner.available.safety,true,'nothing on the list needs the missing-code acknowledgement');
+  assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
+  const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表未出現 1 筆、遞補 0 筆；取 K = 2 筆/);assert.match(spec.note,/非零庫存 3 列，比調劑表 53 個六碼少 50/);
+  assert.equal(derive([usage(50)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
 });
 const sideways=(p:TextPage):TextPage=>({...p,width:p.height,height:p.width,viewport:[1,0,0,-1,0,p.width],items:p.items.map((item):TextItem=>{const x=item.transform[4],y=p.height-item.transform[5];return {...item,transform:[0,size,-size,0,y,x]};})});
 test('a sideways-printed page is read in its text direction',()=>{
