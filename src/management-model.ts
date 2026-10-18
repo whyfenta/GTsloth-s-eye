@@ -206,7 +206,7 @@ export type SafetyResult = { n: number; limit: number; eligible: number; k: numb
 /**
  * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient).
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
- * With a partner clinic, codes the stock sheet does not print are not ours to watch: they are skipped and the next
+ * With a partner clinic, codes the store holds no stock of are not ours to watch: they are skipped and the next
  * qualifying code moves up, so K still aims at floor(N × 10%) with N unchanged.
  */
 export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false): SafetyResult {
@@ -219,17 +219,23 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   }
   all.sort((x, y) => cmp(y.a, x.a) || x.sku.localeCompare(y.sku));
   const qualifying = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
-  const eligible = partner ? qualifying.filter(row => row.stock) : qualifying;
+  const eligible = partner ? qualifying.filter(held) : qualifying;
   const k = Math.min(limit, eligible.length);
   const outside = partner ? { eligible: qualifying.length - eligible.length, filled: eligible.slice(0, k).filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
   return { n, limit, eligible: eligible.length, k, rows: eligible.slice(0, k), all, outside };
 }
 /**
+ * The store holds stock of a code when the stock sheet prints it with a total other than 0. A 0 total means the same as
+ * no line: a sheet printed with zero stock lists the whole product file (0015: 96 of 171 listed codes at 0). A negative
+ * total was dispensed from the store's own stock and stays ours.
+ */
+export const held = (row: SafetyRow) => row.stock !== undefined && row.stock.n !== 0n;
+/**
  * A store that also dispenses drugs supplied by a partner clinic: more than PARTNER_LIMIT codes of the ordinary safety
- * list have no line on the stock sheet. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.
+ * list are not held. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.
  */
 export const PARTNER_LIMIT = 10;
-export const missingOnList = (result: SafetyResult) => result.rows.filter(row => !row.stock).length;
+export const unheldOnList = (result: SafetyResult) => result.rows.filter(row => !held(row)).length;
 export const partnerSupplied = (missing: number) => missing > PARTNER_LIMIT;
 
 // ---- Dead stock and empty slots -------------------------------------------

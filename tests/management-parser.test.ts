@@ -89,7 +89,7 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
   assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
 });
-test('a store with a partner clinic: more than 10 codes of the safety list missing from the stock sheet are skipped and backfilled',()=>{
+test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1); // 000206, 000083, 000500
   // N = 120, 10% = 12. 000206 A = 50; `missing` codes without a stock line A = 25; 000083 A = 10; the rest A = 0.25.
   const usage=(missing:number)=>{const lines=[line(120,'000206','C-A','粒','200','200'),...Array.from({length:missing},(_,i)=>line(140+i*20,String(300000+i),`C-合作${i}`,'粒','100','100')),line(140+missing*20,'000083','C-B','粒','40','40'),
@@ -104,8 +104,15 @@ test('a store with a partner clinic: more than 10 codes of the safety list missi
   assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表未出現 11 筆、遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄（> 10）/);
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表無庫存 11 筆、遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> 10）/);
   assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
+  // A line printed with 0 stock means the same as no line: 10 missing + 1 at zero is 11.
+  const zeroStock=parsed(fix(stockPage(1,1,'26北-測試店',[['300000',5,200],['C-合作0',95,200],['4710000300000',395,200],['A-測試',665,200],['冰-合作診所',745,200],['0',840,200],['0',890,200]])),'inventory',1,1);
+  const zero=derive([usage(11),zeroStock],[],decisions);
+  assert.equal(zero.missing.length,10+107,'300000 has a line, so it is not a missing code');assert.deepEqual(zero.partner,{missing:11});
+  assert.ok(!zero.safety!.rows.some(r=>r.sku==='300000'),'skipped like a code without a line');
+  const tenWithZero=derive([usage(10),zeroStock],[],decisions);
+  assert.equal(tenWithZero.partner,undefined);assert.deepEqual(listRows('safety',tenWithZero).find(r=>r[0]==='300000')?.[2],'0','not a partner store: the zero line stays listed with its 0');
 });
 const sideways=(p:TextPage):TextPage=>({...p,width:p.height,height:p.width,viewport:[1,0,0,-1,0,p.width],items:p.items.map((item):TextItem=>{const x=item.transform[4],y=p.height-item.transform[5];return {...item,transform:[0,size,-size,0,y,x]};})});
 test('a sideways-printed page is read in its text direction',()=>{
