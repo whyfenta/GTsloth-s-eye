@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, dayBefore, formatDay, formatFrac, longPeriod, matchStores, parseDecimal, partnerSupplied, PARTNER_GAP, safetyList, slotLists, statMonths, stockDuplicates, stockErrors, stockLines, usageCodes, usageErrors,
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, dayBefore, formatDay, formatFrac, longPeriod, matchStores, parseDecimal, missingOnList, partnerSupplied, PARTNER_LIMIT, safetyList, slotLists, statMonths, stockDuplicates, stockErrors, usageCodes, usageErrors,
   type Assembly, type Frac, type SafetyResult, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
@@ -16,8 +16,8 @@ export type Derived = {
   pendingUsage: UsageRow[]; pendingStock: StockRow[]; summary: UsageSummary; duplicates: StockRow[][];
   months?: Frac; period?: string; payment?: string; storeLabel: string; storeMatch?: 'same' | 'different' | 'unsure';
   safety?: SafetyResult; dead: SlotRow[]; empty: SlotRow[]; zeroRows: number;
-  /** Set when the stock sheet has PARTNER_GAP or more fewer non-zero lines than the usage report has codes. */
-  partner?: { lines: number; codes: number };
+  /** Set when more than PARTNER_LIMIT codes of the ordinary safety list have no stock line: how many there were. */
+  partner?: { missing: number };
   /** Usage codes without any stock line; the ones on the safety list need an explicit acknowledgement. */
   missing: { sku: string; name: string; pages: number[]; onList: boolean }[]; missingKey: string;
   ready: boolean; available: Record<ListKind, boolean>; reasons: Record<ListKind, string>;
@@ -55,9 +55,9 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const summary = aggregateUsage(usageRows); const items = aggregateStock(stockRows);
   const sourcesReady = !blockers.length && assemblyComplete(usage) && assemblyComplete(stock) && Boolean(months);
   const ready = sourcesReady && !pendingUsage.length && !pendingStock.length && !summary.unitConflicts.length && !summary.invalid.length;
-  const lines = stockLines(stockRows); const codes = summary.items.length;
-  const partner = stock.pages.length && usage.pages.length && partnerSupplied(lines, codes) ? { lines, codes } : undefined;
-  const safety = months ? safetyList(summary.items, months, items, Boolean(partner)) : undefined;
+  const ordinary = months ? safetyList(summary.items, months, items) : undefined;
+  const partner = ordinary && stock.pages.length && partnerSupplied(missingOnList(ordinary)) ? { missing: missingOnList(ordinary) } : undefined;
+  const safety = partner ? safetyList(summary.items, months!, items, true) : ordinary;
   const { dead, empty } = slotLists(stockRows, usageCodes(usageRows));
   const listed = new Set(safety?.rows.map(row => row.sku));
   const missing = summary.items.filter(item => !items.has(item.sku)).map(item => ({ sku: item.sku, name: item.name, pages: pagesOf(item.rows), onList: listed.has(item.sku) }));
@@ -98,7 +98,7 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
   if (kind === 'safety') return { title: LIST_TITLE.safety, rows, meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六碼', width: 18 }, { label: '清理後名稱', width: 84 }, { label: '庫存量', width: 22, align: 'right' }, { label: 'A（次/月）', width: 22, align: 'right' }, { label: 'A×B', width: 22, align: 'right' }, { label: '建議安全量', width: 22, align: 'right' }],
-    note: 'A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；8 < A < 30 時係數 = 1.2 + (A − 8) × 2.3 ÷ 22，A ≥ 30 時為 3.5。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；' + (data.partner ? `同值依六碼。合作診所供貨判定：庫存簡表非零庫存 ${data.partner.lines.toLocaleString('en-US')} 列，比調劑表 ${data.partner.codes.toLocaleString('en-US')} 個六碼少 ${(data.partner.codes - data.partner.lines).toLocaleString('en-US')}（≥ ${PARTNER_GAP}）；簡表未出現的六碼不由本店監控安全量，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
+    note: 'A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；8 < A < 30 時係數 = 1.2 + (A − 8) × 2.3 ÷ 22，A ≥ 30 時為 3.5。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；' + (data.partner ? `同值依六碼。合作診所供貨判定：依一般規則進入清單的品項中有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄（> ${PARTNER_LIMIT}）；簡表未出現的六碼不由本店監控安全量，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],

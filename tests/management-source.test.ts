@@ -30,30 +30,27 @@ test('attached templates: every page parses and the documented baseline is repro
   assert.equal(data.period,'2026/06/16～2026/10/15');assert.equal(formatFrac(data.months!),'4');assert.equal(data.payment,'全部');
   const valid=data.usageRows.filter(r=>!r.excluded);const excluded=data.usageRows.filter(r=>r.excluded);
   assert.equal(valid.length,1108);assert.deepEqual(excluded.map(r=>r.sku),['R001']);
-  // 1,002 non-zero stock lines against 1,069 used codes: 67 fewer, so a partner clinic supplies part of the store.
-  assert.deepEqual(data.partner,{lines:1002,codes:1069});
-  const s=data.safety!;assert.deepEqual([s.n,s.limit,s.k],[1069,106,106]);assert.equal(s.eligible+s.outside!.eligible,175);assert.ok(s.outside!.eligible>=2);
+  const s=data.safety!;assert.deepEqual([s.n,s.limit,s.eligible,s.k],[1069,106,175,106]);
   const row=s.all.find(r=>r.sku==='000206')!;
   assert.deepEqual([formatFrac(row.count),formatFrac(row.quantity),formatFrac(row.a),row.b,formatFrac(row.ab),formatFrac(row.coefficient),row.safety,formatFrac(row.stock!)],['165','4,287','41.25',26n,'1,072.5','3.5',3754n,'1,990']);
   assert.equal(data.stockRows.length,1002);assert.equal(data.stockRows.find(r=>r.sku==='000206')!.location,'5脂41@');
   assert.equal(data.stockRows.find(r=>r.sku==='000083')!.name,'缺貨 PENTOP循妥斯持續性錠400MG');
   assert.equal(data.zeroRows,0,'this sheet was printed without zero stock');
-  // 197 used codes have no stock line; they are listed, never zeroed, and N keeps them. 123863 and 159262 had A > 8 in the
-  // top 10%: as partner-clinic codes they are skipped and later codes move up, so nothing needs an acknowledgement.
-  assert.equal(data.missing.length,197);assert.deepEqual(data.missing.filter(m=>m.onList),[]);assert.equal(data.missingKey,'');
-  assert.ok(!s.rows.some(r=>['123863','159262'].includes(r.sku)));assert.ok(s.outside!.filled>=2);
-  assert.equal(data.available.safety,true);assert.equal(data.available.dead,false,'scope not yet confirmed');assert.equal(data.available.empty,false);
+  // 197 used codes have no stock line; they are listed, never zeroed, and N keeps them.
+  assert.equal(data.missing.length,197);assert.deepEqual(data.missing.filter(m=>m.onList).map(m=>m.sku),['123863','159262']);
+  assert.equal(data.partner,undefined,'only 2 of them, not more than 10: no partner clinic, so they stay on the list');
+  assert.match(data.reasons.safety,/2 個六碼/);assert.equal(data.available.dead,false,'scope not yet confirmed');assert.equal(data.available.empty,false);
 });
 test('attached templates: the three lists after the reviewer\'s decisions, printed as A4 PDFs',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   const pages=[...parseAll(await readPages(usageFile),'usage',0),...parseAll(await readPages(stockFile),'inventory',1)];
-  const data=derive(pages,[],{...none,scopeConfirmed:true});
+  const data=derive(pages,[],{...none,scopeConfirmed:true,missingAcknowledged:'123863,159262'});
   assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/零庫存/);
   const safety=listRows('safety',data);assert.equal(safety.length,106);
   assert.deepEqual(safety.find(r=>r[0]==='000206'),['000206','EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754']);
-  assert.deepEqual(safety.filter(r=>r[2]===NO_STOCK),[],'partner-clinic codes are skipped, not printed as missing');
+  assert.deepEqual(safety.filter(r=>r[2]===NO_STOCK).map(r=>r[0]),['123863','159262']);
   const dead=listRows('dead',data);assert.equal(dead.length,data.dead.length);assert.ok(dead.length>0);
-  const empty=derive(pages,[],{...none,scopeConfirmed:true,zeroConfirmed:true});assert.equal(empty.available.empty,true);assert.equal(empty.empty.length,0);
+  const empty=derive(pages,[],{...none,scopeConfirmed:true,zeroConfirmed:true,missingAcknowledged:'123863,159262'});assert.equal(empty.available.empty,true);assert.equal(empty.empty.length,0);
   const font=new Uint8Array(fs.readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   const context={files:{usage:['usage.pdf'],inventory:['261011_09p.pdf']},version:7,appVersion:'test',time:'2026/10/17 10:00'};
   const out=process.env.MANAGEMENT_OUTPUT_DIR;

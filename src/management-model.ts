@@ -225,13 +225,12 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   return { n, limit, eligible: eligible.length, k, rows: eligible.slice(0, k), all, outside };
 }
 /**
- * A store that also dispenses drugs supplied by a partner clinic: its stock sheet has at least PARTNER_GAP fewer lines
- * than the usage report has codes. Zero-stock lines are not counted, because a sheet printed with zero stock lists the
- * whole product file and would hide the gap (0015: 4,949 lines, 1,388 of them non-zero, against 1,719 used codes).
+ * A store that also dispenses drugs supplied by a partner clinic: more than PARTNER_LIMIT codes of the ordinary safety
+ * list have no line on the stock sheet. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.
  */
-export const PARTNER_GAP = 50;
-export const stockLines = (rows: StockRow[]) => active(rows).filter(row => { const qty = parseDecimal(row.qty); return SIX.test(row.sku) && qty !== null && qty.n !== 0n; }).length;
-export const partnerSupplied = (lines: number, codes: number) => codes - lines >= PARTNER_GAP;
+export const PARTNER_LIMIT = 10;
+export const missingOnList = (result: SafetyResult) => result.rows.filter(row => !row.stock).length;
+export const partnerSupplied = (missing: number) => missing > PARTNER_LIMIT;
 
 // ---- Dead stock and empty slots -------------------------------------------
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });

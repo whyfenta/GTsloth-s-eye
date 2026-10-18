@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, formatFrac, matchStores, PARTNER_GAP, SIX, stockErrors, usageErrors, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, formatFrac, matchStores, PARTNER_LIMIT, SIX, stockErrors, usageErrors, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
@@ -214,7 +214,7 @@ function renderSources() {
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
     ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}
-    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：庫存簡表非零庫存 ${data.partner.lines} 列，比調劑表 ${data.partner.codes} 個六碼少 ${data.partner.codes - data.partner.lines}（達 ${PARTNER_GAP} 以上）。庫存簡表未出現的六碼不由本店監控安全量，安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>` : ''}`;
+    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄（超過 ${PARTNER_LIMIT} 個）。庫存簡表未出現的六碼不由本店監控安全量，安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>` : ''}`;
 }
 type ReviewItem = { kind: 'usage'; row: UsageRow } | { kind: 'stock'; row: StockRow };
 function reviewItems(): ReviewItem[] {

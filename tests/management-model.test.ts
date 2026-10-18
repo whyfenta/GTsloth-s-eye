@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assemble,coefficient,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,partnerSupplied,PARTNER_GAP,safetyList,stockLines,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assemble,coefficient,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,missingOnList,partnerSupplied,PARTNER_LIMIT,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -56,12 +56,10 @@ test('K = min(floor(10% of N), items with A > 8); A = 8 is out, ties sort by cod
   assert.equal(few.n,2);assert.equal(few.k,0,'fewer than 10 items: floor(10%) is 0, no minimum of 1');
   assert.equal(safetyList(items([...base,use('000005',8001,8001),use('000006',0,0)]).map(i=>({...i})),frac(1000n),new Map()).rows[0]?.sku,'000005','A = 8.001 qualifies');
 });
-test('partner clinic: 50 or more fewer non-zero stock lines than used codes; zero-stock lines are not counted',()=>{
-  assert.equal(PARTNER_GAP,50);
-  assert.equal(partnerSupplied(1669,1719),true,'exactly 50 fewer');assert.equal(partnerSupplied(1670,1719),false,'49 fewer');
-  assert.equal(partnerSupplied(1388,1719),true,'0015: 1,388 non-zero lines against 1,719 codes');
-  const rows=[stock('000001',5,'A1'),stock('000001',2,'B1'),stock('000002',0,'A2'),stock('000003',-1,'A3'),stock('R001',9),{...stock('000004',4),excluded:'重複來源'}];
-  assert.equal(stockLines(rows),3,'every non-zero location counts, zero, non-six-digit and excluded lines do not');
+test('partner clinic: more than 10 codes of the ordinary safety list without a stock line',()=>{
+  assert.equal(PARTNER_LIMIT,10);assert.equal(partnerSupplied(10),false,'exactly 10 is not enough');assert.equal(partnerSupplied(11),true);assert.equal(partnerSupplied(2),false,'26永和: 2');
+  const items=aggregateUsage([...Array.from({length:27},(_,i)=>use(String(200000+i),1,1)),use('000001',30,30),use('000002',20,20),use('000003',15,15)]).items;
+  assert.equal(missingOnList(safetyList(items,frac(1n),aggregateStock([stock('000001',4),stock('000003',0)]))),1,'a zero-stock line is a stock line');
 });
 test('partner clinic: codes missing from the stock sheet are skipped and later codes move up; N and the 10% target stay',()=>{
   const base=Array.from({length:27},(_,i)=>use(String(200000+i),1,1));

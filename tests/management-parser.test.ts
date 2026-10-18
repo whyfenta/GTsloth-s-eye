@@ -89,22 +89,23 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
   assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
 });
-test('a store with a partner clinic: codes the stock sheet does not print leave the safety list without an acknowledgement',()=>{
-  const stock=parsed(fix(stockPage()),'inventory',1,1); // three non-zero lines
-  const usage=(fillers:number)=>parsed(page([...usageHead(1,1),...line(120,'000206','C-A','粒','200','200'),...line(140,'000009','C-合作診所供應','瓶','150','150'),...line(160,'000083','C-B','粒','40','40'),
-    ...Array.from({length:fillers},(_,i)=>line(180+i*20,String(400000+i),`C-品項${i}`,'粒','1','1')).flat()]),'usage',0,1);
-  const own=derive([usage(46),stock],[],decisions); // N = 49: 46 more codes than stock lines
-  assert.equal(own.partner,undefined);assert.deepEqual(own.safety!.rows.map(r=>r.sku),['000206','000009','000083'].slice(0,own.safety!.k));
-  assert.equal(own.missingKey,'000009');assert.match(own.reasons.safety,/找不到/);
-  const partner=derive([usage(50),stock],[],decisions); // N = 53: 50 more
-  assert.deepEqual(partner.partner,{lines:3,codes:53});assert.equal(partner.safety!.n,53,'N keeps the partner code');
-  assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083']);assert.deepEqual(partner.safety!.outside,{eligible:1,filled:0});
-  assert.equal(partner.missing.length,51,'still listed for review');assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');
-  assert.equal(partner.available.safety,true,'nothing on the list needs the missing-code acknowledgement');
+test('a store with a partner clinic: more than 10 codes of the safety list missing from the stock sheet are skipped and backfilled',()=>{
+  const stock=parsed(fix(stockPage()),'inventory',1,1); // 000206, 000083, 000500
+  // N = 120, 10% = 12. 000206 A = 50; `missing` codes without a stock line A = 25; 000083 A = 10; the rest A = 0.25.
+  const usage=(missing:number)=>{const lines=[line(120,'000206','C-A','粒','200','200'),...Array.from({length:missing},(_,i)=>line(140+i*20,String(300000+i),`C-合作${i}`,'粒','100','100')),line(140+missing*20,'000083','C-B','粒','40','40'),
+    ...Array.from({length:118-missing},(_,i)=>line(160+(missing+i)*20,String(400000+i),`C-品項${i}`,'粒','1','1'))];return parsed(page([...usageHead(1,1),...lines.flat()],2700),'usage',0,1);};
+  const own=derive([usage(10),stock],[],decisions); // exactly 10 on the list: still our own stock, each needs an acknowledgement
+  assert.equal(own.partner,undefined);assert.equal(own.safety!.k,12);assert.equal(own.missingKey.split(',').length,10);assert.match(own.reasons.safety,/10 個六碼/);
+  assert.equal(listRows('safety',own).filter(r=>r[2]===NO_STOCK).length,10);
+  const partner=derive([usage(11),stock],[],decisions);
+  assert.deepEqual(partner.partner,{missing:11});assert.equal(partner.safety!.n,120,'N keeps the partner codes');
+  assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083'],'000083 moves up; K stays within the stock-sheet codes with A > 8');
+  assert.deepEqual(partner.safety!.outside,{eligible:11,filled:1});
+  assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表未出現 1 筆、遞補 0 筆；取 K = 2 筆/);assert.match(spec.note,/非零庫存 3 列，比調劑表 53 個六碼少 50/);
-  assert.equal(derive([usage(50)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表未出現 11 筆、遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄（> 10）/);
+  assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
 });
 const sideways=(p:TextPage):TextPage=>({...p,width:p.height,height:p.width,viewport:[1,0,0,-1,0,p.width],items:p.items.map((item):TextItem=>{const x=item.transform[4],y=p.height-item.transform[5];return {...item,transform:[0,size,-size,0,y,x]};})});
 test('a sideways-printed page is read in its text direction',()=>{
