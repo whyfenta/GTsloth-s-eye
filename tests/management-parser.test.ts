@@ -100,11 +100,11 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   const partner=derive([usage(11),stock],[],decisions);
   assert.deepEqual(partner.partner,{missing:11});assert.equal(partner.safety!.n,120,'N keeps the partner codes');
   assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083'],'000083 moves up; K stays within the stock-sheet codes with A > 8');
-  assert.deepEqual(partner.safety!.outside,{eligible:11,filled:1});
+  assert.deepEqual(partner.safety!.outside,{none:11,low:0,filled:1});
   assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過簡表無庫存 11 筆、遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> 10）/);
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> 10）/);
   assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
   // A line printed with 0 stock means the same as no line: 10 missing + 1 at zero is 11.
   const zeroStock=parsed(fix(stockPage(1,1,'26北-測試店',[['300000',5,200],['C-合作0',95,200],['4710000300000',395,200],['A-測試',665,200],['冰-合作診所',745,200],['0',840,200],['0',890,200]])),'inventory',1,1);

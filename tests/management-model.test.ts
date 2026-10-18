@@ -25,21 +25,28 @@ test('dead stock and empty slots open only strictly above 2.5 months',()=>{
   assert.equal(longPeriod(statMonths(day('20260401'),day('20260616'))!),true);
   assert.equal(longPeriod(statMonths(day('20260616'),day('20260830'))!),false,'2 + 15/31 months');
 });
-test('coefficient: 1.2 at 8, linear to 3.5 at 30, fixed above',()=>{
-  assert.equal(formatFrac(coefficient(frac(8n)),6),'1.2');assert.equal(formatFrac(coefficient(frac(19n)),6),'2.35');
-  assert.equal(formatFrac(coefficient(frac(30n)),6),'3.5');assert.equal(formatFrac(coefficient(frac(4125n,100n)),6),'3.5');
+test('coefficient by rank on the list: the top third 3.5, then linear down to 1.2 at the last row',()=>{
+  const c=(i:number,k:number)=>formatFrac(coefficient(i,k),6);
+  assert.deepEqual([c(0,106),c(35,106),c(36,106),c(105,106)],['3.5','3.5','3.467143','1.2'],'26永和: rows 1–36 at 3.5, as with the former A ≥ 30 (35 rows)');
+  assert.deepEqual([c(0,4),c(1,4),c(2,4),c(3,4)],['3.5','3.5','2.35','1.2']);assert.equal(c(0,1),'3.5','a one-row list is all top third');
+  const base=Array.from({length:27},(_,i)=>use(String(200000+i),1,1));
+  const tie=safetyList(aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',20,20)]).items,frac(1n),new Map());
+  assert.deepEqual(tie.rows.map(r=>[r.sku,formatFrac(r.coefficient,6)]),[['000001','3.5'],['000002','2.925'],['000003','2.925']],'equal A, equal coefficient');
+  const busy=safetyList(aggregateUsage([...base,use('000001',3000,3000),use('000002',2000,2000),use('000003',1000,1000)]).items,frac(1n),new Map());
+  assert.deepEqual(busy.rows.map(r=>formatFrac(r.coefficient,6)),['3.5','2.925','1.2'],'A far above 30 no longer means 3.5 for everyone');
 });
 test('the attached example 000206: two lines added, A 41.25, B 26, A×B 1072.5, safety 3754',()=>{
   const summary=aggregateUsage([use('000206',67,1767),use('000206',98,2520)]);
   assert.equal(summary.items.length,1);assert.equal(formatFrac(summary.items[0].count),'165');assert.equal(formatFrac(summary.items[0].quantity),'4,287');
-  const [row]=safetyList(summary.items,frac(4n),aggregateStock([stock('000206',1990,'5脂41@','EZETROL怡妥錠10MG')])).all;
+  const fill=Array.from({length:9},(_,i)=>use(String(200000+i),1,1)); // N = 10: a one-row list, so the top third
+  const [row]=safetyList(aggregateUsage([...summary.items.flatMap(item=>item.rows),...fill]).items,frac(4n),aggregateStock([stock('000206',1990,'5脂41@','EZETROL怡妥錠10MG')])).rows;
   assert.deepEqual([formatFrac(row.a),row.b,formatFrac(row.ab),formatFrac(row.coefficient),row.safety,formatFrac(row.stock!),row.name],['41.25',26n,'1,072.5','3.5',3754n,'1,990','EZETROL怡妥錠10MG']);
 });
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
-  // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × coefficient = 3475 exactly; floats give 3475.0000000000005.
-  const a=50/3;assert.equal(Math.ceil(a*99*(1.2+(a-8)*2.3/22)),3476,'the float formula really is off here');
-  const [row]=safetyList(aggregateUsage([use('100001',50,4950)]).items,frac(3n),new Map()).all;
-  assert.equal(formatFrac(row.a),'16.67');assert.equal(row.b,99n);assert.equal(row.safety,3475n);
+  // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.
+  const a=50/3;assert.equal(Math.ceil(a*99*3.5),5776,'the float formula really is off here');
+  const [row]=safetyList(aggregateUsage([use('100001',50,4950),...Array.from({length:9},(_,i)=>use(String(200000+i),1,1))]).items,frac(3n),new Map()).rows;
+  assert.equal(formatFrac(row.a),'16.67');assert.equal(row.b,99n);assert.equal(row.safety,5775n);
   assert.equal(safetyList(aggregateUsage([use('100002',40,100)]).items,frac(4n),new Map()).all[0].b,3n,'2.5 rounds to 3');
   assert.equal(safetyList(aggregateUsage([use('100003',40,98)]).items,frac(4n),new Map()).all[0].b,2n,'2.45 rounds to 2');
   assert.equal(parseDecimal('1,240')?.n,1240n);assert.equal(formatFrac(parseDecimal('-0.5')!),'-0.5');assert.equal(parseDecimal('12 34'),null);
@@ -71,13 +78,16 @@ test('partner clinic: codes the store holds no stock of are skipped and later co
   const partner=safetyList(more,frac(1n),stocked,true);
   assert.deepEqual([partner.n,partner.limit,partner.eligible,partner.k],[30,3,3,3],'000005 at 0 stock is not eligible either');
   assert.deepEqual(partner.rows.map(r=>r.sku),['000001','000003','000004'],'000004 moves up into the place of 000002');
-  assert.deepEqual(partner.outside,{eligible:2,filled:1});
+  assert.deepEqual(partner.outside,{none:2,low:0,filled:1});
   assert.ok(partner.all.some(r=>r.sku==='000002'),'the skipped code is still calculated, only not listed');
   const short=safetyList(items,frac(1n),stocked,true);
   assert.deepEqual([short.limit,short.k],[3,2],'no backfill without another qualifying code; K never widens past A > 8');
-  assert.deepEqual(short.outside,{eligible:1,filled:0});
-  const zero=safetyList(more,frac(1n),aggregateStock([stock('000001',4),stock('000002',0),stock('000003',-2),stock('000004',3,'A1'),stock('000004',-3,'B1')]),true);
-  assert.deepEqual(zero.rows.map(r=>r.sku),['000001','000003'],'0 and locations adding up to 0 are no stock; a negative total is still ours');
+  assert.deepEqual(short.outside,{none:1,low:0,filled:0});
+  // Monthly use: 000001 30 (stock 4 = 0.13 month), 000003 15, 000004 10, 000005 9.
+  const zero=safetyList(more,frac(1n),aggregateStock([stock('000001',4),stock('000002',0),stock('000003',-2),stock('000004',3,'A1'),stock('000004',-3,'B1'),stock('000005','0.8')]),true);
+  assert.deepEqual(zero.rows.map(r=>r.sku),['000001'],'0 and locations adding up to 0 are no stock; negative stock and 0.8 of 9 a month are under 0.1 month');
+  assert.deepEqual(zero.outside,{none:2,low:2,filled:0});
+  assert.equal(safetyList(more,frac(1n),aggregateStock([stock('000001',3),stock('000003',2)]),true).rows.map(r=>r.sku).join(),'000001,000003','exactly 0.1 month (3 of 30) is enough');
 });
 test('usage rows: invalid values are review items, never zero; non-six-digit codes are excluded records outside N',()=>{
   assert.deepEqual(usageErrors(use('000001','-1','2')),['次數為負數']);

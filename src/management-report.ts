@@ -94,11 +94,11 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     `來源：調劑表 ${files('usage')}（${data.usage.pages.length} 頁）；庫存簡表 ${files('inventory')}（${data.stock.pages.length} 頁）  |  校對版本 ${context.version}  |  樹懶的管理 ${context.appVersion}  |  ${context.time} 產生`,
   ];
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
-  const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.eligible} 筆；合作診所供貨，略過簡表無庫存 ${s.outside.eligible} 筆、遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
+  const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.none + s.outside.low} 筆；合作診所供貨，略過無庫存 ${s.outside.none}、不足 0.1 月 ${s.outside.low} 筆，遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
   if (kind === 'safety') return { title: LIST_TITLE.safety, rows, meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六碼', width: 18 }, { label: '清理後名稱', width: 84 }, { label: '庫存量', width: 22, align: 'right' }, { label: 'A（次/月）', width: 22, align: 'right' }, { label: 'A×B', width: 22, align: 'right' }, { label: '建議安全量', width: 22, align: 'right' }],
-    note: 'A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；8 < A < 30 時係數 = 1.2 + (A − 8) × 2.3 ÷ 22，A ≥ 30 時為 3.5。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；' + (data.partner ? `同值依六碼。合作診所供貨判定：依一般規則進入清單的品項中有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些六碼不由本店監控安全量，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
+    note: 'A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；係數依本清單 A 排名：前 1/3 為 3.5，其餘依名次線性降至末位 1.2（同 A 同係數）。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；' + (data.partner ? `同值依六碼。合作診所供貨判定：依一般規則進入清單的品項中有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 0.1 個月用量（含負庫存）的六碼視為合作診所供應，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
