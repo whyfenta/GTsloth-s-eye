@@ -192,44 +192,60 @@ export function stockDuplicates(rows: StockRow[]): StockRow[][] {
 }
 
 // ---- Safety stock ----------------------------------------------------------
-export const THRESHOLD = frac(8n); const CAP = frac(30n);
-/** 1.2 at A = 8 rising linearly to 3.5 at A = 30, then fixed. */
-export function coefficient(a: Frac): Frac {
-  if (cmp(a, CAP) >= 0) return frac(7n, 2n);
-  return add(frac(6n, 5n), mul(sub(a, THRESHOLD), frac(23n, 220n)));
-}
-export type SafetyRow = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; coefficient: Frac; safety: bigint;
-  stock?: Frac; stockName?: string };
-export type SafetyResult = { n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: SafetyRow[];
-  /** Partner-clinic stores only: A > 8 codes without any stock line, left out, and how many later codes moved up into the list. */
-  outside?: { eligible: number; filled: number } };
+export const THRESHOLD = frac(8n);
 /**
- * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient).
+ * Months of cover by rank on the store's own list, so a busy store does not give every code the maximum.
+ * p = 1 − i / (K − 1) for the i-th row (0 = highest A; equal A share the first rank). The top third (p ≥ 2/3) gets 3.5:
+ * a quarter-long supplier outage plus two missed deliveries. Below it the coefficient falls linearly to 1.2 at the last row,
+ * three delivery cycles. On 26永和 the top third matches the former A ≥ 30.
+ */
+const TOP = frac(2n, 3n);
+export function coefficient(i: number, k: number): Frac {
+  const p = k > 1 ? frac(BigInt(k - 1 - i), BigInt(k - 1)) : frac(1n);
+  return cmp(p, TOP) >= 0 ? frac(7n, 2n) : add(frac(6n, 5n), mul(p, frac(69n, 20n)));
+}
+/** One code's use; `all` holds every code with a count, the list only the selected ones. */
+export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
+export type SafetyRow = UsageRate & { coefficient: Frac; safety: bigint };
+export type SafetyResult = { n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
+  /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under LOW_COVER of it, and how many later codes moved up. */
+  outside?: { none: number; low: number; filled: number } };
+/**
+ * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank).
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
- * With a partner clinic, codes the store holds no stock of are not ours to watch: they are skipped and the next
- * qualifying code moves up, so K still aims at floor(N × 10%) with N unchanged.
+ * With a partner clinic, codes the store holds no stock of, or less than LOW_COVER of their monthly use, are mostly
+ * supplied by the clinic: they are skipped and the next qualifying code moves up, so K still aims at floor(N × 10%).
  */
 export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false): SafetyResult {
-  const all: SafetyRow[] = [];
+  const all: UsageRate[] = [];
   for (const item of items) {
     if (item.count.n === 0n) continue; // no division by a zero count; such an item can never have A > 8
-    const a = div(item.count, months); const b = roundHalfUp(div(item.quantity, item.count)); const ab = mul(a, frac(b)); const c = coefficient(a);
-    const inStock = stock.get(item.sku);
-    all.push({ sku: item.sku, name: inStock?.name ?? item.name, unit: item.unit, count: item.count, quantity: item.quantity, a, b, ab, coefficient: c, safety: ceil(mul(ab, c)), stock: inStock?.qty, stockName: inStock?.name });
+    const a = div(item.count, months); const b = roundHalfUp(div(item.quantity, item.count)); const inStock = stock.get(item.sku);
+    all.push({ sku: item.sku, name: inStock?.name ?? item.name, unit: item.unit, count: item.count, quantity: item.quantity, a, b, ab: mul(a, frac(b)), stock: inStock?.qty, stockName: inStock?.name });
   }
   all.sort((x, y) => cmp(y.a, x.a) || x.sku.localeCompare(y.sku));
   const qualifying = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
-  const eligible = partner ? qualifying.filter(held) : qualifying;
-  const k = Math.min(limit, eligible.length);
-  const outside = partner ? { eligible: qualifying.length - eligible.length, filled: eligible.slice(0, k).filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
-  return { n, limit, eligible: eligible.length, k, rows: eligible.slice(0, k), all, outside };
+  const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row)) : qualifying;
+  const k = Math.min(limit, eligible.length); const picked = eligible.slice(0, k);
+  const rows = picked.map((row, i) => {
+    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const c = coefficient(rank < 0 ? i : rank, k);
+    return { ...row, coefficient: c, safety: ceil(mul(row.ab, c)) };
+  });
+  const none = qualifying.filter(row => !held(row)).length;
+  const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
+  return { n, limit, eligible: eligible.length, k, rows, all, outside };
 }
 /**
  * The store holds stock of a code when the stock sheet prints it with a total other than 0. A 0 total means the same as
- * no line: a sheet printed with zero stock lists the whole product file (0015: 96 of 171 listed codes at 0). A negative
- * total was dispensed from the store's own stock and stays ours.
+ * no line: a sheet printed with zero stock lists the whole product file (0015: 96 of 171 listed codes at 0).
  */
-export const held = (row: SafetyRow) => row.stock !== undefined && row.stock.n !== 0n;
+export const held = (row: UsageRate) => row.stock !== undefined && row.stock.n !== 0n;
+/**
+ * Partner-clinic stores: stock under 0.1 month (about 3 days) of the code's monthly use, negative stock included, means
+ * the clinic supplies most of it (0015: 45 such codes, 40% of the list's use; 26永和: none).
+ */
+export const LOW_COVER = frac(1n, 10n);
+export const lowCover = (row: UsageRate) => row.stock !== undefined && row.ab.n !== 0n && cmp(div(row.stock, row.ab), LOW_COVER) < 0;
 /**
  * A store that also dispenses drugs supplied by a partner clinic: more than PARTNER_LIMIT codes of the ordinary safety
  * list are not held. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.

@@ -31,7 +31,7 @@ test('attached templates: every page parses and the documented baseline is repro
   const valid=data.usageRows.filter(r=>!r.excluded);const excluded=data.usageRows.filter(r=>r.excluded);
   assert.equal(valid.length,1108);assert.deepEqual(excluded.map(r=>r.sku),['R001']);
   const s=data.safety!;assert.deepEqual([s.n,s.limit,s.eligible,s.k],[1069,106,175,106]);
-  const row=s.all.find(r=>r.sku==='000206')!;
+  const row=s.rows.find(r=>r.sku==='000206')!;
   assert.deepEqual([formatFrac(row.count),formatFrac(row.quantity),formatFrac(row.a),row.b,formatFrac(row.ab),formatFrac(row.coefficient),row.safety,formatFrac(row.stock!)],['165','4,287','41.25',26n,'1,072.5','3.5',3754n,'1,990']);
   assert.equal(data.stockRows.length,1002);assert.equal(data.stockRows.find(r=>r.sku==='000206')!.location,'5脂41@');
   assert.equal(data.stockRows.find(r=>r.sku==='000083')!.name,'缺貨 PENTOP循妥斯持續性錠400MG');
