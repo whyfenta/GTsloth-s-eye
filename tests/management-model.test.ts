@@ -186,6 +186,16 @@ test('dead stock (≠ 0, incl. negative) and empty slots (= 0) only for codes ou
   const lists=slotLists(rows,new Set(['000004','000007']));
   assert.deepEqual(lists.dead.map(r=>[r.sku,r.negative]),[['000005',false],['000001',false],['000003',true]]);
   assert.deepEqual(lists.empty.map(r=>r.sku),['000002','000006']);
+  assert.deepEqual(lists.selfPay,[]);
+});
+test('self-pay lines (自費 anywhere in the status prefix) are set apart from dead stock and empty slots',()=>{
+  const rows=[stock('099972',4,'D1','自費C-4粒/盒VIAGRA威而鋼膜衣錠100MG'),stock('165341',2,'A1','!自費A-4錠/盒Vedafil威達挺膜衣錠100MG'),
+    stock('193671',0,'B1','換包自費C-14粒/盒Rozerem柔速瑞膜衣錠8MG'),stock('103529',1,'','停供自費避光C-(藥證已註銷)ATANAAL壓達能軟膠囊5MG'),
+    stock('178361',5,'C1','自費C-28粒/盒Kerendia可申達膜衣錠20MG'),stock('000005',4,'A9','C-30粒/盒自費測試錠'),stock('000006',0,'A2','C-30粒/盒一般錠')];
+  const lists=slotLists(rows,new Set(['178361']));
+  assert.deepEqual(lists.selfPay.map(r=>r.sku),['165341','193671','099972','103529'],'any quantity, by location, blank last; a used self-pay code is in neither');
+  assert.deepEqual(lists.dead.map(r=>r.sku),['000005'],'自費 inside the name after the marker is not the prefix');
+  assert.deepEqual(lists.empty.map(r=>r.sku),['000006']);
 });
 test('store identity: number and name must agree; different numbers are never the same store',()=>{
   const usage=storeId('26永和福和店','0026');const sheet=storeId('26北-永和福和店');
