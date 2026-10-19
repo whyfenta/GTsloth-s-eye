@@ -29,7 +29,9 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   document.setTitle(spec.title); document.setAuthor('樹懶的管理'); document.setSubject(spec.subject ?? '在瀏覽器產生的 A4 管理清單');
   const xs = [mm(10)]; for (const column of spec.columns) xs.push(xs.at(-1)! + mm(column.width));
   const { size, leading } = LIST_PRINT; const pad = mm(LIST_PRINT.padding);
-  const top = mm(LIST_PRINT.top); const bottom = mm(LIST_PRINT.bottom);
+  // The footer note holds up to 5 lines above the page number; the table takes the room of the lines it does not use.
+  const noteLines = wrapText(spec.note, font, 7, mm(170)).slice(0, 5); const unused = (5 - noteLines.length) * 8.5;
+  const top = mm(LIST_PRINT.top); const bottom = mm(LIST_PRINT.bottom) - unused;
   const prepared = spec.rows.map((cells, row) => {
     const alerts = cells.map((_, i) => Boolean(spec.alerts?.[row]?.[i]));
     const lines = cells.map((cell, i) => wrapText(cell, alerts[i] ? bold : font, size, mm(spec.columns[i].width) - pad * 2));
@@ -42,7 +44,6 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   for (const item of prepared) { if (item.height > available && group.length) { groups.push(group); group = []; available = top - bottom; } group.push(item); available -= item.height; }
   if (group.length || !groups.length) groups.push(group);
   const line = (page: ReturnType<typeof document.addPage>, x0: number, y0: number, x1: number, y1: number) => page.drawLine({ start: { x: x0, y: y0 }, end: { x: x1, y: y1 }, thickness: .45, color: rgb(.6, .65, .62) });
-  const noteLines = wrapText(spec.note, font, 7, mm(170));
   for (let p = 0; p < groups.length; p++) {
     const page = document.addPage([mm(210), mm(297)]);
     page.drawText(spec.title, { x: mm(10), y: mm(283), size: 16, font, color: rgb(.12, .23, .2) });
@@ -73,7 +74,7 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
       line(page, xs[0], next, xs.at(-1)!, next); y = next;
     }
     if (groups[p].length) { for (const x of xs) line(page, x, headerTop, x, y); line(page, xs[0], headerTop, xs.at(-1)!, headerTop); }
-    noteLines.slice(0, 5).forEach((text, i) => page.drawText(text, { x: mm(10), y: mm(19) - i * 8.5, size: 7, font }));
+    noteLines.forEach((text, i) => page.drawText(text, { x: mm(10), y: mm(19) - unused - i * 8.5, size: 7, font }));
     const footer = `${p + 1} / ${groups.length}`;
     page.drawText(footer, { x: mm(200) - font.widthOfTextAtSize(footer, 8), y: mm(8), size: 8, font });
   }

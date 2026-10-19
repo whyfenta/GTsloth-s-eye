@@ -71,6 +71,10 @@ export const LONG_PERIOD = frac(5n, 2n);
 export const longPeriod = (months: Frac) => cmp(months, LONG_PERIOD) > 0;
 export const nextDay = (day: Day) => fromSerial(serial(day) + 1);
 export const dayBefore = (a: Day, b: Day) => serial(a) < serial(b);
+export const daysBetween = (a: Day, b: Day) => serial(b) - serial(a);
+/** A report printed this many days or more before today may no longer match the store; its lists carry a warning. */
+export const STALE_DAYS = 7;
+export const today = (): Day => { const now = new Date(); return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() }; };
 
 // ---- Stores ----------------------------------------------------------------
 export type StoreId = { number?: number; core: string; label: string };
@@ -193,7 +197,7 @@ export function stockDuplicates(rows: StockRow[]): StockRow[][] {
 
 // ---- Safety stock ----------------------------------------------------------
 export const THRESHOLD = frac(8n);
-export const DEFAULT_SAFETY_STRATEGY = 'hamster';
+export const DEFAULT_SAFETY_STRATEGY = 'balanced';
 export const SAFETY_STRATEGIES = {
   hamster: { name: '倉鼠派', symbol: '🐹', maximum: frac(7n, 2n), minimum: frac(6n, 5n),
     focus: '充足備貨，應對供貨波動', advantage: '供貨不穩定時，保有較充足的貨源。', need: '需要較大的調劑與儲存空間。' },

@@ -24,7 +24,7 @@ test('attached templates: every page parses and the documented baseline is repro
   assert.equal(createHash('sha256').update(fs.readFileSync(stockFile)).digest('hex'),HASH.inventory);
   const usage=parseAll(await readPages(usageFile),'usage',0);const stock=parseAll(await readPages(stockFile),'inventory',1);
   assert.equal(usage.length,28);assert.equal(stock.length,29);assert.ok(stock.every(p=>p.facts.reportTotal===29));
-  const data=derive([...usage,...stock],[],none);
+  const data=derive([...usage,...stock],[],none,{y:2026,m:10,d:16});
   assert.deepEqual(data.blockers,[]);assert.equal(data.storeMatch,'same');assert.equal(data.ready,true,'text PDFs need no row review');
   assert.deepEqual(data.warnings.length,1,'stock printed 2026/10/11, before the 2026/10/15 period end');
   assert.equal(data.period,'2026/06/16～2026/10/15');assert.equal(formatFrac(data.months!),'4');assert.equal(data.payment,'全部');

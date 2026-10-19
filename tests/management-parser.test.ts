@@ -70,8 +70,9 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     ...line(140,'000083','C-B','粒','120','1200'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
     ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
   const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
-  const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'});
-  assert.equal(baseline.safety!.strategy,'hamster');
+  const printDay={y:2026,m:10,d:16};
+  const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'},printDay);
+  assert.equal(baseline.safety!.strategy,'balanced','平衡派 is the default');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
   for(const [strategy,name,range,values,toOrder] of [
@@ -79,7 +80,7 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—']],
     ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—']],
   ] as const){
-    const result=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010',safetyStrategy:strategy});
+    const result=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010',safetyStrategy:strategy},printDay);
     assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
     assert.deepEqual(result.safety!.rows.map(r=>r.shortage),[false,true,false,false]);
     assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
@@ -89,7 +90,8 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
-    assert.match(spec.title,new RegExp(`^安全量調整及採購建議清單 · ${name}$`));assert.ok(spec.note.includes(`係數 ${range}`));
+    assert.equal(spec.title,`安全量調整及採購建議清單 · ${name}（係數 ${range}）`);
+    assert.equal(spec.note,'紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。','the footer repeats no formula');
     assert.deepEqual(spec.columns.map(c=>c.label),['六編碼','品名','現有庫存量','調劑頻率(/月)','均月銷','建議安全量','待採量']);
     const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
     for(const text of [name,range,'待採量',...values,...toOrder.filter(v=>v!=='—')])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
@@ -122,6 +124,17 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
   assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
 });
+test('a report printed a week or more before today carries a warning on the page and on every printed list',()=>{
+  const stock=parsed(fix(stockPage()),'inventory',1,1);const usage=parsed(usagePage(1,1),'usage',0,1);
+  const ctx={files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'};
+  const fresh=derive([usage,stock],[],decisions,{y:2026,m:10,d:17}); // stock printed 10/11: 6 days, usage 10/16: 1 day
+  assert.deepEqual(fresh.stale,[]);assert.ok(!fresh.warnings.some(w=>/失真/.test(w)));assert.ok(!listSpec('dead',fresh,ctx).note.includes('警語'));
+  const old=derive([usage,stock],[],decisions,{y:2026,m:10,d:18}); // stock 7 days: warned; usage 2 days: not
+  assert.deepEqual(old.stale.map(s=>[s.kind,s.days]),[['inventory',7]]);
+  assert.ok(old.warnings.some(w=>/庫存簡表列印於 2026\/10\/11，距今已 7 天.*失真/.test(w)));
+  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).note,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），已逾一週，輸出結果可能失真。/);
+  assert.deepEqual(derive([usage,stock],[],decisions,{y:2026,m:10,d:30}).stale.map(s=>s.kind),['inventory','usage']);
+});
 test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1); // 000206, 000083, 000500
   // N = 120, 10% = 12. 000206 A = 50; `missing` codes without a stock line A = 25; 000083 A = 10; the rest A = 0.25.
@@ -144,13 +157,13 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼簡表無紀錄或庫存合計為 0（> 10）/);
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);
   assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
   assert.doesNotMatch(spec.note,/可能被略過/,'the default 0.1 mask carries no extra risk note');
   // The optional 0.2-month mask is printed on the list together with the purchase-need risk.
   const wide=derive([usage(11),stock],[],{...decisions,partnerCover:'wide'});
   const wideSpec=listSpec('safety',wide,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.match(wideSpec.meta[2],/不足 0.2 月/);assert.match(wideSpec.note,/不足 0.2 個月用量/);assert.match(wideSpec.note,/確需採購的品項也可能被略過/);
+  assert.match(wideSpec.meta[2],/不足 0.2 月/);assert.match(wideSpec.note,/遮罩放寬至 0.2 個月/);assert.match(wideSpec.note,/確需採購的品項也可能被略過/);
   assert.equal(derive([usage(10),stock],[],{...decisions,partnerCover:'wide'}).safety!.outside,undefined,'the choice does nothing without a partner clinic');
   // A line printed with 0 stock means the same as no line: 10 missing + 1 at zero is 11.
   const zeroStock=parsed(fix(stockPage(1,1,'26北-測試店',[['300000',5,200],['C-合作0',95,200],['4710000300000',395,200],['A-測試',665,200],['冰-合作診所',745,200],['0',840,200],['0',890,200]])),'inventory',1,1);

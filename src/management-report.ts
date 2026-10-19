@@ -1,7 +1,7 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, DEFAULT_SAFETY_STRATEGY, COLD_FACTOR, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, statMonths, stockDuplicates, stockErrors, sub, unheldOnList, usageCodes, usageErrors, ZERO,
-  type Assembly, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
+  type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
 
@@ -18,6 +18,8 @@ export type Derived = {
   pendingUsage: UsageRow[]; pendingStock: StockRow[]; summary: UsageSummary; duplicates: StockRow[][];
   months?: Frac; period?: string; payment?: string; storeLabel: string; storeMatch?: 'same' | 'different' | 'unsure';
   safety?: SafetyResult; dead: SlotRow[]; empty: SlotRow[]; zeroRows: number;
+  /** Reports printed STALE_DAYS or more before today: their numbers may no longer match the store. */
+  stale: { kind: 'usage' | 'inventory'; printed: Day; days: number }[];
   /** Set when more than PARTNER_LIMIT codes of the ordinary safety list have no stock line: how many there were. */
   partner?: { missing: number };
   /** Usage codes without any stock line; the ones on the safety list need an explicit acknowledgement. */
@@ -28,7 +30,7 @@ export const needsReview = <R extends { reviewed: boolean; excluded?: string }>(
 const pagesOf = (rows: { origin: { reportPage: number } }[]) => [...new Set(rows.map(row => row.origin.reportPage))].sort((a, b) => a - b);
 const label = { usage: '醫品調劑數量統計表', inventory: '庫存簡表' };
 
-export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'inventory'; reason: string }[], decisions: Decisions): Derived {
+export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'inventory'; reason: string }[], decisions: Decisions, now: Day = today()): Derived {
   const usage = assemble(pages.filter(page => page.kind === 'usage')); const stock = assemble(pages.filter(page => page.kind === 'inventory'));
   const blockers: string[] = []; const warnings: string[] = [];
   for (const item of rejected) blockers.push(`${label[item.kind]}：${item.reason}`);
@@ -51,6 +53,14 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   if (first?.period && !months) blockers.push('統計期間的截止日早於起日');
   if (first?.period && firstStock?.printed && dayBefore(firstStock.printed, first.period.end))
     warnings.push(`庫存簡表列印於 ${formatDay(firstStock.printed)}，早於調劑統計截止日 ${formatDay(first.period.end)}；庫存量是列印當時的數字`);
+  const stale: Derived['stale'] = [];
+  for (const [kind, facts] of [['inventory', firstStock], ['usage', first]] as const) {
+    const days = facts?.printed ? daysBetween(facts.printed, now) : 0;
+    if (facts?.printed && days >= STALE_DAYS) {
+      stale.push({ kind, printed: facts.printed, days });
+      warnings.push(`${label[kind]}列印於 ${formatDay(facts.printed)}，距今已 ${days} 天（一週以上）；門市現況可能已改變，輸出的清單可能失真，建議重新列印最新報表`);
+    }
+  }
   const pendingUsage = usageRows.filter(row => needsReview(row, usageErrors(row)));
   const duplicates = stockDuplicates(stockRows); const duplicated = new Set(duplicates.flat());
   const pendingStock = stockRows.filter(row => needsReview(row, stockErrors(row)) || duplicated.has(row));
@@ -78,7 +88,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
   return { usage, stock, usageRows, stockRows, blockers, warnings, pendingUsage, pendingStock, summary, duplicates, months, period, payment, storeLabel: first?.store.label ?? firstStock?.store.label ?? '',
-    storeMatch, safety, dead, empty, zeroRows, partner, missing, missingKey, ready, available, reasons };
+    storeMatch, safety, dead, empty, zeroRows, stale, partner, missing, missingKey, ready, available, reasons };
 }
 
 export const NO_STOCK = '簡表無此碼';
@@ -100,6 +110,7 @@ export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;
+  const warn = data.stale.length ? `【警語】${data.stale.map(item => `${label[item.kind]}列印於 ${formatDay(item.printed)}（距產生日 ${item.days} 天）`).join('、')}，已逾一週，輸出結果可能失真。` : '';
   const files = (kind: 'usage' | 'inventory') => { const names = context.files[kind]; return names.length > 1 ? `${names[0]} 等 ${names.length} 個檔案` : names[0] ?? ''; };
   const meta = [
     `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆`,
@@ -108,16 +119,17 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
   const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.none + s.outside.low} 筆；合作診所供貨，略過無庫存 ${s.outside.none}、不足 ${formatFrac(s.outside.cover)} 月 ${s.outside.low} 筆，遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
-  if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
+  if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六編碼', width: 18 }, { label: '品名', width: 68 }, { label: '現有庫存量', width: 22, align: 'right' }, { label: '調劑頻率(/月)', width: 24, align: 'right' }, { label: '均月銷', width: 18, align: 'right' }, { label: '建議安全量', width: 20, align: 'right' }, { label: '待採量', width: 20, align: 'right' }],
-    note: `${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）。調劑頻率 A = 合計次數 ÷ 統計月數；每次用量 B = 四捨五入（合計數量 ÷ 合計次數）；均月銷 = A × B。建議安全量 = 無條件進位（均月銷 × 係數）；係數依本清單 A 排名：前 1/3 為 ${formatFrac(SAFETY_STRATEGIES[s.strategy].maximum)}，其餘依名次線性降至末位 ${formatFrac(SAFETY_STRATEGIES[s.strategy].minimum)}（同 A 同係數）；品名有「缺貨」前綴者係數 +1；有「冷藏」前綴者（冷藏空間固定、不容超量）係數再 × ${formatFrac(COLD_FACTOR)}。待採量 = 建議安全量 − 現有庫存量（不足 0 記 0）。紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。A、均月銷顯示兩位小數，以完整精度計算。現有庫存量為同碼各儲位合計；` + (data.partner ? `同值依六碼。合作診所供貨：一般規則下清單內有 ${data.partner.missing} 個六碼簡表無紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 ${formatFrac(s.outside!.cover)} 個月用量（含負庫存）者視為合作診所供應，由後一位遞補，N 不變。` + (cmp(s.outside!.cover, PARTNER_COVERS.standard) > 0 ? `使用者選用 ${formatFrac(s.outside!.cover)} 個月遮罩：本店庫存偏低、確需採購的品項也可能被略過。` : '') : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0，待採量印「—」；名稱取自調劑表，可能被截短。'),
+    // Formulas are on the web page; the footer keeps only what the reader needs beside the red cells and any risk.
+    note: warn + '紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。' + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
-    note: `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷依據為使用者確認的庫存範圍。`,
+    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷依據為使用者確認的庫存範圍。`,
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
-    note: `空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。${data.zeroRows ? '' : '這份庫存簡表沒有零庫存列，結果依使用者確認「列印時已包含零庫存」。'}`,
+    note: warn + `空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。${data.zeroRows ? '' : '這份庫存簡表沒有零庫存列，結果依使用者確認「列印時已包含零庫存」。'}`,
     empty: data.zeroRows ? '庫存簡表的零庫存品項都在統計期間內有調劑紀錄，沒有空位。' : '庫存簡表沒有任何零庫存列（使用者已確認列印時包含零庫存），因此沒有空位。' };
 }
