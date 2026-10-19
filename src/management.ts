@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, formatFrac, matchStores, PARTNER_LIMIT, SIX, stockErrors, usageErrors, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, DEFAULT_SAFETY_STRATEGY, formatFrac, matchStores, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
@@ -26,7 +26,7 @@ type Output = { bytes: Uint8Array; url: string; version: number; pages: number; 
 // entries: files in import order; a row's origin.file is its index here. Changing the files clears the results.
 let entries: Entry[] = []; let adding = false; let parsing = false; let cancelRequested = false; let parsed = false; let documentNumber = 0;
 let pages: ParsedPage[] = []; let rejected: { kind: ReportKind; reason: string }[] = []; let progress = { done: 0, total: 0, message: '' };
-let decisions: Decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '' };
+let decisions: Decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: DEFAULT_SAFETY_STRATEGY };
 let data: Derived | undefined; let attention = new Set<string>(); let reviewPage = 0; let errorMessage = '';
 // generation is the review revision; any change to sources, rows or decisions bumps it and drops every PDF.
 let generation = 0; let outputs: Partial<Record<ListKind, Output>> = {}; let generating = false;
@@ -97,7 +97,7 @@ function renderInputs() {
 const confirmDiscard = () => !parsed && !pages.length ? Promise.resolve(true) : ask('清除目前結果？', '<p>加入或移除檔案會清除目前的解析與校對結果，之後需重新按「開始解析」。</p>', '保留目前結果', '清除並更新檔案');
 function resetResults() {
   documentNumber++; cancelRequested = true; parsed = false; pages = []; rejected = []; data = undefined; attention = new Set(); reviewPage = 0; progress = { done: 0, total: 0, message: '' };
-  decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '' }; invalidate();
+  decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: decisions.safetyStrategy }; invalidate();
 }
 async function sha256(file: File) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join(''); }
 let pendingFiles: { kind: ReportKind; file: File }[] = [];
@@ -261,20 +261,36 @@ function renderReview() {
 function renderLists() {
   const section = el('lists'); section.hidden = !data || !parsed;
   if (section.hidden || !data) return;
+  const strategy = decisions.safetyStrategy ?? DEFAULT_SAFETY_STRATEGY;
+  const strategyCards = (Object.keys(SAFETY_STRATEGIES) as SafetyStrategy[]).map(key => {
+    const option = SAFETY_STRATEGIES[key];
+    return `<label class="mg-strategy-card">
+      <input id="strategy-${key}" type="radio" name="safety-strategy" value="${key}" ${strategy === key ? 'checked' : ''} aria-labelledby="strategy-name-${key}" aria-describedby="strategy-range-${key} strategy-detail-${key}">
+      <span class="mg-strategy-body"><span class="mg-strategy-heading"><span class="mg-strategy-symbol" aria-hidden="true">${option.symbol}</span><strong id="strategy-name-${key}">${option.name}</strong><span class="mg-strategy-check" aria-hidden="true">✓</span></span>
+        <span class="mg-strategy-focus">${option.focus}</span><span id="strategy-range-${key}" class="mg-strategy-range">係數 <b>${safetyStrategyRange(key)}</b><small>個月用量</small></span>
+        <span id="strategy-detail-${key}" class="mg-strategy-detail"><span><b>主要優勢</b>${option.advantage}</span><span><b>主要需求</b>${option.need}</span></span>
+      </span></label>`;
+  }).join('');
   const s = data.safety; const zeroNote = data.zeroRows ? '' : `<label class="checkbox-label mg-confirm"><input id="zero-confirm" type="checkbox" ${decisions.zeroConfirmed ? 'checked' : ''}>這份庫存簡表沒有零庫存列。我確認列印時已包含零庫存品項（若不確定，請勿勾選並重新列印）</label>`;
   const block = (kind: ListKind) => {
     const rows = listRows(kind, data!); const output = outputs[kind]; const columns = listSpec(kind, data!, context()).columns;
     const preview = rows.slice(0, 8).map(cells => `<tr>${cells.map((cell, i) => `<td class="${columns[i].align === 'right' ? 'num' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
-    return `<div class="mg-list ${data!.available[kind] ? '' : 'mg-disabled'}"><div class="mg-list-head"><label class="checkbox-label"><input type="checkbox" data-select="${kind}" ${selected[kind] && data!.available[kind] ? 'checked' : ''} ${data!.available[kind] ? '' : 'disabled'}><strong>${LIST_TITLE[kind]}</strong></label><span class="small-label">${data!.available[kind] ? `${rows.length} 筆` : escape(data!.reasons[kind])}</span>
+    return `<div class="mg-list ${data!.available[kind] ? '' : 'mg-disabled'}"><div class="mg-list-head"><label class="checkbox-label"><input type="checkbox" data-select="${kind}" ${selected[kind] && data!.available[kind] ? 'checked' : ''} ${data!.available[kind] ? '' : 'disabled'}><strong>${LIST_TITLE[kind]}</strong></label><span class="small-label">${data!.available[kind] ? `${rows.length} 筆${kind === 'safety' ? ` · ${SAFETY_STRATEGIES[strategy].name} · 係數 ${safetyStrategyRange(strategy)}` : ''}` : escape(data!.reasons[kind])}</span>
       ${output ? `<span class="mg-output"><button class="button secondary" data-preview="${kind}">預覽 PDF</button><button class="button primary" data-download="${kind}">${icon('file')}下載</button><small>${output.pages} 頁・版本 ${output.version}</small></span>` : ''}</div>
       ${data!.available[kind] ? `<div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${preview || `<tr><td colspan="${columns.length}" class="empty-table">${escape(listSpec(kind, data!, context()).empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}` : ''}</div>`;
   };
   const anySelected = LISTS.some(kind => selected[kind] && data!.available[kind]);
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式 · 可各自勾選</span></div>
     <div class="stats"><div><strong>${data.months ? formatFrac(data.months) : '—'}</strong><span>統計月數</span></div><div><strong>${s?.n ?? 0}</strong><span>品項數 N</span></div><div><strong>${s?.limit ?? 0}</strong><span>前 10%</span></div><div><strong>${s?.eligible ?? 0}</strong><span>A &gt; 8</span></div><div><strong>${s?.k ?? 0}</strong><span>安全量筆數 K</span></div></div>
+    <fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>選擇你的安全量策略</legend>
+      <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為沿用目前係數的倉鼠派。</p>
+      <div class="mg-strategy-grid">${strategyCards}</div>
+      <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。</p>
+    </fieldset>
+    <p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），下方建議安全量與 PDF 依此計算。</p>
     <label class="checkbox-label mg-confirm"><input id="scope-confirm" type="checkbox" ${decisions.scopeConfirmed ? 'checked' : ''}>呆藥與空位清單：我確認庫存簡表涵蓋要評估的全部儲位（PDF 無法證明範圍是否完整）</label>${zeroNote}
     ${LISTS.map(block).join('')}
-    <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '勾選要輸出的清單，再按「產生 PDF」。資料或勾選變更後，舊的 PDF 會失效。' : '沒有可輸出的清單。'}</p></div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
+    <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '選擇策略並勾選要輸出的清單，再按「產生 PDF」。資料、策略或勾選變更後，舊的 PDF 會失效。' : '沒有可輸出的清單。'}</p></div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
 }
 const context = () => ({ files: { usage: entries.filter(e => e.kind === 'usage').map(e => e.source.file.name), inventory: entries.filter(e => e.kind === 'inventory').map(e => e.source.file.name) }, version: generation, appVersion,
   time: new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()) });
@@ -329,7 +345,7 @@ async function generate() {
   } catch (error) { fontBytes = undefined; showError(error instanceof Error ? error.message : 'PDF 產生失敗。'); }
   finally { generating = false; render(); }
 }
-const pdfName = (kind: ListKind) => `${data?.storeLabel || '門市'}_${LIST_TITLE[kind]}.pdf`;
+const pdfName = (kind: ListKind) => `${data?.storeLabel || '門市'}_${LIST_TITLE[kind]}${kind === 'safety' ? `_${SAFETY_STRATEGIES[data?.safety?.strategy ?? DEFAULT_SAFETY_STRATEGY].name}` : ''}.pdf`;
 function current(kind: ListKind): Output {
   const output = outputs[kind]; if (!output || output.version !== generation || !data?.available[kind]) throw new Error('清單已因資料修改而失效，請重新產生。');
   return output;
@@ -352,6 +368,11 @@ el('clear-all').addEventListener('click', () => void clearAll());
 el('cancel').addEventListener('click', () => { cancelRequested = true; parsing = false; progress.message = '已取消解析，可重新開始'; pages = []; rejected = []; render(); });
 document.addEventListener('change', event => {
   const target = event.target as HTMLInputElement;
+  if (target.name === 'safety-strategy' && target.checked) {
+    if (busy() || !Object.hasOwn(SAFETY_STRATEGIES, target.value) || target.value === decisions.safetyStrategy) return;
+    decisions.safetyStrategy = target.value as SafetyStrategy; changed();
+    el<HTMLInputElement>(`strategy-${target.value}`).focus({ preventScroll: true }); return;
+  }
   if (target.dataset.row && target.dataset.field) return edit(target.dataset.row, target.dataset.field, target.value);
   if (target.dataset.confirm) return confirmRow(target.dataset.confirm, target.checked);
   if (target.dataset.select) { selected[target.dataset.select as ListKind] = target.checked; return changed(); }
@@ -377,7 +398,7 @@ el('close-pdf').addEventListener('click', () => el<HTMLDialogElement>('pdf-dialo
 el('dialog-download').addEventListener('click', () => { try { if (previewKind) save(previewKind); } catch (error) { el<HTMLDialogElement>('pdf-dialog').close(); showError(error instanceof Error ? error.message : 'PDF 已失效。'); } });
 function qaSnapshot() {
   return { parsed, parsing, error: errorMessage, generation, pages: pages.length, rejected, blockers: data?.blockers, warnings: data?.warnings, partner: data?.partner, ready: data?.ready, available: data?.available, reasons: data?.reasons,
-    months: data?.months && formatFrac(data.months), n: data?.safety?.n, k: data?.safety?.k, eligible: data?.safety?.eligible, missing: data?.missing.length, review: reviewItems().length,
+    safetyStrategy: data?.safety?.strategy, months: data?.months && formatFrac(data.months), n: data?.safety?.n, k: data?.safety?.k, eligible: data?.safety?.eligible, missing: data?.missing.length, review: reviewItems().length,
     lists: data && Object.fromEntries(LISTS.map(kind => [kind, listRows(kind, data!)])), outputs: Object.fromEntries(Object.entries(outputs).map(([kind, output]) => [kind, { pages: output.pages, rows: output.rows, version: output.version, bytes: output.bytes.length }])) };
 }
 if (import.meta.env.DEV) Object.defineProperty(window, 'managementQA', { get: qaSnapshot });

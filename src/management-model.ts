@@ -193,21 +193,36 @@ export function stockDuplicates(rows: StockRow[]): StockRow[][] {
 
 // ---- Safety stock ----------------------------------------------------------
 export const THRESHOLD = frac(8n);
+export const DEFAULT_SAFETY_STRATEGY = 'hamster';
+export const SAFETY_STRATEGIES = {
+  hamster: { name: '倉鼠派', symbol: '🐹', maximum: frac(7n, 2n), minimum: frac(6n, 5n),
+    focus: '充足備貨，應對供貨波動', advantage: '供貨不穩定時，保有較充足的貨源。', need: '需要較大的調劑與儲存空間。' },
+  balanced: { name: '平衡派', symbol: '⚖️', maximum: frac(5n, 2n), minimum: frac(4n, 5n),
+    focus: '高頻多備，低頻省空間', advantage: '較寬的係數梯度保留高頻用藥，並從較低頻用藥節省儲存空間。', need: '需要兼顧備貨餘裕與儲存空間。' },
+  antelope: { name: '羚羊派', symbol: '🦌', maximum: frac(6n, 5n), minimum: frac(3n, 5n),
+    focus: '精控庫存，配合空間限制', advantage: '精確控制備貨量，配合固定的倉儲空間。', need: '需要更密切、頻繁地關注貨源。' },
+} as const;
+export type SafetyStrategy = keyof typeof SAFETY_STRATEGIES;
+export const safetyStrategyRange = (strategy: SafetyStrategy) => {
+  const { maximum, minimum } = SAFETY_STRATEGIES[strategy];
+  return `${formatFrac(maximum)}～${formatFrac(minimum)}`;
+};
 /**
  * Months of cover by rank on the store's own list, so a busy store does not give every code the maximum.
- * p = 1 − i / (K − 1) for the i-th row (0 = highest A; equal A share the first rank). The top third (p ≥ 2/3) gets 3.5:
- * a quarter-long supplier outage plus two missed deliveries. Below it the coefficient falls linearly to 1.2 at the last row,
- * three delivery cycles. On 26永和 the top third matches the former A ≥ 30.
+ * p = 1 − i / (K − 1) for the i-th row (0 = highest A; equal A share the first rank).
+ * The top third (p ≥ 2/3) gets the strategy's maximum; below it the coefficient falls linearly to its minimum.
+ * The default hamster strategy preserves the original 3.5–1.2 curve exactly.
  */
 const TOP = frac(2n, 3n);
-export function coefficient(i: number, k: number): Frac {
+export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY): Frac {
   const p = k > 1 ? frac(BigInt(k - 1 - i), BigInt(k - 1)) : frac(1n);
-  return cmp(p, TOP) >= 0 ? frac(7n, 2n) : add(frac(6n, 5n), mul(p, frac(69n, 20n)));
+  const { maximum, minimum } = SAFETY_STRATEGIES[strategy];
+  return cmp(p, TOP) >= 0 ? maximum : add(minimum, mul(div(p, TOP), sub(maximum, minimum)));
 }
 /** One code's use; `all` holds every code with a count, the list only the selected ones. */
 export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
 export type SafetyRow = UsageRate & { coefficient: Frac; safety: bigint };
-export type SafetyResult = { n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
+export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
   /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under LOW_COVER of it, and how many later codes moved up. */
   outside?: { none: number; low: number; filled: number } };
 /**
@@ -216,7 +231,7 @@ export type SafetyResult = { n: number; limit: number; eligible: number; k: numb
  * With a partner clinic, codes the store holds no stock of, or less than LOW_COVER of their monthly use, are mostly
  * supplied by the clinic: they are skipped and the next qualifying code moves up, so K still aims at floor(N × 10%).
  */
-export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false): SafetyResult {
+export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY): SafetyResult {
   const all: UsageRate[] = [];
   for (const item of items) {
     if (item.count.n === 0n) continue; // no division by a zero count; such an item can never have A > 8
@@ -228,12 +243,12 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row)) : qualifying;
   const k = Math.min(limit, eligible.length); const picked = eligible.slice(0, k);
   const rows = picked.map((row, i) => {
-    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const c = coefficient(rank < 0 ? i : rank, k);
+    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const c = coefficient(rank < 0 ? i : rank, k, strategy);
     return { ...row, coefficient: c, safety: ceil(mul(row.ab, c)) };
   });
   const none = qualifying.filter(row => !held(row)).length;
   const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
-  return { n, limit, eligible: eligible.length, k, rows, all, outside };
+  return { strategy, n, limit, eligible: eligible.length, k, rows, all, outside };
 }
 /**
  * The store holds stock of a code when the stock sheet prints it with a total other than 0. A 0 total means the same as

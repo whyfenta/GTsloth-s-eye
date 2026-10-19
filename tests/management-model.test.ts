@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assemble,coefficient,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -41,6 +41,28 @@ test('the attached example 000206: two lines added, A 41.25, B 26, A×B 1072.5, 
   const fill=Array.from({length:9},(_,i)=>use(String(200000+i),1,1)); // N = 10: a one-row list, so the top third
   const [row]=safetyList(aggregateUsage([...summary.items.flatMap(item=>item.rows),...fill]).items,frac(4n),aggregateStock([stock('000206',1990,'5脂41@','EZETROL怡妥錠10MG')])).rows;
   assert.deepEqual([formatFrac(row.a),row.b,formatFrac(row.ab),formatFrac(row.coefficient),row.safety,formatFrac(row.stock!),row.name],['41.25',26n,'1,072.5','3.5',3754n,'1,990','EZETROL怡妥錠10MG']);
+});
+test('each strategy preserves the top-third plateau and a monotone exact gradient to its minimum',()=>{
+  const expected={hamster:['3.5','3.5','2.35','1.2'],balanced:['2.5','2.5','1.65','0.8'],antelope:['1.2','1.2','0.9','0.6']};
+  for(const strategy of Object.keys(SAFETY_STRATEGIES) as SafetyStrategy[]){
+    const {maximum,minimum}=SAFETY_STRATEGIES[strategy];
+    assert.deepEqual([0,1,2,3].map(i=>formatFrac(coefficient(i,4,strategy))),expected[strategy]);
+    assert.equal(cmp(coefficient(0,1,strategy),maximum),0,'a single row receives the maximum');
+    assert.equal(cmp(coefficient(35,106,strategy),maximum),0,'the boundary is included');
+    assert.ok(cmp(coefficient(36,106,strategy),maximum)<0,'the next row falls below the plateau');
+    assert.equal(cmp(coefficient(105,106,strategy),minimum),0);
+    for(let i=1;i<106;i++)assert.ok(cmp(coefficient(i,106,strategy),coefficient(i-1,106,strategy))<=0);
+    // Equal A at the tail still shares its first rank, rather than dropping to the minimum.
+    const items=aggregateUsage([...Array.from({length:27},(_,i)=>use(String(200000+i),1,1)),use('000001',30,30),use('000002',20,20),use('000003',20,20)]).items;
+    const result=safetyList(items,frac(1n),new Map(),false,strategy);
+    assert.equal(cmp(result.rows[1].coefficient,result.rows[2].coefficient),0);
+    assert.equal(safetyList(items.slice(0,9),frac(1n),new Map(),false,strategy).k,0);
+  }
+});
+test('strategy coefficients use exact arithmetic at integer safety boundaries',()=>{
+  const items=aggregateUsage([use('100001',50,4950),...Array.from({length:9},(_,i)=>use(String(200000+i),1,1))]).items;
+  for(const [strategy,expected] of [['hamster',5775n],['balanced',4125n],['antelope',1980n]] as const)
+    assert.equal(safetyList(items,frac(3n),new Map(),false,strategy).rows[0].safety,expected);
 });
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
   // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.
