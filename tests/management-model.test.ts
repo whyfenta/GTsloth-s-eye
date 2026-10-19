@@ -26,20 +26,20 @@ test('dead stock and empty slots open only strictly above 2.5 months',()=>{
   assert.equal(longPeriod(statMonths(day('20260616'),day('20260830'))!),false,'2 + 15/31 months');
 });
 test('coefficient by rank on the list: the top third 3.5, then linear down to 1.2 at the last row',()=>{
-  const c=(i:number,k:number)=>formatFrac(coefficient(i,k),6);
+  const c=(i:number,k:number)=>formatFrac(coefficient(i,k,'hamster'),6);
   assert.deepEqual([c(0,106),c(35,106),c(36,106),c(105,106)],['3.5','3.5','3.467143','1.2'],'26永和: rows 1–36 at 3.5, as with the former A ≥ 30 (35 rows)');
   assert.deepEqual([c(0,4),c(1,4),c(2,4),c(3,4)],['3.5','3.5','2.35','1.2']);assert.equal(c(0,1),'3.5','a one-row list is all top third');
   const base=Array.from({length:27},(_,i)=>use(String(200000+i),1,1));
-  const tie=safetyList(aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',20,20)]).items,frac(1n),new Map());
+  const tie=safetyList(aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',20,20)]).items,frac(1n),new Map(),false,'hamster');
   assert.deepEqual(tie.rows.map(r=>[r.sku,formatFrac(r.coefficient,6)]),[['000001','3.5'],['000002','2.925'],['000003','2.925']],'equal A, equal coefficient');
-  const busy=safetyList(aggregateUsage([...base,use('000001',3000,3000),use('000002',2000,2000),use('000003',1000,1000)]).items,frac(1n),new Map());
+  const busy=safetyList(aggregateUsage([...base,use('000001',3000,3000),use('000002',2000,2000),use('000003',1000,1000)]).items,frac(1n),new Map(),false,'hamster');
   assert.deepEqual(busy.rows.map(r=>formatFrac(r.coefficient,6)),['3.5','2.925','1.2'],'A far above 30 no longer means 3.5 for everyone');
 });
 test('the attached example 000206: two lines added, A 41.25, B 26, A×B 1072.5, safety 3754',()=>{
   const summary=aggregateUsage([use('000206',67,1767),use('000206',98,2520)]);
   assert.equal(summary.items.length,1);assert.equal(formatFrac(summary.items[0].count),'165');assert.equal(formatFrac(summary.items[0].quantity),'4,287');
   const fill=Array.from({length:9},(_,i)=>use(String(200000+i),1,1)); // N = 10: a one-row list, so the top third
-  const [row]=safetyList(aggregateUsage([...summary.items.flatMap(item=>item.rows),...fill]).items,frac(4n),aggregateStock([stock('000206',1990,'5脂41@','EZETROL怡妥錠10MG')])).rows;
+  const [row]=safetyList(aggregateUsage([...summary.items.flatMap(item=>item.rows),...fill]).items,frac(4n),aggregateStock([stock('000206',1990,'5脂41@','EZETROL怡妥錠10MG')]),false,'hamster').rows;
   assert.deepEqual([formatFrac(row.a),row.b,formatFrac(row.ab),formatFrac(row.coefficient),row.safety,formatFrac(row.stock!),row.name],['41.25',26n,'1,072.5','3.5',3754n,'1,990','EZETROL怡妥錠10MG']);
 });
 test('each strategy preserves the top-third plateau and a monotone exact gradient to its minimum',()=>{
@@ -76,14 +76,14 @@ test('a 缺貨 name adds 1 to the rank coefficient on every strategy, without ch
     assert.equal(cmp(b.rows[1].coefficient,frac(a.rows[1].coefficient.n+a.rows[1].coefficient.d,a.rows[1].coefficient.d)),0,strategy);
     assert.equal(cmp(b.rows[0].coefficient,a.rows[0].coefficient),0);assert.equal(cmp(b.rows[2].coefficient,a.rows[2].coefficient),0);
   }
-  assert.deepEqual(safetyList(items,frac(1n),short).rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
+  assert.deepEqual(safetyList(items,frac(1n),short,false,'hamster').rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
 });
 test('a 冷藏 name multiplies the coefficient by 0.8 after any 缺貨 bonus, without changing membership or rank',()=>{
   assert.equal(formatFrac(COLD_FACTOR),'0.8');
   const base=Array.from({length:27},(_,i)=>use(String(500000+i),1,1));
   const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',10,10)]).items;
-  const plain=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','品二'),stock('000003',0,'A3','品三')]));
-  const cold=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','冷藏 品一'),stock('000002',0,'A2','缺貨冷藏 品二'),stock('000003',0,'A3','品三')]));
+  const plain=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','品二'),stock('000003',0,'A3','品三')]),false,'hamster');
+  const cold=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','冷藏 品一'),stock('000002',0,'A2','缺貨冷藏 品二'),stock('000003',0,'A3','品三')]),false,'hamster');
   assert.deepEqual(cold.rows.map(r=>r.sku),plain.rows.map(r=>r.sku));
   assert.deepEqual(cold.rows.map(r=>[r.cold,r.shortage]),[[true,false],[true,true],[false,false]]);
   assert.deepEqual(cold.rows.map(r=>formatFrac(r.coefficient,6)),['2.8','3.14','1.2'],'3.5 × 0.8; (2.925 + 1) × 0.8; plain');
@@ -118,7 +118,7 @@ test('stock above 4 months of use is overstock; exactly 4 months is not',()=>{
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
   // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.
   const a=50/3;assert.equal(Math.ceil(a*99*3.5),5776,'the float formula really is off here');
-  const [row]=safetyList(aggregateUsage([use('100001',50,4950),...Array.from({length:9},(_,i)=>use(String(200000+i),1,1))]).items,frac(3n),new Map()).rows;
+  const [row]=safetyList(aggregateUsage([use('100001',50,4950),...Array.from({length:9},(_,i)=>use(String(200000+i),1,1))]).items,frac(3n),new Map(),false,'hamster').rows;
   assert.equal(formatFrac(row.a),'16.67');assert.equal(row.b,99n);assert.equal(row.safety,5775n);
   assert.equal(safetyList(aggregateUsage([use('100002',40,100)]).items,frac(4n),new Map()).all[0].b,3n,'2.5 rounds to 3');
   assert.equal(safetyList(aggregateUsage([use('100003',40,98)]).items,frac(4n),new Map()).all[0].b,2n,'2.45 rounds to 2');

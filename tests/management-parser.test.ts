@@ -71,7 +71,7 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
   const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
   const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'});
-  assert.equal(baseline.safety!.strategy,'hamster');
+  assert.equal(baseline.safety!.strategy,'balanced','平衡派 is the default');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
   for(const [strategy,name,range,values,toOrder] of [
@@ -121,6 +121,17 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.match(result.reasons.empty,/零庫存/,'a sheet without zero rows cannot prove empty slots');
   assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
   assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
+});
+test('a report printed a week or more before today carries a warning on the page and on every printed list',()=>{
+  const stock=parsed(fix(stockPage()),'inventory',1,1);const usage=parsed(usagePage(1,1),'usage',0,1);
+  const ctx={files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'};
+  const fresh=derive([usage,stock],[],decisions,{y:2026,m:10,d:17}); // stock printed 10/11: 6 days, usage 10/16: 1 day
+  assert.deepEqual(fresh.stale,[]);assert.ok(!fresh.warnings.some(w=>/失真/.test(w)));assert.ok(!listSpec('dead',fresh,ctx).note.includes('警語'));
+  const old=derive([usage,stock],[],decisions,{y:2026,m:10,d:18}); // stock 7 days: warned; usage 2 days: not
+  assert.deepEqual(old.stale.map(s=>[s.kind,s.days]),[['inventory',7]]);
+  assert.ok(old.warnings.some(w=>/庫存簡表列印於 2026\/10\/11，距今已 7 天.*失真/.test(w)));
+  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).note,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），已逾一週，輸出結果可能失真。/);
+  assert.deepEqual(derive([usage,stock],[],decisions,{y:2026,m:10,d:30}).stale.map(s=>s.kind),['inventory','usage']);
 });
 test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1); // 000206, 000083, 000500
