@@ -203,6 +203,9 @@ export const SAFETY_STRATEGIES = {
     focus: '精控庫存，配合空間限制', advantage: '精確控制備貨量，配合固定的倉儲空間。', need: '需要更密切、頻繁地關注貨源。' },
 } as const;
 export type SafetyStrategy = keyof typeof SAFETY_STRATEGIES;
+/** A code whose printed name keeps the 缺貨 prefix is short at the supplier: one more month of use on top of its rank coefficient. */
+export const SHORTAGE_BONUS = frac(1n);
+export const shortage = (name: string) => name.startsWith(KEEP_STATUS[0]);
 export const safetyStrategyRange = (strategy: SafetyStrategy) => {
   const { maximum, minimum } = SAFETY_STRATEGIES[strategy];
   return `${formatFrac(maximum)}～${formatFrac(minimum)}`;
@@ -221,12 +224,13 @@ export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEF
 }
 /** One code's use; `all` holds every code with a count, the list only the selected ones. */
 export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
-export type SafetyRow = UsageRate & { coefficient: Frac; safety: bigint };
+export type SafetyRow = UsageRate & { coefficient: Frac; shortage: boolean; safety: bigint };
 export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
   /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under LOW_COVER of it, and how many later codes moved up. */
   outside?: { none: number; low: number; filled: number } };
 /**
- * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank).
+ * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank),
+ * the coefficient raised by SHORTAGE_BONUS for a 缺貨 name; the bonus never changes which codes are listed or their rank.
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
  * With a partner clinic, codes the store holds no stock of, or less than LOW_COVER of their monthly use, are mostly
  * supplied by the clinic: they are skipped and the next qualifying code moves up, so K still aims at floor(N × 10%).
@@ -243,8 +247,9 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row)) : qualifying;
   const k = Math.min(limit, eligible.length); const picked = eligible.slice(0, k);
   const rows = picked.map((row, i) => {
-    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const c = coefficient(rank < 0 ? i : rank, k, strategy);
-    return { ...row, coefficient: c, safety: ceil(mul(row.ab, c)) };
+    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const short = shortage(row.name);
+    const c = add(coefficient(rank < 0 ? i : rank, k, strategy), short ? SHORTAGE_BONUS : ZERO);
+    return { ...row, coefficient: c, shortage: short, safety: ceil(mul(row.ab, c)) };
   });
   const none = qualifying.filter(row => !held(row)).length;
   const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length } : undefined;

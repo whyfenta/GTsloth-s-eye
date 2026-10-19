@@ -64,6 +64,20 @@ test('strategy coefficients use exact arithmetic at integer safety boundaries',(
   for(const [strategy,expected] of [['hamster',5775n],['balanced',4125n],['antelope',1980n]] as const)
     assert.equal(safetyList(items,frac(3n),new Map(),false,strategy).rows[0].safety,expected);
 });
+test('a 缺貨 name adds 1 to the rank coefficient on every strategy, without changing membership or rank',()=>{
+  const base=Array.from({length:27},(_,i)=>use(String(500000+i),1,1));
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',10,10)]).items;
+  const plain=aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','品二'),stock('000003',0,'A3','品三')]);
+  const short=aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','缺貨 品二'),stock('000003',0,'A3','品三')]);
+  for(const strategy of Object.keys(SAFETY_STRATEGIES) as SafetyStrategy[]){
+    const a=safetyList(items,frac(1n),plain,false,strategy);const b=safetyList(items,frac(1n),short,false,strategy);
+    assert.deepEqual(b.rows.map(r=>r.sku),a.rows.map(r=>r.sku));
+    assert.deepEqual(b.rows.map(r=>r.shortage),[false,true,false]);
+    assert.equal(cmp(b.rows[1].coefficient,frac(a.rows[1].coefficient.n+a.rows[1].coefficient.d,a.rows[1].coefficient.d)),0,strategy);
+    assert.equal(cmp(b.rows[0].coefficient,a.rows[0].coefficient),0);assert.equal(cmp(b.rows[2].coefficient,a.rows[2].coefficient),0);
+  }
+  assert.deepEqual(safetyList(items,frac(1n),short).rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
+});
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
   // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.
   const a=50/3;assert.equal(Math.ceil(a*99*3.5),5776,'the float formula really is off here');

@@ -73,20 +73,24 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
   const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'});
   assert.equal(baseline.safety!.strategy,'hamster');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
-  for(const [strategy,name,range,values] of [
-    ['hamster','倉鼠派','3.5～1.2',['3,754','1,050','470','120']],
-    ['balanced','平衡派','2.5～0.8',['2,682','750','330','80']],
-    ['antelope','羚羊派','1.2～0.6',['1,287','360','180','60']],
+  // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
+  for(const [strategy,name,range,values,toOrder] of [
+    ['hamster','倉鼠派','3.5～1.2',['3,754','1,350','470','120'],['1,764','982','—','—']],
+    ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—']],
+    ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—']],
   ] as const){
     const result=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010',safetyStrategy:strategy});
     assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
-    assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,-1)),listRows('safety',baseline).map(row=>row.slice(0,-1)));
-    assert.deepEqual(listRows('safety',result).map(row=>row.at(-1)),values);
+    assert.deepEqual(result.safety!.rows.map(r=>r.shortage),[false,true,false,false]);
+    assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
+    assert.deepEqual(listRows('safety',result).map(row=>row[5]),values,'建議安全量');
+    assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
-    assert.match(spec.title,new RegExp(name));assert.ok(spec.note.includes(`係數 ${range}`));
+    assert.match(spec.title,new RegExp(`^安全量調整及採購建議清單 · ${name}$`));assert.ok(spec.note.includes(`係數 ${range}`));
+    assert.deepEqual(spec.columns.map(c=>c.label),['六編碼','品名','現有庫存量','調劑頻率(/月)','均月銷','建議安全量','待採量']);
     const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
-    for(const text of [name,range,...values])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
+    for(const text of [name,range,'待採量',...values,...toOrder.filter(v=>v!=='—')])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
   }
 });
 test('a missing page blocks every list; adding it from a second file (from page 2) completes the report',()=>{
@@ -138,7 +142,7 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
-  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> 10）/);
+  assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼簡表無紀錄或庫存合計為 0（> 10）/);
   assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
   // A line printed with 0 stock means the same as no line: 10 missing + 1 at zero is 11.
   const zeroStock=parsed(fix(stockPage(1,1,'26北-測試店',[['300000',5,200],['C-合作0',95,200],['4710000300000',395,200],['A-測試',665,200],['冰-合作診所',745,200],['0',840,200],['0',890,200]])),'inventory',1,1);
