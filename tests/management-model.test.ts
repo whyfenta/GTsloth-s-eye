@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,COLD_FACTOR,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -78,6 +78,38 @@ test('a 缺貨 name adds 1 to the rank coefficient on every strategy, without ch
   }
   assert.deepEqual(safetyList(items,frac(1n),short).rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
 });
+test('a 冷藏 name multiplies the coefficient by 0.8 after any 缺貨 bonus, without changing membership or rank',()=>{
+  assert.equal(formatFrac(COLD_FACTOR),'0.8');
+  const base=Array.from({length:27},(_,i)=>use(String(500000+i),1,1));
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',10,10)]).items;
+  const plain=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','品二'),stock('000003',0,'A3','品三')]));
+  const cold=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','冷藏 品一'),stock('000002',0,'A2','缺貨冷藏 品二'),stock('000003',0,'A3','品三')]));
+  assert.deepEqual(cold.rows.map(r=>r.sku),plain.rows.map(r=>r.sku));
+  assert.deepEqual(cold.rows.map(r=>[r.cold,r.shortage]),[[true,false],[true,true],[false,false]]);
+  assert.deepEqual(cold.rows.map(r=>formatFrac(r.coefficient,6)),['2.8','3.14','1.2'],'3.5 × 0.8; (2.925 + 1) × 0.8; plain');
+  assert.deepEqual(cold.rows.map(r=>r.safety),[84n,63n,12n],'30 × 2.8; ceil(20 × 3.14); 10 × 1.2');
+  assert.deepEqual(plain.rows.map(r=>r.cold),[false,false,false]);
+});
+test('management keeps 冷藏 in front of the name, after 缺貨 whatever the report order; the inventory sheet still removes it',()=>{
+  assert.equal(cleanProductName('冷藏 C-(紅)5 支/盒 Delta Pen 測試筆',true,['缺貨','冷藏']).name,'冷藏 Delta Pen測試筆');
+  assert.equal(cleanProductName('冷藏缺貨 C-Theta 測試液 0.024% 2.5ML',true,['缺貨','冷藏']).name,'缺貨冷藏 Theta測試液0.024% 2.5ML');
+  assert.equal(cleanProductName('停供冷藏C-50瓶/封CHLORAMPHENICOL眼藥水0.25% 5ML',true,['缺貨','冷藏']).name,'冷藏 CHLORAMPHENICOL眼藥水0.25% 5ML');
+  assert.equal(cleanProductName('冷藏 C-(紅)5 支/盒 Delta Pen 測試筆',true).name,'Delta Pen測試筆');
+});
+test('partner clinic: the optional 0.2-month mask skips more low-stock codes and moves more codes up; 0.1 stays the default',()=>{
+  assert.equal(formatFrac(WIDE_COVER),'0.2');
+  const base=Array.from({length:25},(_,i)=>use(String(200000+i),1,1));
+  // N = 30, limit 3; monthly use 000001 30, 000002 20, 000003 15, 000004 10, 000005 9.
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',15,15),use('000004',10,10),use('000005',9,9)]).items;
+  // 000001 holds 5 (0.17 month): kept at 0.1, skipped at 0.2. 000002 holds 4 (exactly 0.2): kept by both.
+  const stocked=aggregateStock([stock('000001',5),stock('000002',4),stock('000003',30),stock('000004',10),stock('000005',9)]);
+  const standard=safetyList(items,frac(1n),stocked,true);
+  assert.deepEqual(standard.rows.map(r=>r.sku),['000001','000002','000003']);assert.deepEqual(standard.outside,{none:0,low:0,filled:0,cover:LOW_COVER});
+  const wide=safetyList(items,frac(1n),stocked,true,'hamster',WIDE_COVER);
+  assert.deepEqual(wide.rows.map(r=>r.sku),['000002','000003','000004'],'000004 moves up; exactly 0.2 month is enough');
+  assert.deepEqual(wide.outside,{none:0,low:1,filled:1,cover:WIDE_COVER});
+  assert.equal(safetyList(items,frac(1n),stocked,false,'hamster',WIDE_COVER).rows.map(r=>r.sku).join(),'000001,000002,000003','no mask without a partner clinic');
+});
 test('stock above 4 months of use is overstock; exactly 4 months is not',()=>{
   const items=aggregateUsage([use('000001',10,100),use('000002',10,100),use('000003',10,100),use('000004',10,100)]).items; // A×B = 100 a month
   const result=safetyList(items,frac(1n),aggregateStock([stock('000001',400),stock('000002','400.5'),stock('000003',-5)]));
@@ -119,15 +151,15 @@ test('partner clinic: codes the store holds no stock of are skipped and later co
   const partner=safetyList(more,frac(1n),stocked,true);
   assert.deepEqual([partner.n,partner.limit,partner.eligible,partner.k],[30,3,3,3],'000005 at 0 stock is not eligible either');
   assert.deepEqual(partner.rows.map(r=>r.sku),['000001','000003','000004'],'000004 moves up into the place of 000002');
-  assert.deepEqual(partner.outside,{none:2,low:0,filled:1});
+  assert.deepEqual(partner.outside,{none:2,low:0,filled:1,cover:LOW_COVER});
   assert.ok(partner.all.some(r=>r.sku==='000002'),'the skipped code is still calculated, only not listed');
   const short=safetyList(items,frac(1n),stocked,true);
   assert.deepEqual([short.limit,short.k],[3,2],'no backfill without another qualifying code; K never widens past A > 8');
-  assert.deepEqual(short.outside,{none:1,low:0,filled:0});
+  assert.deepEqual(short.outside,{none:1,low:0,filled:0,cover:LOW_COVER});
   // Monthly use: 000001 30 (stock 4 = 0.13 month), 000003 15, 000004 10, 000005 9.
   const zero=safetyList(more,frac(1n),aggregateStock([stock('000001',4),stock('000002',0),stock('000003',-2),stock('000004',3,'A1'),stock('000004',-3,'B1'),stock('000005','0.8')]),true);
   assert.deepEqual(zero.rows.map(r=>r.sku),['000001'],'0 and locations adding up to 0 are no stock; negative stock and 0.8 of 9 a month are under 0.1 month');
-  assert.deepEqual(zero.outside,{none:2,low:2,filled:0});
+  assert.deepEqual(zero.outside,{none:2,low:2,filled:0,cover:LOW_COVER});
   assert.equal(safetyList(more,frac(1n),aggregateStock([stock('000001',3),stock('000003',2)]),true).rows.map(r=>r.sku).join(),'000001,000003','exactly 0.1 month (3 of 30) is enough');
 });
 test('usage rows: invalid values are review items, never zero; non-six-digit codes are excluded records outside N',()=>{

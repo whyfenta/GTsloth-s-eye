@@ -140,12 +140,18 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   }
   assert.deepEqual(partner.partner,{missing:11});assert.equal(partner.safety!.n,120,'N keeps the partner codes');
   assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083'],'000083 moves up; K stays within the stock-sheet codes with A > 8');
-  assert.deepEqual(partner.safety!.outside,{none:11,low:0,filled:1});
+  assert.deepEqual({...partner.safety!.outside,cover:undefined},{none:11,low:0,filled:1,cover:undefined});
   assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
   assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);assert.match(spec.note,/有 11 個六碼簡表無紀錄或庫存合計為 0（> 10）/);
   assert.equal(derive([usage(11)],[],decisions).partner,undefined,'no verdict before the stock sheet is read');
+  assert.doesNotMatch(spec.note,/可能被略過/,'the default 0.1 mask carries no extra risk note');
+  // The optional 0.2-month mask is printed on the list together with the purchase-need risk.
+  const wide=derive([usage(11),stock],[],{...decisions,partnerCover:'wide'});
+  const wideSpec=listSpec('safety',wide,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
+  assert.match(wideSpec.meta[2],/不足 0.2 月/);assert.match(wideSpec.note,/不足 0.2 個月用量/);assert.match(wideSpec.note,/確需採購的品項也可能被略過/);
+  assert.equal(derive([usage(10),stock],[],{...decisions,partnerCover:'wide'}).safety!.outside,undefined,'the choice does nothing without a partner clinic');
   // A line printed with 0 stock means the same as no line: 10 missing + 1 at zero is 11.
   const zeroStock=parsed(fix(stockPage(1,1,'26北-測試店',[['300000',5,200],['C-合作0',95,200],['4710000300000',395,200],['A-測試',665,200],['冰-合作診所',745,200],['0',840,200],['0',890,200]])),'inventory',1,1);
   const zero=derive([usage(11),zeroStock],[],decisions);
