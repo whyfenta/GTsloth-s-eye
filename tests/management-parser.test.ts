@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive,listRows,listSpec,NO_STOCK} from '../src/management-report';
+import {derive,listAlerts,listRows,listSpec,NO_STOCK} from '../src/management-report';
 import type {TextItem,TextPage} from '../src/textlayer';
 import {readFileSync} from 'node:fs';
 import {generateListPDF} from '../src/management-pdf';
@@ -84,6 +84,8 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     assert.deepEqual(result.safety!.rows.map(r=>r.shortage),[false,true,false,false]);
     assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
     assert.deepEqual(listRows('safety',result).map(row=>row[5]),values,'建議安全量');
+    // 000206: 1,990 > 4 × 1,072.5 is false; 000083: 368 ≤ 4 × 300; 000009/000010 have no stock line.
+    assert.deepEqual(listAlerts('safety',result).map(row=>row.indexOf(true)),[-1,-1,-1,-1]);
     assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -77,6 +77,11 @@ test('a 缺貨 name adds 1 to the rank coefficient on every strategy, without ch
     assert.equal(cmp(b.rows[0].coefficient,a.rows[0].coefficient),0);assert.equal(cmp(b.rows[2].coefficient,a.rows[2].coefficient),0);
   }
   assert.deepEqual(safetyList(items,frac(1n),short).rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
+});
+test('stock above 4 months of use is overstock; exactly 4 months is not',()=>{
+  const items=aggregateUsage([use('000001',10,100),use('000002',10,100),use('000003',10,100),use('000004',10,100)]).items; // A×B = 100 a month
+  const result=safetyList(items,frac(1n),aggregateStock([stock('000001',400),stock('000002','400.5'),stock('000003',-5)]));
+  assert.deepEqual(result.all.map(r=>overstock(r)),[false,true,false,false],'400 is not above 400; no stock line is never marked');
 });
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
   // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.

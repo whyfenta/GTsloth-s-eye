@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {PDFDocument,PDFDict,PDFName} from 'pdf-lib';
 import {generateListPDF,type ListSpec} from '../src/management-pdf';
 import {pdfText} from './pdf-text';
 const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
@@ -23,4 +24,12 @@ test('a list without rows still prints a page that says why',async()=>{
 });
 test('column widths must fill the 190 mm table',async()=>{
   await assert.rejects(generateListPDF({...spec([]),columns:[{label:'六碼',width:20}]},font),/190 mm/);
+});
+test('alert cells print in red Helvetica-Bold; only numbers can be marked',async()=>{
+  const rows=[['000001','品一','5,000','10','100','350','0'],['000002','品二','100','10','100','350','250']];
+  const result=await generateListPDF({...spec(rows),alerts:[[false,false,true,false,false,false,false],[]]},font);
+  const fonts=async(bytes:Uint8Array)=>(await PDFDocument.load(bytes)).context.enumerateIndirectObjects().flatMap(([,o])=>o instanceof PDFDict&&o.get(PDFName.of('BaseFont'))?[String(o.get(PDFName.of('BaseFont')))]:[]);
+  assert.ok((await fonts(result.bytes)).includes('/Helvetica-Bold'));
+  assert.ok((await pdfText(result.bytes))[0].text.includes('5,000'));
+  await assert.rejects(generateListPDF({...spec(rows),alerts:[[false,true]]},font),/數字/);
 });

@@ -271,6 +271,12 @@ export const lowCover = (row: UsageRate) => row.stock !== undefined && row.ab.n 
  * list are not held. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.
  */
 export const PARTNER_LIMIT = 10;
+/**
+ * Stock above OVERSTOCK_MONTHS of monthly use is marked on the list: when a prescribing hospital switches the drug,
+ * use drops suddenly and such stock is the most likely to expire unused.
+ */
+export const OVERSTOCK_MONTHS = frac(4n);
+export const overstock = (row: UsageRate) => row.stock !== undefined && cmp(row.stock, mul(row.ab, OVERSTOCK_MONTHS)) > 0;
 export const unheldOnList = (result: SafetyResult) => result.rows.filter(row => !held(row)).length;
 export const partnerSupplied = (missing: number) => missing > PARTNER_LIMIT;
 

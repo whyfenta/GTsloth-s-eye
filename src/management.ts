@@ -5,7 +5,7 @@ const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
 import { autoExclusion, DEFAULT_SAFETY_STRATEGY, formatFrac, matchStores, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
-import { derive, LIST_TITLE, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
+import { derive, LIST_TITLE, listAlerts, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
 import { DocumentSource } from './source';
 import { cropCanvas, rotateCanvas } from './geometry';
@@ -274,7 +274,8 @@ function renderLists() {
   const s = data.safety; const zeroNote = data.zeroRows ? '' : `<label class="checkbox-label mg-confirm"><input id="zero-confirm" type="checkbox" ${decisions.zeroConfirmed ? 'checked' : ''}>這份庫存簡表沒有零庫存列。我確認列印時已包含零庫存品項（若不確定，請勿勾選並重新列印）</label>`;
   const block = (kind: ListKind) => {
     const rows = listRows(kind, data!); const output = outputs[kind]; const columns = listSpec(kind, data!, context()).columns;
-    const preview = rows.slice(0, 8).map(cells => `<tr>${cells.map((cell, i) => `<td class="${columns[i].align === 'right' ? 'num' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
+    const alerts = listAlerts(kind, data!);
+    const preview = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
     return `<div class="mg-list ${data!.available[kind] ? '' : 'mg-disabled'}"><div class="mg-list-head"><label class="checkbox-label"><input type="checkbox" data-select="${kind}" ${selected[kind] && data!.available[kind] ? 'checked' : ''} ${data!.available[kind] ? '' : 'disabled'}><strong>${LIST_TITLE[kind]}</strong></label><span class="small-label">${data!.available[kind] ? `${rows.length} 筆${kind === 'safety' ? ` · ${SAFETY_STRATEGIES[strategy].name} · 係數 ${safetyStrategyRange(strategy)}` : ''}` : escape(data!.reasons[kind])}</span>
       ${output ? `<span class="mg-output"><button class="button secondary" data-preview="${kind}">預覽 PDF</button><button class="button primary" data-download="${kind}">${icon('file')}下載</button><small>${output.pages} 頁・版本 ${output.version}</small></span>` : ''}</div>
       ${data!.available[kind] ? `<div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${preview || `<tr><td colspan="${columns.length}" class="empty-table">${escape(listSpec(kind, data!, context()).empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}` : ''}</div>`;

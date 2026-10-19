@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, parseDecimal, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, statMonths, stockDuplicates, stockErrors, sub, unheldOnList, usageCodes, usageErrors, ZERO,
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, statMonths, stockDuplicates, stockErrors, sub, unheldOnList, usageCodes, usageErrors, ZERO,
   type Assembly, type Frac, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
@@ -90,6 +90,11 @@ export function listRows(kind: ListKind, data: Derived): string[][] {
   const rows = kind === 'dead' ? data.dead : data.empty;
   return rows.map(row => kind === 'dead' ? [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)] : [row.sku, row.name, row.location]);
 }
+/** Cells printed in red heavy type: on the safety list, stock above 4 months of use (OVERSTOCK_MONTHS). */
+export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
+  if (kind !== 'safety') return listRows(kind, data).map(cells => cells.map(() => false));
+  return (data.safety?.rows ?? []).map(row => [false, false, overstock(row), false, false, false, false]);
+}
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;
@@ -101,9 +106,9 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
   const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.none + s.outside.low} 筆；合作診所供貨，略過無庫存 ${s.outside.none}、不足 0.1 月 ${s.outside.low} 筆，遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
-  if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}`, rows, meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
+  if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六編碼', width: 18 }, { label: '品名', width: 68 }, { label: '現有庫存量', width: 22, align: 'right' }, { label: '調劑頻率(/月)', width: 24, align: 'right' }, { label: '均月銷', width: 18, align: 'right' }, { label: '建議安全量', width: 20, align: 'right' }, { label: '待採量', width: 20, align: 'right' }],
-    note: `${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）。調劑頻率 A = 合計次數 ÷ 統計月數；每次用量 B = 四捨五入（合計數量 ÷ 合計次數）；均月銷 = A × B。建議安全量 = 無條件進位（均月銷 × 係數）；係數依本清單 A 排名：前 1/3 為 ${formatFrac(SAFETY_STRATEGIES[s.strategy].maximum)}，其餘依名次線性降至末位 ${formatFrac(SAFETY_STRATEGIES[s.strategy].minimum)}（同 A 同係數）；品名有「缺貨」前綴者係數 +1。待採量 = 建議安全量 − 現有庫存量（不足 0 記 0）。A、均月銷顯示至兩位小數（以完整精度計算）。現有庫存量為同碼各儲位合計；` + (data.partner ? `同值依六碼。合作診所供貨：一般規則下清單內有 ${data.partner.missing} 個六碼簡表無紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 0.1 個月用量（含負庫存）者視為合作診所供應，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0，待採量印「—」；名稱取自調劑表，可能被截短。'),
+    note: `${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）。調劑頻率 A = 合計次數 ÷ 統計月數；每次用量 B = 四捨五入（合計數量 ÷ 合計次數）；均月銷 = A × B。建議安全量 = 無條件進位（均月銷 × 係數）；係數依本清單 A 排名：前 1/3 為 ${formatFrac(SAFETY_STRATEGIES[s.strategy].maximum)}，其餘依名次線性降至末位 ${formatFrac(SAFETY_STRATEGIES[s.strategy].minimum)}（同 A 同係數）；品名有「缺貨」前綴者係數 +1。待採量 = 建議安全量 − 現有庫存量（不足 0 記 0）。紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。A、均月銷顯示兩位小數，以完整精度計算。現有庫存量為同碼各儲位合計；` + (data.partner ? `同值依六碼。合作診所供貨：一般規則下清單內有 ${data.partner.missing} 個六碼簡表無紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 0.1 個月用量（含負庫存）者視為合作診所供應，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0，待採量印「—」；名稱取自調劑表，可能被截短。'),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
