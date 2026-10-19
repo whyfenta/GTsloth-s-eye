@@ -2,6 +2,9 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
 import {derive,listRows,listSpec,NO_STOCK} from '../src/management-report';
 import type {TextItem,TextPage} from '../src/textlayer';
+import {readFileSync} from 'node:fs';
+import {generateListPDF} from '../src/management-pdf';
+import {pdfText} from './pdf-text';
 const weight=(s:string)=>Array.from(s).reduce((n,c)=>n+(c.codePointAt(0)!>=0x2e80?2:1),0);
 const W=1000,H=1400,size=10;
 /** cells: [text, x, y], or [text, right edge, y, 'r'] for right-aligned numbers, in upright page pixels. */
@@ -62,6 +65,30 @@ test('the inventory sheet keeps 缺貨, reads stock not consigned stock, and nee
 });
 const parsed=(text:TextPage,kind:'usage'|'inventory',file:number,filePage:number)=>{const r=parsePage(text,kind,file,filePage);assert.ok(r.ok,!r.ok?r.reason:'');return (r as {page:ParsedPage}).page;};
 const decisions={storeConfirmed:false,scopeConfirmed:true,zeroConfirmed:false,missingAcknowledged:''};
+test('strategy selection reaches derived rows and the printed PDF, while list membership and slot lists stay stable',async()=>{
+  const usage=parsed(page([...usageHead(1,1),...line(120,'000206','C-EZETROL怡妥錠10MG','粒','165','4287'),
+    ...line(140,'000083','C-B','粒','120','1200'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
+    ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
+  const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
+  const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'});
+  assert.equal(baseline.safety!.strategy,'hamster');
+  const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
+  for(const [strategy,name,range,values] of [
+    ['hamster','倉鼠派','3.5～1.2',['3,754','1,050','470','120']],
+    ['balanced','平衡派','2.5～0.8',['2,682','750','330','80']],
+    ['antelope','羚羊派','1.2～0.6',['1,287','360','180','60']],
+  ] as const){
+    const result=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010',safetyStrategy:strategy});
+    assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
+    assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,-1)),listRows('safety',baseline).map(row=>row.slice(0,-1)));
+    assert.deepEqual(listRows('safety',result).map(row=>row.at(-1)),values);
+    for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
+    const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
+    assert.match(spec.title,new RegExp(name));assert.ok(spec.note.includes(`係數 ${range}`));
+    const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
+    for(const text of [name,range,...values])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
+  }
+});
 test('a missing page blocks every list; adding it from a second file (from page 2) completes the report',()=>{
   const first=parsed(usagePage(1,2),'usage',0,1);const stock=parsed(fix(stockPage()),'inventory',1,1);
   const partial=derive([first,stock],[],decisions);assert.equal(partial.ready,false);assert.ok(partial.blockers.some(b=>/缺少第 2 頁/.test(b)));
@@ -98,6 +125,13 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   assert.equal(own.partner,undefined);assert.equal(own.safety!.k,12);assert.equal(own.missingKey.split(',').length,10);assert.match(own.reasons.safety,/10 個六碼/);
   assert.equal(listRows('safety',own).filter(r=>r[2]===NO_STOCK).length,10);
   const partner=derive([usage(11),stock],[],decisions);
+  for(const safetyStrategy of ['hamster','balanced','antelope'] as const){
+    const alternative=derive([usage(11),stock],[],{...decisions,safetyStrategy});
+    assert.equal(alternative.safety!.strategy,safetyStrategy);
+    assert.deepEqual(alternative.partner,partner.partner);
+    assert.deepEqual(alternative.safety!.rows.map(r=>r.sku),partner.safety!.rows.map(r=>r.sku));
+    assert.deepEqual(alternative.safety!.outside,partner.safety!.outside);
+  }
   assert.deepEqual(partner.partner,{missing:11});assert.equal(partner.safety!.n,120,'N keeps the partner codes');
   assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083'],'000083 moves up; K stays within the stock-sheet codes with A > 8');
   assert.deepEqual(partner.safety!.outside,{none:11,low:0,filled:1});

@@ -1,14 +1,14 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, dayBefore, formatDay, formatFrac, longPeriod, matchStores, parseDecimal, partnerSupplied, PARTNER_LIMIT, safetyList, slotLists, statMonths, stockDuplicates, stockErrors, unheldOnList, usageCodes, usageErrors,
-  type Assembly, type Frac, type SafetyResult, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, dayBefore, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, longPeriod, matchStores, parseDecimal, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, statMonths, stockDuplicates, stockErrors, unheldOnList, usageCodes, usageErrors,
+  type Assembly, type Frac, type SafetyResult, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
 
 export type ListKind = 'safety' | 'dead' | 'empty';
 export const LIST_TITLE: Record<ListKind, string> = { safety: '安全量檢視清單', dead: '呆藥清單', empty: '空位清單' };
 /** Reviewer decisions that are not edits of a row. */
-export type Decisions = { storeConfirmed: boolean; scopeConfirmed: boolean; zeroConfirmed: boolean; missingAcknowledged: string };
+export type Decisions = { storeConfirmed: boolean; scopeConfirmed: boolean; zeroConfirmed: boolean; missingAcknowledged: string; safetyStrategy?: SafetyStrategy };
 export type Derived = {
   usage: Assembly<ParsedPage>; stock: Assembly<ParsedPage>; usageRows: UsageRow[]; stockRows: StockRow[];
   /** Problems with the sources themselves; any one blocks every list. */
@@ -55,9 +55,10 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const summary = aggregateUsage(usageRows); const items = aggregateStock(stockRows);
   const sourcesReady = !blockers.length && assemblyComplete(usage) && assemblyComplete(stock) && Boolean(months);
   const ready = sourcesReady && !pendingUsage.length && !pendingStock.length && !summary.unitConflicts.length && !summary.invalid.length;
-  const ordinary = months ? safetyList(summary.items, months, items) : undefined;
+  const strategy = decisions.safetyStrategy ?? DEFAULT_SAFETY_STRATEGY;
+  const ordinary = months ? safetyList(summary.items, months, items, false, strategy) : undefined;
   const partner = ordinary && stock.pages.length && partnerSupplied(unheldOnList(ordinary)) ? { missing: unheldOnList(ordinary) } : undefined;
-  const safety = partner ? safetyList(summary.items, months!, items, true) : ordinary;
+  const safety = partner ? safetyList(summary.items, months!, items, true, strategy) : ordinary;
   const { dead, empty } = slotLists(stockRows, usageCodes(usageRows));
   const listed = new Set(safety?.rows.map(row => row.sku));
   const missing = summary.items.filter(item => !items.has(item.sku)).map(item => ({ sku: item.sku, name: item.name, pages: pagesOf(item.rows), onList: listed.has(item.sku) }));
@@ -96,9 +97,9 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
   const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.none + s.outside.low} 筆；合作診所供貨，略過無庫存 ${s.outside.none}、不足 0.1 月 ${s.outside.low} 筆，遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
-  if (kind === 'safety') return { title: LIST_TITLE.safety, rows, meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
+  if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}`, rows, meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六碼', width: 18 }, { label: '清理後名稱', width: 84 }, { label: '庫存量', width: 22, align: 'right' }, { label: 'A（次/月）', width: 22, align: 'right' }, { label: 'A×B', width: 22, align: 'right' }, { label: '建議安全量', width: 22, align: 'right' }],
-    note: 'A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；係數依本清單 A 排名：前 1/3 為 3.5，其餘依名次線性降至末位 1.2（同 A 同係數）。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；' + (data.partner ? `同值依六碼。合作診所供貨判定：依一般規則進入清單的品項中有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 0.1 個月用量（含負庫存）的六碼視為合作診所供應，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
+    note: `${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）。A = 合計次數 ÷ 統計月數（次/月）；B = 四捨五入（合計數量 ÷ 合計次數），單位用量/次；A×B 為月用量估計。建議安全量 = 無條件進位（A × B × 係數）；係數依本清單 A 排名：前 1/3 為 ${formatFrac(SAFETY_STRATEGIES[s.strategy].maximum)}，其餘依名次線性降至末位 ${formatFrac(SAFETY_STRATEGIES[s.strategy].minimum)}（同 A 同係數）。A、A×B 顯示最多兩位小數，計算使用完整精度。庫存量為同碼各儲位合計；` + (data.partner ? `同值依六碼。合作診所供貨判定：依一般規則進入清單的品項中有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或庫存合計為 0（> ${PARTNER_LIMIT}）；這些及庫存不足 0.1 個月用量（含負庫存）的六碼視為合作診所供應，由後一位遞補，N 不變。` : '「簡表無此碼」表示這份庫存簡表沒有該碼，不代表庫存為 0；名稱取自調劑表，可能被截短。'),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
