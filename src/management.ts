@@ -7,6 +7,7 @@ import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatFrac, matchS
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listAlerts, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
+import { feedbackRecord } from './management-feedback';
 import { DocumentSource } from './source';
 import { cropCanvas, rotateCanvas } from './geometry';
 
@@ -27,7 +28,9 @@ type Output = { bytes: Uint8Array; url: string; version: number; pages: number; 
 let entries: Entry[] = []; let adding = false; let parsing = false; let cancelRequested = false; let parsed = false; let documentNumber = 0;
 let pages: ParsedPage[] = []; let rejected: { kind: ReportKind; reason: string }[] = []; let progress = { done: 0, total: 0, message: '' };
 let decisions: Decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: DEFAULT_SAFETY_STRATEGY };
-let data: Derived | undefined; let attention = new Set<string>(); let reviewPage = 0; let errorMessage = '';
+let data: Derived | undefined; let attention = new Set<string>();
+/** Every row as parsed, before the reviewer's edits; the exported review record compares against it. */
+let originals = new Map<string, UsageRow | StockRow>(); let reviewPage = 0; let errorMessage = '';
 // generation is the review revision; any change to sources, rows or decisions bumps it and drops every PDF.
 let generation = 0; let outputs: Partial<Record<ListKind, Output>> = {}; let generating = false;
 const selected: Record<ListKind, boolean> = { safety: true, dead: true, empty: true };
@@ -96,7 +99,7 @@ function renderInputs() {
 /** Changing the files after parsing discards the review; ask first. */
 const confirmDiscard = () => !parsed && !pages.length ? Promise.resolve(true) : ask('清除目前結果？', '<p>加入或移除檔案會清除目前的解析與校對結果，之後需重新按「開始解析」。</p>', '保留目前結果', '清除並更新檔案');
 function resetResults() {
-  documentNumber++; cancelRequested = true; parsed = false; pages = []; rejected = []; data = undefined; attention = new Set(); reviewPage = 0; progress = { done: 0, total: 0, message: '' };
+  documentNumber++; cancelRequested = true; parsed = false; pages = []; rejected = []; data = undefined; attention = new Set(); originals = new Map(); reviewPage = 0; progress = { done: 0, total: 0, message: '' };
   decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: decisions.safetyStrategy }; invalidate();
 }
 async function sha256(file: File) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join(''); }
@@ -171,6 +174,7 @@ async function checkFirstPages(): Promise<string | undefined> {
 /** Rows that need a look stay in the review list after they are confirmed, so the decision can be seen and undone. */
 function admit() {
   data = derive(pages, rejected, decisions);
+  originals = new Map([...data.usageRows, ...data.stockRows].map(row => [row.id, { ...row, notes: [...row.notes] }]));
   for (const row of [...data.pendingUsage, ...data.pendingStock, ...data.summary.unitConflicts.flatMap(c => c.rows), ...data.duplicates.flat()]) attention.add(row.id);
   for (const row of [...data.usageRows, ...data.stockRows]) if (row.excluded) attention.add(row.id);
 }
@@ -250,7 +254,7 @@ function renderReview() {
       <td class="mg-actions"><label class="checkbox-label"><input type="checkbox" data-confirm="${r.id}" ${r.reviewed ? 'checked' : ''} ${errors.length ? 'disabled' : ''}>確認</label><button class="text-button" data-trace="${r.id}">原圖</button><button class="text-button" data-exclude="${r.id}">排除</button></td></tr>`;
   }).join('');
   const missingOnList = data.missing.filter(item => item.onList);
-  section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">CHECK BEFORE CALCULATING</span><h2>校對資料</h2></div><button id="clear-results" class="button quiet">清除這次資料</button></div>
+  section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">CHECK BEFORE CALCULATING</span><h2>校對資料</h2></div><span class="mg-heading-actions"><button id="export-review" class="button secondary" ${busy() ? 'disabled' : ''}>匯出校對紀錄</button><button id="clear-results" class="button quiet">清除這次資料</button></span></div>
     <div class="stats"><div><strong>${data.stockRows.length}</strong><span>庫存列</span></div><div><strong>${data.usageRows.length}</strong><span>調劑明細</span></div><div><strong>${open}</strong><span>待確認</span></div><div><strong>${excluded.length}</strong><span>排除紀錄</span></div><div><strong>${data.missing.length}</strong><span>庫存缺碼</span></div></div>
     <p class="preview-note">兩份報表都直接讀 PDF 文字，不經 OCR。下列只顯示需要確認的列；有錯誤的列須修正或附理由排除，不能直接勾選放行。修改任何欄位都會重新計算，已產生的 PDF 隨即失效。</p>
     <div class="table-scroll"><table class="review-table mg-table"><thead><tr><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="5" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
@@ -355,6 +359,21 @@ function current(kind: ListKind): Output {
 }
 function save(kind: ListKind) { const output = current(kind); const link = document.createElement('a'); link.href = output.url; link.download = pdfName(kind); document.body.append(link); link.click(); link.remove(); }
 let previewKind: ListKind | undefined;
+/** Saves the review record as JSON after saying what it holds; nothing is sent anywhere. */
+async function exportReview() {
+  if (!data || busy()) return;
+  const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(new Date());
+  const record = feedbackRecord({ originals, usageRows: data.usageRows, stockRows: data.stockRows, safetyStrategy: decisions.safetyStrategy ?? DEFAULT_SAFETY_STRATEGY,
+    partnerClinic: Boolean(data.partner), partnerCover: decisions.partnerCover ?? 'standard', app: appVersion, exported: today });
+  const s = record.summary;
+  const ok = await ask('匯出校對紀錄', `<p>這份紀錄用來改進名稱清理與提示規則，只存在你的裝置，由你決定是否回傳。</p>
+    <ul class="store-list"><li><span>名稱修正</span><strong>${record.names.length} 筆</strong></li><li><span>其他欄位修改</span><strong>${record.edits.length} 筆</strong></li><li><span>被提示、未修改即確認</span><strong>${s.confirmedAsIs} 筆</strong></li><li><span>手動排除（含理由）</span><strong>${s.userExcluded} 筆</strong></li></ul>
+    <p class="preview-note">內容含六碼、原始品名、程式提示、修改前後的名稱／代號／單位／儲位、排除理由與所選策略。<b>不含門市名稱、統計期間，也不含任何次數、數量、庫存量的數值</b>（這些欄位只記「有修改」）。排除理由為你輸入的原文，回傳前可用文字編輯器檢查。</p>`, '取消', '下載 JSON');
+  if (!ok) return;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = `樹懶的管理_校對紀錄_${today.replace(/-/g, '')}.json`;
+  document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 for (const kind of KINDS) {
   const zone = el(`drop-${kind}`); const input = el<HTMLInputElement>(`input-${kind}`);
@@ -392,6 +411,7 @@ document.addEventListener('click', event => {
   else if (d.reviewPage !== undefined) { reviewPage = Number(d.reviewPage); render(); }
   else if (target.id === 'confirm-shown') { const items = reviewItems().slice(reviewPage * PER_PAGE, (reviewPage + 1) * PER_PAGE); for (const item of items) if (!rowProblems(item).errors.length) item.row.reviewed = true; changed(); }
   else if (target.id === 'clear-results') { void clearAll(); }
+  else if (target.id === 'export-review') { void exportReview(); }
   else if (target.id === 'generate') void generate();
   else if (d.download) { try { save(d.download as ListKind); } catch (error) { showError(error instanceof Error ? error.message : 'PDF 已失效。'); render(); } }
   else if (d.preview) { try { const kind = d.preview as ListKind; const output = current(kind); previewKind = kind; el('pdf-title').textContent = `${LIST_TITLE[kind]}預覽`; el<HTMLIFrameElement>('pdf-frame').src = output.url; el<HTMLAnchorElement>('pdf-open-tab').href = output.url; el<HTMLDialogElement>('pdf-dialog').showModal(); } catch (error) { showError(error instanceof Error ? error.message : 'PDF 已失效。'); } }
