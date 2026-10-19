@@ -1,8 +1,8 @@
 // 樹懶的管理: pure rules for the safety-stock, dead-stock and empty-slot lists.
 // Nothing here touches the DOM, PDF.js or pdf-lib, so every rule is unit-tested on its own.
 import { canonicalQuantity, cleanProductName } from './model';
-/** Management keeps 缺貨 in front of the cleaned name; every other prefix is cleaned as on the inventory sheet. */
-export const KEEP_STATUS = ['缺貨'] as const;
+/** Management keeps 缺貨 and 冷藏 in front of the cleaned name, in this order; every other prefix is cleaned as on the inventory sheet. */
+export const KEEP_STATUS = ['缺貨', '冷藏'] as const;
 export const managementName = (raw: string) => cleanProductName(raw, true, KEEP_STATUS);
 
 /** Exact fraction. Counts and quantities are decimals in the report; floats would turn 3754 into 3755 at a boundary. */
@@ -205,7 +205,15 @@ export const SAFETY_STRATEGIES = {
 export type SafetyStrategy = keyof typeof SAFETY_STRATEGIES;
 /** A code whose printed name keeps the 缺貨 prefix is short at the supplier: one more month of use on top of its rank coefficient. */
 export const SHORTAGE_BONUS = frac(1n);
-export const shortage = (name: string) => name.startsWith(KEEP_STATUS[0]);
+/** The kept status words at the start of a name, also when a reviewer typed them without the space ("冷藏缺貨X"). */
+const keptPrefix = (name: string) => name.match(/^(?:缺貨|冷藏)+/)?.[0] ?? '';
+export const shortage = (name: string) => keptPrefix(name).includes('缺貨');
+/**
+ * A code whose printed name keeps the 冷藏 prefix needs refrigerator space, which is fixed and cannot take extra stock:
+ * its coefficient (after any 缺貨 bonus) is multiplied by COLD_FACTOR. Like the bonus, it never changes membership or rank.
+ */
+export const COLD_FACTOR = frac(4n, 5n);
+export const refrigerated = (name: string) => keptPrefix(name).includes('冷藏');
 export const safetyStrategyRange = (strategy: SafetyStrategy) => {
   const { maximum, minimum } = SAFETY_STRATEGIES[strategy];
   return `${formatFrac(maximum)}～${formatFrac(minimum)}`;
@@ -224,18 +232,19 @@ export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEF
 }
 /** One code's use; `all` holds every code with a count, the list only the selected ones. */
 export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
-export type SafetyRow = UsageRate & { coefficient: Frac; shortage: boolean; safety: bigint };
+export type SafetyRow = UsageRate & { coefficient: Frac; shortage: boolean; cold: boolean; safety: bigint };
 export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
-  /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under LOW_COVER of it, and how many later codes moved up. */
-  outside?: { none: number; low: number; filled: number } };
+  /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under `cover` months of it, and how many later codes moved up. */
+  outside?: { none: number; low: number; filled: number; cover: Frac } };
 /**
  * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank),
- * the coefficient raised by SHORTAGE_BONUS for a 缺貨 name; the bonus never changes which codes are listed or their rank.
+ * the coefficient raised by SHORTAGE_BONUS for a 缺貨 name and then multiplied by COLD_FACTOR for a 冷藏 name; neither
+ * changes which codes are listed or their rank.
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
- * With a partner clinic, codes the store holds no stock of, or less than LOW_COVER of their monthly use, are mostly
+ * With a partner clinic, codes the store holds no stock of, or less than `cover` months of their monthly use, are mostly
  * supplied by the clinic: they are skipped and the next qualifying code moves up, so K still aims at floor(N × 10%).
  */
-export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY): SafetyResult {
+export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, StockItem>, partner = false, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY, cover: Frac = LOW_COVER): SafetyResult {
   const all: UsageRate[] = [];
   for (const item of items) {
     if (item.count.n === 0n) continue; // no division by a zero count; such an item can never have A > 8
@@ -244,15 +253,15 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   }
   all.sort((x, y) => cmp(y.a, x.a) || x.sku.localeCompare(y.sku));
   const qualifying = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
-  const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row)) : qualifying;
+  const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row, cover)) : qualifying;
   const k = Math.min(limit, eligible.length); const picked = eligible.slice(0, k);
   const rows = picked.map((row, i) => {
-    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const short = shortage(row.name);
-    const c = add(coefficient(rank < 0 ? i : rank, k, strategy), short ? SHORTAGE_BONUS : ZERO);
-    return { ...row, coefficient: c, shortage: short, safety: ceil(mul(row.ab, c)) };
+    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const short = shortage(row.name); const cold = refrigerated(row.name);
+    const raised = add(coefficient(rank < 0 ? i : rank, k, strategy), short ? SHORTAGE_BONUS : ZERO); const c = cold ? mul(raised, COLD_FACTOR) : raised;
+    return { ...row, coefficient: c, shortage: short, cold, safety: ceil(mul(row.ab, c)) };
   });
   const none = qualifying.filter(row => !held(row)).length;
-  const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length } : undefined;
+  const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length, cover } : undefined;
   return { strategy, n, limit, eligible: eligible.length, k, rows, all, outside };
 }
 /**
@@ -265,7 +274,14 @@ export const held = (row: UsageRate) => row.stock !== undefined && row.stock.n !
  * the clinic supplies most of it (0015: 45 such codes, 40% of the list's use; 26永和: none).
  */
 export const LOW_COVER = frac(1n, 10n);
-export const lowCover = (row: UsageRate) => row.stock !== undefined && row.ab.n !== 0n && cmp(div(row.stock, row.ab), LOW_COVER) < 0;
+/**
+ * Optional wider mask chosen by the reviewer (field feedback: more codes move up). It also hides codes that are simply
+ * running low in the store's own stock, so real purchase needs can drop off the list; the default stays LOW_COVER.
+ */
+export const WIDE_COVER = frac(1n, 5n);
+export const PARTNER_COVERS = { standard: LOW_COVER, wide: WIDE_COVER } as const;
+export type PartnerCover = keyof typeof PARTNER_COVERS;
+export const lowCover = (row: UsageRate, cover: Frac = LOW_COVER) => row.stock !== undefined && row.ab.n !== 0n && cmp(div(row.stock, row.ab), cover) < 0;
 /**
  * A store that also dispenses drugs supplied by a partner clinic: more than PARTNER_LIMIT codes of the ordinary safety
  * list are not held. A few such codes are a stock-sheet scope question (26永和: 2); many are not ours.

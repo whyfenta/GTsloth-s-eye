@@ -74,7 +74,7 @@ export type CleanResult = { name: string; removed: string[]; uncertain: boolean;
 /**
  * Removes the leading status / marker / package prefix and the trailing -高健保 / -高價藥 tags. exact: the name came
  * from the PDF text layer, so the OCR-damage repairs are not applied. keep: status words that are taken out of the
- * prefix like any other but printed again before the name (management keeps 缺貨); the inventory sheet keeps none.
+ * prefix like any other but printed again before the name (management keeps 缺貨 and 冷藏); the inventory sheet keeps none.
  */
 export function cleanProductName(raw: string, exact = false, keep: readonly string[] = []): CleanResult {
   let name = normalizeOCR(raw); const removed: string[] = []; const notes: string[] = []; const kept: string[] = [];
@@ -99,6 +99,8 @@ export function cleanProductName(raw: string, exact = false, keep: readonly stri
     /^[^A-Za-z]{0,15}\p{Script=Han}\s*[ABC]\s*-/u.test(name) ||
     // After a removed prefix, "L-XALACOM" is usually an OCR-misread "C-"; exact text has real names like U-CA.
     (!exact && removed.length > 0 && /^[A-Za-z([{|]\s*-/.test(name));
+  // Kept words print in the keep list's order, whatever order the report used ("冷藏缺貨" → "缺貨冷藏").
+  kept.sort((a, b) => keep.indexOf(a) - keep.indexOf(b));
   if (kept.length) return { name: name ? `${kept.join('')} ${name}` : kept.join(''), removed: [...removed, ...suffixes], uncertain, notes, kept };
   return { name, removed: [...removed, ...suffixes], uncertain, notes };
 }

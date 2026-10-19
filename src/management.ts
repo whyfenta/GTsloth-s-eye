@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, DEFAULT_SAFETY_STRATEGY, formatFrac, matchStores, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatFrac, matchStores, PARTNER_COVERS, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listAlerts, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
@@ -214,7 +214,9 @@ function renderSources() {
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
     ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}
-    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或各儲位庫存合計為 0（超過 ${PARTNER_LIMIT} 個）。本店無庫存，或庫存不足 0.1 個月用量（約 3 天，含負庫存）的六碼，視為主要由合作診所供應，不由本店監控安全量；安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>` : ''}`;
+    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或各儲位庫存合計為 0（超過 ${PARTNER_LIMIT} 個）。本店無庫存，或庫存不足 ${formatFrac(PARTNER_COVERS[decisions.partnerCover ?? 'standard'])} 個月用量（含負庫存）的六碼，視為主要由合作診所供應，不由本店監控安全量；安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>
+    <label class="checkbox-label mg-confirm"><input id="partner-wide" type="checkbox" ${decisions.partnerCover === 'wide' ? 'checked' : ''} ${busy() ? 'disabled' : ''}>放寬合作診所遮罩：庫存不足 ${formatFrac(PARTNER_COVERS.wide)} 個月用量（約 6 天）即視為合作診所供應，讓更多品項向前遞補（預設 ${formatFrac(PARTNER_COVERS.standard)} 個月，約 3 天）</label>
+    ${decisions.partnerCover === 'wide' ? `<div class="mg-warning">已放寬遮罩：本店自己庫存偏低、確實需要採購的品項，也可能因不足 ${formatFrac(PARTNER_COVERS.wide)} 個月而被略過，不會出現在安全量清單。請另行留意這些品項的採購需求。</div>` : ''}` : ''}`;
 }
 type ReviewItem = { kind: 'usage'; row: UsageRow } | { kind: 'stock'; row: StockRow };
 function reviewItems(): ReviewItem[] {
@@ -286,7 +288,7 @@ function renderLists() {
     <fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>選擇你的安全量策略</legend>
       <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為沿用目前係數的倉鼠派。</p>
       <div class="mg-strategy-grid">${strategyCards}</div>
-      <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1。</p>
+      <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
     </fieldset>
     <p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），下方建議安全量與 PDF 依此計算。</p>
     <label class="checkbox-label mg-confirm"><input id="scope-confirm" type="checkbox" ${decisions.scopeConfirmed ? 'checked' : ''}>呆藥與空位清單：我確認庫存簡表涵蓋要評估的全部儲位（PDF 無法證明範圍是否完整）</label>${zeroNote}
@@ -379,6 +381,7 @@ document.addEventListener('change', event => {
   if (target.dataset.select) { selected[target.dataset.select as ListKind] = target.checked; return changed(); }
   const decision = ({ 'store-confirm': 'storeConfirmed', 'scope-confirm': 'scopeConfirmed', 'zero-confirm': 'zeroConfirmed' } as const)[target.id as 'store-confirm'];
   if (decision) { decisions[decision] = target.checked; return changed(); }
+  if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; return changed(); }
   if (target.id === 'missing-ack') { decisions.missingAcknowledged = target.checked ? data?.missingKey ?? '' : ''; return changed(); }
 });
 document.addEventListener('keydown', event => { const target = event.target as HTMLInputElement; if (event.key === 'Enter' && !event.isComposing && target.dataset?.row) { event.preventDefault(); target.blur(); } });
