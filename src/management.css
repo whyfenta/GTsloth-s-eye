@@ -10,7 +10,6 @@
 .mg-actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px}.mg-actions .text-button{padding:2px 0}
 .mg-pager{display:flex;align-items:center;gap:12px;margin:14px 0 0;font-size:12px;flex-wrap:wrap}
 .mg-details{margin-top:20px;font-size:12px}.mg-details summary{cursor:pointer;color:#3d745e;margin-bottom:10px}
-.mg-missing{margin-top:22px;border-top:1px solid var(--line);padding-top:18px}.mg-missing h3{font-size:14px;font-weight:600;margin:0 0 6px}
 .mg-list-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px;align-items:start}.mg-list-grid:has(.mg-list-expanded){grid-template-columns:repeat(2,minmax(0,1fr))}
 .mg-list{min-width:0;border:1px solid #dce5d9;border-radius:10px;padding:18px;background:#fcfdfa}.mg-list.mg-selected{border-color:var(--green);background:#f5f9f2;box-shadow:inset 0 0 0 1px var(--green)}.mg-list-expanded{grid-column:1/-1}
 .mg-list-choice{display:flex;align-items:flex-start;gap:10px;cursor:pointer}.mg-list-choice>input{margin-top:3px}.mg-list-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:8px}.mg-list-copy strong{font-size:15px;line-height:1.6;font-weight:600}.mg-list-description{font-size:12px;color:#6b7f72;line-height:1.8}.mg-list-state{flex:none;font-size:10px;line-height:1.8;padding:2px 7px;border-radius:4px;color:#52785c;background:#eaf1e6;white-space:nowrap}
