@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
   type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
@@ -103,9 +103,10 @@ export function listRows(kind: ListKind, data: Derived): string[][] {
   if (kind === 'safety') return (data.safety?.rows ?? []).map(row => { const order = toOrder(row); return [row.sku, row.name, row.stock ? show(row.stock) : NO_STOCK, show(row.a), show(row.ab), show(frac(row.safety)), order ? show(order) : '—']; });
   return kind === 'dead' ? data.dead.map(deadCells) : data.empty.map(row => [row.sku, row.name, row.location]);
 }
-const deadCells = (row: SlotRow) => [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)];
-/** The self-pay lines printed after the dead stock, cells as on the dead-stock list. */
-export const selfPayRows = (data: Derived) => data.selfPay.map(deadCells);
+const slotCells = (row: SlotRow) => [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)];
+const deadCells = (row: SlotRow) => [...slotCells(row), disposition(row)];
+/** The self-pay lines printed after the dead stock, cells as on the dead-stock list; their handling is left to a person. */
+export const selfPayRows = (data: Derived) => data.selfPay.map(row => [...slotCells(row), SELF_PAY_DISPOSITION]);
 /** Cells printed in red heavy type: on the safety list, stock above 4 months of use (OVERSTOCK_MONTHS). */
 export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
   if (kind !== 'safety') return listRows(kind, data).map(cells => cells.map(() => false));
@@ -129,9 +130,9 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     note: warn + '紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。' + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
-    columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
+    columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 84 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 24, align: 'right' }, { label: '建議處置', width: 22 }],
     tail: data.selfPay.length ? { heading: SELF_PAY_HEADING, rows: selfPayRows(data) } : undefined,
-    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷範圍以匯入的庫存簡表為準。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
+    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，名稱前綴含冷藏、缺貨、追追或名稱含(管4)、(管3)等管制藥標示者依序排前並建議「轉調協銷」，其餘建議「月初退倉」；各組依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷範圍以匯入的庫存簡表為準。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，建議處置為「待判定」，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],

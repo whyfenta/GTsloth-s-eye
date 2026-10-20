@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,COLD_FACTOR,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,COLD_FACTOR,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -197,6 +197,15 @@ test('self-pay lines (自費 anywhere in the status prefix) are set apart from d
   assert.ok(!lists.empty.some(r=>r.sku==='193671'),'a self-pay line at 0 is not an empty slot either');
   assert.deepEqual(lists.dead.map(r=>r.sku),['000005'],'自費 inside the name after the marker is not the prefix');
   assert.deepEqual(lists.empty.map(r=>r.sku),['000006']);
+});
+test('dead stock to transfer (冷藏, 缺貨, 追追 prefix, then (管4), (管3)) leads the list in that order and is marked 轉調協銷; the rest 月初退倉',()=>{
+  const rows=[stock('000001',3,'A1','C-30粒/盒一般錠'),stock('000002',2,'A2','C-30粒/盒管制錠5MG(管3)'),stock('000003',1,'A3','追追C-140粒/盒追追錠'),
+    stock('000004',4,'Z9','冷藏避光C-10支/盒冷藏針'),stock('000005',5,'A0','C-30粒/盒管制錠2MG(管4)-高價藥'),stock('000006',6,'','缺貨C-60粒/盒缺貨錠'),
+    stock('000007',7,'B1','冷藏C-1支/盒冷藏也缺(管4)'),stock('000008',8,'A0','C-30粒/盒近效錠')];
+  const lists=slotLists(rows,new Set());
+  assert.deepEqual(lists.dead.map(r=>r.sku),['000007','000004','000006','000003','000005','000002','000008','000001'],'the first mark decides the group; each group and the rest by location');
+  assert.deepEqual(lists.dead.map(disposition),['轉調協銷','轉調協銷','轉調協銷','轉調協銷','轉調協銷','轉調協銷','月初退倉','月初退倉']);
+  assert.equal(disposition(stock('000009',1,'','C-30粒/盒冷藏庫測試錠')),'月初退倉','冷藏 inside the name after the marker is not the prefix');
 });
 test('store identity: number and name must agree; different numbers are never the same store',()=>{
   const usage=storeId('26永和福和店','0026');const sheet=storeId('26北-永和福和店');

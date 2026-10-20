@@ -55,6 +55,7 @@ test('attached templates: eligible lists after the reviewer\'s decisions, printe
   for(const sku of ['005157','099972','106508','122504','126313','165341','165342','175305'])assert.ok(own.includes(sku),sku);
   assert.ok(!own.includes('000289')&&!own.includes('178361'),'self-pay codes in the usage report are used');
   assert.ok(!dead.some(r=>own.includes(r[0])));
+  assert.ok(dead.every(r=>['轉調協銷','月初退倉'].includes(r.at(-1)!)),'every dead-stock line suggests a disposition');assert.ok(selfPayRows(data).every(r=>r.at(-1)==='待判定'),'self-pay lines are left to judge');
   assert.equal(data.empty.length,0,'no empty-slot PDF is offered without matching rows');
   const font=new Uint8Array(fs.readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   const context={files:{usage:['usage.pdf'],inventory:['261011_09p.pdf']},version:7,appVersion:'test',time:'2026/10/17 10:00'};
