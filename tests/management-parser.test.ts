@@ -65,15 +65,17 @@ test('the inventory sheet keeps 缺貨, reads stock not consigned stock, and nee
   assert.match((parsePage(noPage,'inventory',1,1) as {reason:string}).reason,/頁次/);
 });
 const parsed=(text:TextPage,kind:'usage'|'inventory',file:number,filePage:number)=>{const r=parsePage(text,kind,file,filePage);assert.ok(r.ok,!r.ok?r.reason:'');return (r as {page:ParsedPage}).page;};
-const decisions={storeConfirmed:false,missingAcknowledged:''};
+const decisions={storeConfirmed:false};
 test('strategy selection reaches derived rows and the printed PDF, while list membership and slot lists stay stable',async()=>{
   const usage=parsed(page([...usageHead(1,1),...line(120,'000206','C-EZETROL怡妥錠10MG','粒','165','4287'),
     ...line(140,'000083','C-B','粒','120','1200'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
     ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
   const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
   const printDay={y:2026,m:10,d:16};
-  const baseline=derive(pages,[],{...decisions,missingAcknowledged:'000009,000010'},printDay);
+  const baseline=derive(pages,[],decisions,printDay);
   assert.equal(baseline.safety!.strategy,'balanced','平衡派 is the default');
+  assert.equal(baseline.missing.filter(m=>m.onList).length,2);
+  assert.equal(baseline.available.safety,true,'missing stock-sheet codes never require acknowledgement');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
   for(const [strategy,name,range,values,toOrder] of [
@@ -81,7 +83,7 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—']],
     ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—']],
   ] as const){
-    const result=derive(pages,[],{...decisions,missingAcknowledged:'000009,000010',safetyStrategy:strategy},printDay);
+    const result=derive(pages,[],{...decisions,safetyStrategy:strategy},printDay);
     assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
     assert.deepEqual(result.safety!.rows.map(r=>r.shortage),[false,true,false,false]);
     assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
@@ -153,7 +155,7 @@ test('a report printed a week or more before today carries a warning on the page
   const old=derive([usage,stock],[],decisions,{y:2026,m:10,d:18}); // stock 7 days: warned; usage 2 days: not
   assert.deepEqual(old.stale.map(s=>[s.kind,s.days]),[['inventory',7]]);
   assert.ok(old.warnings.some(w=>/庫存簡表列印於 2026\/10\/11，距今已 7 天.*失真/.test(w)));
-  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).note,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），已逾一週，輸出結果可能失真。/);
+  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).note,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），輸出結果可能失真。/);
   assert.deepEqual(derive([usage,stock],[],decisions,{y:2026,m:10,d:30}).stale.map(s=>s.kind),['inventory','usage']);
 });
 test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{
@@ -161,8 +163,8 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   // N = 120, 10% = 12. 000206 A = 50; `missing` codes without a stock line A = 25; 000083 A = 10; the rest A = 0.25.
   const usage=(missing:number)=>{const lines=[line(120,'000206','C-A','粒','200','200'),...Array.from({length:missing},(_,i)=>line(140+i*20,String(300000+i),`C-合作${i}`,'粒','100','100')),line(140+missing*20,'000083','C-B','粒','40','40'),
     ...Array.from({length:118-missing},(_,i)=>line(160+(missing+i)*20,String(400000+i),`C-品項${i}`,'粒','1','1'))];return parsed(page([...usageHead(1,1),...lines.flat()],2700),'usage',0,1);};
-  const own=derive([usage(10),stock],[],decisions); // exactly 10 on the list: still our own stock, each needs an acknowledgement
-  assert.equal(own.partner,undefined);assert.equal(own.safety!.k,12);assert.equal(own.missingKey.split(',').length,10);assert.match(own.reasons.safety,/10 個六碼/);
+  const own=derive([usage(10),stock],[],decisions); // exactly 10 on the list: still our own stock, no acknowledgement required
+  assert.equal(own.partner,undefined);assert.equal(own.safety!.k,12);assert.equal(own.missing.filter(m=>m.onList).length,10);assert.equal(own.available.safety,true);
   assert.equal(listRows('safety',own).filter(r=>r[2]===NO_STOCK).length,10);
   const partner=derive([usage(11),stock],[],decisions);
   for(const safetyStrategy of ['hamster','balanced','antelope'] as const){
@@ -175,7 +177,7 @@ test('a store with a partner clinic: more than 10 codes of the safety list witho
   assert.deepEqual(partner.partner,{missing:11});assert.equal(partner.safety!.n,120,'N keeps the partner codes');
   assert.deepEqual(partner.safety!.rows.map(r=>r.sku),['000206','000083'],'000083 moves up; K stays within the stock-sheet codes with A > 8');
   assert.deepEqual({...partner.safety!.outside,cover:undefined},{none:11,low:0,filled:1,cover:undefined});
-  assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.missingKey,'');assert.equal(partner.available.safety,true,'no acknowledgement needed');
+  assert.ok(partner.missing.every(m=>!m.onList));assert.equal(partner.available.safety,true,'no acknowledgement needed');
   assert.ok(listRows('safety',partner).every(r=>r[2]!==NO_STOCK));
   const spec=listSpec('safety',partner,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'});
   assert.equal(spec.meta.length,3);assert.match(spec.meta[2],/合作診所供貨，略過無庫存 11、不足 0.1 月 0 筆，遞補 1 筆；取 K = 2 筆/);

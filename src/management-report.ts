@@ -10,7 +10,7 @@ export const LIST_TITLE: Record<ListKind, string> = { safety: '安全量調整�
 /** Printed between the dead stock and the self-pay lines that follow it, in grey. */
 export const SELF_PAY_HEADING = '以下品項偵測應為自費品，耗量不在健保調劑量統計內，但機械判別難免有誤，請過目。';
 /** Reviewer decisions that are not edits of a row. */
-export type Decisions = { storeConfirmed: boolean; missingAcknowledged: string; safetyStrategy?: SafetyStrategy;
+export type Decisions = { storeConfirmed: boolean; safetyStrategy?: SafetyStrategy;
   /** Partner-clinic stores: how little stock (in months of use) counts as clinic-supplied. 'wide' is opt-in. */
   partnerCover?: PartnerCover };
 export type Derived = {
@@ -26,8 +26,8 @@ export type Derived = {
   stale: { kind: 'usage' | 'inventory'; printed: Day; days: number }[];
   /** Set when more than PARTNER_LIMIT codes of the ordinary safety list have no stock line: how many there were. */
   partner?: { missing: number };
-  /** Usage codes without any stock line; the ones on the safety list need an explicit acknowledgement. */
-  missing: { sku: string; name: string; pages: number[]; onList: boolean }[]; missingKey: string;
+  /** Usage codes without any stock line; kept in N and marked when printed on the safety list. */
+  missing: { sku: string; name: string; pages: number[]; onList: boolean }[];
   ready: boolean; available: Record<ListKind, boolean>; reasons: Record<ListKind, string>;
 };
 export const needsReview = <R extends { reviewed: boolean; excluded?: string }>(row: R, errors: string[]) => !row.excluded && (!row.reviewed || errors.length > 0);
@@ -78,21 +78,19 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const { dead, empty, selfPay } = slotLists(stockRows, usageCodes(usageRows));
   const listed = new Set(safety?.rows.map(row => row.sku));
   const missing = summary.items.filter(item => !items.has(item.sku)).map(item => ({ sku: item.sku, name: item.name, pages: pagesOf(item.rows), onList: listed.has(item.sku) }));
-  const missingKey = missing.filter(item => item.onList).map(item => item.sku).join(',');
   const zeroRows = stockRows.filter(row => !row.excluded && parseDecimal(row.qty)?.n === 0n).length;
   const payment = first?.payment; const long = months ? longPeriod(months) : false;
   const reasons: Record<ListKind, string> = { safety: '', dead: '', empty: '' };
   const notReady = !sourcesReady ? '來源報表尚未齊備或有問題' : pendingUsage.length + pendingStock.length ? `還有 ${pendingUsage.length + pendingStock.length} 筆待校對` : summary.unitConflicts.length ? `${summary.unitConflicts.length} 個六碼的單位不一致` : '';
   if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
-    if (missingKey && decisions.missingAcknowledged !== missingKey) reasons.safety = `清單內有 ${missingKey.split(',').length} 個六碼在庫存簡表找不到，請先核對並確認`;
     reasons.dead = long ? '' : `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用`;
     reasons.empty = empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
   }
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
   return { usage, stock, usageRows, stockRows, blockers, warnings, pendingUsage, pendingStock, summary, duplicates, months, period, payment, storeLabel: first?.store.label ?? firstStock?.store.label ?? '',
-    storeMatch, safety, dead, empty, selfPay, zeroRows, stale, partner, missing, missingKey, ready, available, reasons };
+    storeMatch, safety, dead, empty, selfPay, zeroRows, stale, partner, missing, ready, available, reasons };
 }
 
 export const NO_STOCK = '簡表無此碼';
@@ -116,7 +114,7 @@ export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;
-  const warn = data.stale.length ? `【警語】${data.stale.map(item => `${label[item.kind]}列印於 ${formatDay(item.printed)}（距產生日 ${item.days} 天）`).join('、')}，已逾一週，輸出結果可能失真。` : '';
+  const warn = data.stale.length ? `【警語】${data.stale.map(item => `${label[item.kind]}列印於 ${formatDay(item.printed)}（距產生日 ${item.days} 天）`).join('、')}，輸出結果可能失真。` : '';
   const files = (kind: 'usage' | 'inventory') => { const names = context.files[kind]; return names.length > 1 ? `${names[0]} 等 ${names.length} 個檔案` : names[0] ?? ''; };
   const meta = [
     `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆${kind === 'dead' && data.selfPay.length ? `（另附自費品 ${data.selfPay.length} 筆）` : ''}`,

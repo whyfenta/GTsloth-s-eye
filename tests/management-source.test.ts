@@ -17,7 +17,7 @@ async function readPages(file:string){
   return pages;
 }
 const parseAll=(pages:TextPage[],kind:'usage'|'inventory',file:number)=>pages.map((page,i)=>{const r=parsePage(page,kind,file,i+1);assert.ok(r.ok,`${kind} page ${i+1}: ${!r.ok&&r.reason}`);return (r as {page:ParsedPage}).page;});
-const none:Decisions={storeConfirmed:false,missingAcknowledged:'',safetyStrategy:'hamster'};
+const none:Decisions={storeConfirmed:false,safetyStrategy:'hamster'};
 test('attached templates: every page parses and the documented baseline is reproduced',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   assert.equal(createHash('sha256').update(fs.readFileSync(usageFile)).digest('hex'),HASH.usage);
@@ -39,12 +39,12 @@ test('attached templates: every page parses and the documented baseline is repro
   // 197 used codes have no stock line; they are listed, never zeroed, and N keeps them.
   assert.equal(data.missing.length,197);assert.deepEqual(data.missing.filter(m=>m.onList).map(m=>m.sku),['123863','159262']);
   assert.equal(data.partner,undefined,'only 2 of them, not more than 10: no partner clinic, so they stay on the list');
-  assert.match(data.reasons.safety,/2 個六碼/);assert.equal(data.available.dead,true,'four months, no scope acknowledgement needed');assert.equal(data.available.empty,false);
+  assert.equal(data.available.safety,true,'missing stock-sheet codes do not block output');assert.equal(data.available.dead,true,'four months, no scope acknowledgement needed');assert.equal(data.available.empty,false);
 });
 test('attached templates: eligible lists after the reviewer\'s decisions, printed as A4 PDFs',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   const pages=[...parseAll(await readPages(usageFile),'usage',0),...parseAll(await readPages(stockFile),'inventory',1)];
-  const data=derive(pages,[],{...none,missingAcknowledged:'123863,159262'});
+  const data=derive(pages,[],none);
   assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/庫存為 0/);
   const safety=listRows('safety',data);assert.equal(safety.length,106);
   assert.deepEqual(safety.find(r=>r[0]==='000206'),['000206','EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754','1,764']);

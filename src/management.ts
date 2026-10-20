@@ -5,7 +5,7 @@ const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
 import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
-import { derive, LIST_TITLE, listAlerts, listRows, listSpec, NO_STOCK, type Decisions, type Derived, type ListKind } from './management-report';
+import { derive, LIST_TITLE, listAlerts, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
 import { generateListPDF } from './management-pdf';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
 import { FEEDBACK_ENDPOINT } from './feedback-config';
@@ -28,7 +28,7 @@ type Output = { bytes: Uint8Array; url: string; version: number; pages: number; 
 // entries: files in import order; a row's origin.file is its index here. Changing the files clears the results.
 let entries: Entry[] = []; let adding = false; let parsing = false; let cancelRequested = false; let parsed = false; let documentNumber = 0;
 let pages: ParsedPage[] = []; let rejected: { kind: ReportKind; reason: string }[] = []; let progress = { done: 0, total: 0, message: '' };
-let decisions: Decisions = { storeConfirmed: false, missingAcknowledged: '', safetyStrategy: DEFAULT_SAFETY_STRATEGY };
+let decisions: Decisions = { storeConfirmed: false, safetyStrategy: DEFAULT_SAFETY_STRATEGY };
 let data: Derived | undefined; let attention = new Set<string>();
 /** Every row as parsed, before the reviewer's edits; the review feedback compares against it. */
 let originals = new Map<string, UsageRow | StockRow>(); let reviewPage = 0; let errorMessage = '';
@@ -103,7 +103,7 @@ function renderInputs() {
 const confirmDiscard = () => !parsed && !pages.length ? Promise.resolve(true) : ask('清除目前結果？', '<p>加入或移除檔案會清除目前的解析與校對結果，之後需重新按「開始解析」。</p>', '保留目前結果', '清除並更新檔案');
 function resetResults() {
   documentNumber++; cancelRequested = true; parsed = false; pages = []; rejected = []; data = undefined; attention = new Set(); originals = new Map(); feedbackStatus = ''; reviewPage = 0; progress = { done: 0, total: 0, message: '' };
-  decisions = { storeConfirmed: false, missingAcknowledged: '', safetyStrategy: decisions.safetyStrategy }; invalidate();
+  decisions = { storeConfirmed: false, safetyStrategy: decisions.safetyStrategy }; invalidate();
 }
 async function sha256(file: File) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join(''); }
 let pendingFiles: { kind: ReportKind; file: File }[] = [];
@@ -259,16 +259,12 @@ function renderReview() {
     return `<tr class="${errors.length ? 'flagged strong' : reviewOk(item) ? '' : 'flagged'}"><td class="mg-row-confirm"><label class="checkbox-label"><input type="checkbox" data-confirm="${r.id}" ${r.reviewed ? 'checked' : ''} ${errors.length ? 'disabled' : ''}>確認</label></td>${fields}<td>${status}${[...errors, ...notes].length ? `<span class="issue-text">${escape([...errors, ...notes].join('；'))}</span>` : ''}</td>
       <td class="mg-actions"><button class="text-button" data-trace="${r.id}">原圖</button><button class="text-button" data-exclude="${r.id}">排除</button></td></tr>`;
   }).join('');
-  const missingOnList = data.missing.filter(item => item.onList);
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">CHECK BEFORE CALCULATING</span><h2>校對資料</h2></div><button id="clear-results" class="button quiet">清除這次資料</button></div>
     <div class="stats"><div><strong>${data.stockRows.length}</strong><span>庫存列</span></div><div><strong>${data.usageRows.length}</strong><span>調劑明細</span></div><div><strong>${open}</strong><span>待確認</span></div><div><strong>${excluded.length}</strong><span>排除紀錄</span></div><div><strong>${data.missing.length}</strong><span>庫存缺碼</span></div></div>
     <p class="preview-note">兩份報表都直接讀 PDF 文字，不經 OCR。下列只顯示需要確認的列；有錯誤的列須修正或附理由排除，不能直接勾選放行。修改任何欄位都會重新計算，已產生的 PDF 隨即失效。</p>
     <div class="table-scroll"><table class="review-table mg-table mg-review-table"><thead><tr><th class="mg-row-confirm" scope="col">確認</th><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="6" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
     ${items.length > PER_PAGE ? `<div class="mg-pager"><button class="button secondary" data-review-page="${reviewPage - 1}" ${reviewPage ? '' : 'disabled'}>上一頁</button><span>${reviewPage + 1} / ${pagesTotal}</span><button class="button secondary" data-review-page="${reviewPage + 1}" ${reviewPage + 1 < pagesTotal ? '' : 'disabled'}>下一頁</button><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>` : shown.length ? '<div class="mg-pager"><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>' : ''}
-    ${excluded.length ? `<details class="mg-details" ${excluded.some(row => !autoExclusion(row.sku)) ? 'open' : ''}><summary>排除紀錄 ${excluded.length} 列（不計入品項數 N 與任何清單）</summary><table class="review-table mg-table"><thead><tr><th>代號</th><th>名稱與來源</th><th>排除理由</th><th>操作</th></tr></thead><tbody>${excluded.map(row => `<tr><td>${input(row.id, 'sku', row.sku, '代號', 'sku-input')}</td><td><span class="mg-name">${escape(row.rawName)}</span><span class="source-label">${'unit' in row ? '調劑表' : '庫存簡表'}・${where(row.origin)}</span></td><td><span class="issue-text">${escape(row.excluded!)}</span></td><td class="mg-actions"><button class="text-button" data-trace="${row.id}">原圖</button><button class="text-button" data-restore="${row.id}" ${SIX.test(row.sku) ? '' : 'disabled title="代號須先改為六碼"'}>恢復此列</button></td></tr>`).join('')}</tbody></table></details>` : ''}
-    ${data.missing.length ? `<div class="mg-missing"><h3>調劑表有、庫存簡表沒有的六碼：${data.missing.length} 個</h3><p class="preview-note">不會補成零庫存，也不會從品項數 N 移除（N = ${data.summary.items.length}）。${data.partner ? '此門市判定有合作診所供貨，這些六碼視為合作診所供應，不列入安全量清單，由後一位遞補。' : '常見原因是庫存簡表的範圍未包含該品項（例如非第 9 類、已無庫存列）。'}${data.partner ? '' : missingOnList.length ? `其中 ${missingOnList.length} 個在安全量清單內，須確認後才能輸出，清單的現有庫存量欄會印「${NO_STOCK}」、待採量印「—」。` : '都不在安全量清單內，不影響三份清單。'}</p>
-      ${missingOnList.length ? `<ul class="store-list">${missingOnList.map(item => `<li><span>${item.sku}・${escape(item.name)}</span><strong>調劑表第 ${item.pages.join('、')} 頁</strong></li>`).join('')}</ul><label class="checkbox-label mg-confirm"><input id="missing-ack" type="checkbox" ${decisions.missingAcknowledged === data.missingKey ? 'checked' : ''}>我已核對：以上 ${missingOnList.length} 個六碼不在這份庫存簡表，安全量清單照列並標示「${NO_STOCK}」</label>` : ''}
-      <details class="mg-details"><summary>全部 ${data.missing.length} 個缺碼</summary><table class="review-table mg-table"><thead><tr><th>六碼</th><th>調劑表名稱</th><th>調劑表頁次</th></tr></thead><tbody>${data.missing.map(item => `<tr><td>${item.sku}${item.onList ? ' <span class="status-pill amber">安全量清單</span>' : ''}</td><td>${escape(item.name)}</td><td>${item.pages.join('、')}</td></tr>`).join('')}</tbody></table></details></div>` : ''}`;
+    ${excluded.length ? `<details class="mg-details" ${excluded.some(row => !autoExclusion(row.sku)) ? 'open' : ''}><summary>排除紀錄 ${excluded.length} 列（不計入品項數 N 與任何清單）</summary><table class="review-table mg-table"><thead><tr><th>代號</th><th>名稱與來源</th><th>排除理由</th><th>操作</th></tr></thead><tbody>${excluded.map(row => `<tr><td>${input(row.id, 'sku', row.sku, '代號', 'sku-input')}</td><td><span class="mg-name">${escape(row.rawName)}</span><span class="source-label">${'unit' in row ? '調劑表' : '庫存簡表'}・${where(row.origin)}</span></td><td><span class="issue-text">${escape(row.excluded!)}</span></td><td class="mg-actions"><button class="text-button" data-trace="${row.id}">原圖</button><button class="text-button" data-restore="${row.id}" ${SIX.test(row.sku) ? '' : 'disabled title="代號須先改為六碼"'}>恢復此列</button></td></tr>`).join('')}</tbody></table></details>` : ''}`;
 }
 function renderLists() {
   const section = el('lists'); section.hidden = !data || !parsed;
@@ -422,7 +418,6 @@ document.addEventListener('change', event => {
   }
   if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; return changed(); }
   if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; return changed(); }
-  if (target.id === 'missing-ack') { decisions.missingAcknowledged = target.checked ? data?.missingKey ?? '' : ''; return changed(); }
 });
 document.addEventListener('keydown', event => { const target = event.target as HTMLInputElement; if (event.key === 'Enter' && !event.isComposing && target.dataset?.row) { event.preventDefault(); target.blur(); } });
 document.addEventListener('click', event => {
