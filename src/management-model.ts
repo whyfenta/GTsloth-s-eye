@@ -317,10 +317,31 @@ export type SlotRow = StockRow & { negative: boolean };
  */
 export const selfPay = (row: StockRow) => /^[!\p{Script=Han}\s]*?自費[!\p{Script=Han}\s]*[ABC]\s*-/u.test(row.rawName.normalize('NFKC'));
 /**
- * Stock lines whose code is not in the usage report: non-zero stock is dead stock (negative kept and marked), zero is an
- * empty slot. Self-pay lines are kept apart: with stock in `selfPay` (printed after the dead stock, for a person to check),
+ * Stock lines whose code is not in the usage report: non-zero stock is dead stock (negative kept and marked; lines to
+ * transfer first, see byTransfer), zero is an empty slot. Self-pay lines are kept apart: with stock in `selfPay` (printed after the dead stock, for a person to check),
  * and at 0 not at all, as nothing of them is held.
  */
+/** The suggested handling printed beside each dead-stock line; every self-pay line is left for a person to judge. */
+export type Disposition = '轉調協銷' | '月初退倉' | '待判定';
+export const SELF_PAY_DISPOSITION: Disposition = '待判定';
+/**
+ * Dead stock that should move to another store rather than go back to the warehouse, in the order it leads the list:
+ * a 冷藏, 缺貨 or 追追 status prefix, then a controlled-drug grade tag in the name, (管4) before (管3) and so on.
+ */
+export const TRANSFER_MARKS = ['冷藏', '缺貨', '追追', '(管4)', '(管3)', '(管2)', '(管1)'] as const;
+/** The status words before the A-/B-/C- marker of the raw name, plus those management keeps on the (maybe edited) name. */
+const statusPrefix = (row: StockRow) => (row.rawName.normalize('NFKC').match(/^(.*?)[ABC]\s*-/)?.[1] ?? '') + keptPrefix(row.name);
+/** The index of the first TRANSFER_MARKS entry a line carries, or -1 when it carries none. */
+export function transferRank(row: StockRow): number {
+  const prefix = statusPrefix(row); const name = `${row.rawName} ${row.name}`.normalize('NFKC').replace(/\s+/g, '');
+  return TRANSFER_MARKS.findIndex(mark => mark.startsWith('(') ? name.includes(mark) : prefix.includes(mark));
+}
+export const disposition = (row: StockRow): Disposition => transferRank(row) >= 0 ? '轉調協銷' : '月初退倉';
+/** Lines to transfer first, by TRANSFER_MARKS order, each group and the rest by location. */
+const byTransfer = (a: StockRow, b: StockRow) => {
+  const ra = transferRank(a); const rb = transferRank(b);
+  return (ra < 0 ? TRANSFER_MARKS.length : ra) - (rb < 0 ? TRANSFER_MARKS.length : rb) || byLocation(a, b);
+};
 export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow[]; empty: SlotRow[]; selfPay: SlotRow[] } {
   const dead: SlotRow[] = []; const empty: SlotRow[] = []; const own: SlotRow[] = [];
   for (const row of active(stock)) {
@@ -328,5 +349,5 @@ export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow
     if (selfPay(row)) { if (qty.n !== 0n) own.push({ ...row, negative: qty.n < 0n }); continue; }
     (qty.n === 0n ? empty : dead).push({ ...row, negative: qty.n < 0n });
   }
-  return { dead: dead.sort(byLocation), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
+  return { dead: dead.sort(byTransfer), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
 }
