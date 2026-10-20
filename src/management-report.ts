@@ -10,7 +10,7 @@ export const LIST_TITLE: Record<ListKind, string> = { safety: '安全量調整�
 /** Printed between the dead stock and the self-pay lines that follow it, in grey. */
 export const SELF_PAY_HEADING = '以下品項偵測應為自費品，耗量不在健保調劑量統計內，但機械判別難免有誤，請過目。';
 /** Reviewer decisions that are not edits of a row. */
-export type Decisions = { storeConfirmed: boolean; scopeConfirmed: boolean; zeroConfirmed: boolean; missingAcknowledged: string; safetyStrategy?: SafetyStrategy;
+export type Decisions = { storeConfirmed: boolean; missingAcknowledged: string; safetyStrategy?: SafetyStrategy;
   /** Partner-clinic stores: how little stock (in months of use) counts as clinic-supplied. 'wide' is opt-in. */
   partnerCover?: PartnerCover };
 export type Derived = {
@@ -86,8 +86,8 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
     if (missingKey && decisions.missingAcknowledged !== missingKey) reasons.safety = `清單內有 ${missingKey.split(',').length} 個六碼在庫存簡表找不到，請先核對並確認`;
-    const slot = !long ? `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用` : payment !== '全部' ? `給付方式為「${payment}」，範圍外的使用會被誤判為未使用；請以「全部」重新列印調劑表` : !decisions.scopeConfirmed ? '請先確認庫存簡表涵蓋要評估的全部儲位' : '';
-    reasons.dead = slot; reasons.empty = slot || (!zeroRows && !decisions.zeroConfirmed ? '庫存簡表沒有任何零庫存列；請以包含零庫存的條件重新列印，或確認列印時已包含零庫存' : '');
+    reasons.dead = long ? '' : `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用`;
+    reasons.empty = empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
   }
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
@@ -133,10 +133,10 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
     tail: data.selfPay.length ? { heading: SELF_PAY_HEADING, rows: selfPayRows(data) } : undefined,
-    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷依據為使用者確認的庫存範圍。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
+    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷範圍以匯入的庫存簡表為準。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
-    note: warn + `空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。${data.zeroRows ? '' : '這份庫存簡表沒有零庫存列，結果依使用者確認「列印時已包含零庫存」。'}`,
-    empty: data.zeroRows ? '庫存簡表的零庫存品項都在統計期間內有調劑紀錄，沒有空位。' : '庫存簡表沒有任何零庫存列（使用者已確認列印時包含零庫存），因此沒有空位。' };
+    note: warn + '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。判斷範圍以匯入的庫存簡表為準。',
+    empty: '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項。' };
 }

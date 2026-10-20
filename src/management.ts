@@ -28,7 +28,7 @@ type Output = { bytes: Uint8Array; url: string; version: number; pages: number; 
 // entries: files in import order; a row's origin.file is its index here. Changing the files clears the results.
 let entries: Entry[] = []; let adding = false; let parsing = false; let cancelRequested = false; let parsed = false; let documentNumber = 0;
 let pages: ParsedPage[] = []; let rejected: { kind: ReportKind; reason: string }[] = []; let progress = { done: 0, total: 0, message: '' };
-let decisions: Decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: DEFAULT_SAFETY_STRATEGY };
+let decisions: Decisions = { storeConfirmed: false, missingAcknowledged: '', safetyStrategy: DEFAULT_SAFETY_STRATEGY };
 let data: Derived | undefined; let attention = new Set<string>();
 /** Every row as parsed, before the reviewer's edits; the review feedback compares against it. */
 let originals = new Map<string, UsageRow | StockRow>(); let reviewPage = 0; let errorMessage = '';
@@ -50,7 +50,7 @@ app.innerHTML = `
         <input id="input-${kind}" type="file" accept="application/pdf" ${kind === 'inventory' ? 'multiple' : ''} hidden>
         <div id="drop-${kind}" data-kind="${kind}" class="drop-zone mg-drop" role="button" tabindex="0" aria-label="選擇或拖放${KIND_LABEL[kind]} PDF"><div class="upload-icon">${icon('upload')}</div><h3>把${KIND_LABEL[kind]}拖到這裡</h3><p>或點選，從裝置選擇 PDF${kind === 'inventory' ? '（可多選）' : ''}</p><span class="file-types">系統列印的 PDF</span></div>
         <ol id="files-${kind}" class="file-list" aria-label="${KIND_LABEL[kind]}檔案" hidden></ol>
-        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥與空位清單。'}</p></div>
+        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥清單；空位清單依庫存為零且未調劑的品項判斷。'}</p></div>
       </section>`).join('')}
     </div>
     <section class="card mg-start"><div id="start-row" class="start-row"><span id="queue-summary" aria-live="polite"></span><button id="clear-all" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始解析</span>${icon('arrow')}</button></div>
@@ -103,7 +103,7 @@ function renderInputs() {
 const confirmDiscard = () => !parsed && !pages.length ? Promise.resolve(true) : ask('清除目前結果？', '<p>加入或移除檔案會清除目前的解析與校對結果，之後需重新按「開始解析」。</p>', '保留目前結果', '清除並更新檔案');
 function resetResults() {
   documentNumber++; cancelRequested = true; parsed = false; pages = []; rejected = []; data = undefined; attention = new Set(); originals = new Map(); feedbackStatus = ''; reviewPage = 0; progress = { done: 0, total: 0, message: '' };
-  decisions = { storeConfirmed: false, scopeConfirmed: false, zeroConfirmed: false, missingAcknowledged: '', safetyStrategy: decisions.safetyStrategy }; invalidate();
+  decisions = { storeConfirmed: false, missingAcknowledged: '', safetyStrategy: decisions.safetyStrategy }; invalidate();
 }
 async function sha256(file: File) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))].map(b => b.toString(16).padStart(2, '0')).join(''); }
 let pendingFiles: { kind: ReportKind; file: File }[] = [];
@@ -293,7 +293,7 @@ function renderLists() {
     dead: '找出統計期間未調劑、仍有庫存的品項。',
     empty: '找出統計期間未調劑、庫存為零的儲位。',
   };
-  const s = data.safety; const zeroNote = data.zeroRows ? '' : `<label class="checkbox-label mg-confirm"><input id="zero-confirm" type="checkbox" ${decisions.zeroConfirmed ? 'checked' : ''}>這份庫存簡表沒有零庫存列。我確認列印時已包含零庫存品項（若不確定，請勿勾選並重新列印）</label>`;
+  const s = data.safety;
   const block = (kind: ListKind) => {
     const available = data!.available[kind]; const chosen = available && selected[kind];
     const rows = listRows(kind, data!); const output = outputs[kind];
@@ -315,7 +315,6 @@ function renderLists() {
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式 · 可各自勾選</span></div>
     <div class="stats"><div><strong>${data.months ? formatFrac(data.months) : '—'}</strong><span>統計月數</span></div><div><strong>${s?.n ?? 0}</strong><span>品項數 N</span></div><div><strong>${s?.limit ?? 0}</strong><span>前 10%</span></div><div><strong>${s?.eligible ?? 0}</strong><span>A &gt; 8</span></div><div><strong>${s?.k ?? 0}</strong><span>安全量筆數 K</span></div></div>
     ${data.stale.length ? `<div class="mg-warning">${data.stale.map(item => `${KIND_LABEL[item.kind]}列印於 ${formatDay(item.printed)}，距今已 ${item.days} 天`).join('；')}。報表已逾一週，門市現況可能已改變，以下清單與 PDF 的輸出結果可能失真；PDF 會附上這段警語。建議重新列印最新報表後再匯入。</div>` : ''}
-    <label class="checkbox-label mg-confirm"><input id="scope-confirm" type="checkbox" ${decisions.scopeConfirmed ? 'checked' : ''}>呆藥與空位清單：我確認庫存簡表涵蓋要評估的全部儲位（PDF 無法證明範圍是否完整）</label>${zeroNote}
     <p class="preview-note">勾選要產生的清單；選擇安全量清單後，可在卡片內設定備貨策略。</p>
     <div class="mg-list-grid">${LISTS.map(block).join('')}</div>
     <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '按「產生勾選的 PDF」輸出清單。資料、策略或勾選變更後，舊的 PDF 會失效。' : LISTS.some(kind => data!.available[kind]) ? '請先勾選要產生的清單。' : '目前資料不足以產生清單，請依卡片提示補齊資料或確認。'}</p>${FEEDBACK_ENDPOINT ? `<p class="preview-note mg-feedback-note">產生 PDF 時，會一併送出這次的校對修改紀錄供開發者改進判讀規則：名稱修正、提示後未修改即確認的列、排除理由、所選策略與門市編號。<b>不送出報表檔案、店名、統計期間，也不送出任何次數、數量、庫存量的數值。</b>${feedbackStatus ? `<br>${escape(feedbackStatus)}` : ''}</p>` : ''}</div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
@@ -421,8 +420,7 @@ document.addEventListener('change', event => {
     selected[kind] = target.checked; changed();
     document.querySelector<HTMLInputElement>(`[data-select="${kind}"]`)?.focus({ preventScroll: true }); return;
   }
-  const decision = ({ 'store-confirm': 'storeConfirmed', 'scope-confirm': 'scopeConfirmed', 'zero-confirm': 'zeroConfirmed' } as const)[target.id as 'store-confirm'];
-  if (decision) { decisions[decision] = target.checked; return changed(); }
+  if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; return changed(); }
   if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; return changed(); }
   if (target.id === 'missing-ack') { decisions.missingAcknowledged = target.checked ? data?.missingKey ?? '' : ''; return changed(); }
 });

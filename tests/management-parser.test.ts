@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
 import {derive,listAlerts,listRows,listSpec,NO_STOCK} from '../src/management-report';
+import {formatFrac} from '../src/management-model';
 import type {TextItem,TextPage} from '../src/textlayer';
 import {readFileSync} from 'node:fs';
 import {generateListPDF} from '../src/management-pdf';
@@ -64,14 +65,14 @@ test('the inventory sheet keeps 缺貨, reads stock not consigned stock, and nee
   assert.match((parsePage(noPage,'inventory',1,1) as {reason:string}).reason,/頁次/);
 });
 const parsed=(text:TextPage,kind:'usage'|'inventory',file:number,filePage:number)=>{const r=parsePage(text,kind,file,filePage);assert.ok(r.ok,!r.ok?r.reason:'');return (r as {page:ParsedPage}).page;};
-const decisions={storeConfirmed:false,scopeConfirmed:true,zeroConfirmed:false,missingAcknowledged:''};
+const decisions={storeConfirmed:false,missingAcknowledged:''};
 test('strategy selection reaches derived rows and the printed PDF, while list membership and slot lists stay stable',async()=>{
   const usage=parsed(page([...usageHead(1,1),...line(120,'000206','C-EZETROL怡妥錠10MG','粒','165','4287'),
     ...line(140,'000083','C-B','粒','120','1200'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
     ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
   const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
   const printDay={y:2026,m:10,d:16};
-  const baseline=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010'},printDay);
+  const baseline=derive(pages,[],{...decisions,missingAcknowledged:'000009,000010'},printDay);
   assert.equal(baseline.safety!.strategy,'balanced','平衡派 is the default');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
@@ -80,7 +81,7 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—']],
     ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—']],
   ] as const){
-    const result=derive(pages,[],{...decisions,zeroConfirmed:true,missingAcknowledged:'000009,000010',safetyStrategy:strategy},printDay);
+    const result=derive(pages,[],{...decisions,missingAcknowledged:'000009,000010',safetyStrategy:strategy},printDay);
     assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
     assert.deepEqual(result.safety!.rows.map(r=>r.shortage),[false,true,false,false]);
     assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
@@ -113,16 +114,36 @@ test('different periods, payment scopes or stores are never mixed',()=>{
   const otherStore=parsed(fix(stockPage(1,1,'27北-測試店')),'inventory',1,1);
   const result=derive([one,otherStore],[],{...decisions,storeConfirmed:true});assert.ok(result.blockers.some(b=>/不是同一門市/.test(b)),'a confirmation cannot override different store numbers');
   const partial=parsed(page([...usageHead(1,1,'健保'),...line(120,'000206','C-A','粒','1','1')]),'usage',0,1);
-  const scoped=derive([partial,stock],[],decisions);assert.equal(scoped.available.safety,true);assert.equal(scoped.available.dead,false);assert.match(scoped.reasons.dead,/給付方式/);
+  const scoped=derive([partial,stock],[],decisions);assert.equal(scoped.available.safety,true);assert.equal(scoped.available.dead,true,'payment coverage does not gate dead stock');
 });
 test('stock printed before the period end is a note, not a refusal; usage codes missing from stock are listed, not zeroed',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1);const usage=parsed(usagePage(1,1),'usage',0,1);
   const result=derive([usage,stock],[],decisions);
   assert.deepEqual(result.blockers,[]);assert.ok(result.warnings.some(w=>/2026\/10\/11.*2026\/10\/15/.test(w)));
   assert.deepEqual(result.missing.map(m=>m.sku),['000009']);assert.equal(result.summary.items.length,2,'N keeps the unmatched code');
-  assert.match(result.reasons.empty,/零庫存/,'a sheet without zero rows cannot prove empty slots');
-  assert.equal(derive([usage,stock],[],{...decisions,zeroConfirmed:true}).available.empty,true);
-  assert.equal(derive([usage,stock],[],{...decisions,scopeConfirmed:false}).available.dead,false);
+  assert.match(result.reasons.empty,/庫存為 0/,'without unused zero-stock rows the empty-slot list is unavailable');
+  assert.equal(result.available.empty,false);
+  assert.equal(result.available.dead,true,'no manual scope acknowledgement is needed');
+});
+test('dead stock requires more than 2.5 months; empty slots require actual unused zero-stock rows regardless of duration or payment',()=>{
+  const stock=parsed(stockPage(),'inventory',1,1);
+  stock.stock.find(r=>r.sku==='000083')!.qty='0';
+  const usage=(end:string)=>parsed(page([...usageHead(1,1,'健保','營業點：0026 26測試店',`統計期間：20260401 至 ${end}`),...line(120,'000206','C-A','粒','1','1')]),'usage',0,1);
+  const boundary=derive([usage('20260615'),stock],[],decisions);
+  assert.equal(formatFrac(boundary.months!),'2.5');assert.equal(boundary.available.dead,false);assert.match(boundary.reasons.dead,/大於 2.5/);
+  assert.equal(boundary.available.empty,true);assert.deepEqual(listRows('empty',boundary).map(r=>r[0]),['000083']);
+  const longer=derive([usage('20260616'),stock],[],decisions);
+  assert.equal(longer.available.dead,true);assert.equal(longer.available.empty,true);
+  const short=derive([usage('20260430'),stock],[],decisions);
+  assert.equal(short.available.dead,false);assert.equal(short.available.empty,true,'one month is enough when an unused zero-stock row exists');
+  const usedOnly=structuredClone(stock);usedOnly.stock.find(r=>r.sku==='000083')!.qty='368';usedOnly.stock.find(r=>r.sku==='000206')!.qty='0';
+  const noSlots=derive([usage('20260616'),usedOnly],[],decisions);
+  assert.equal(noSlots.zeroRows,1);assert.equal(noSlots.available.dead,true);assert.equal(noSlots.available.empty,false,'zero stock already present in usage is not an empty slot');
+  const excluded=structuredClone(stock);excluded.stock.find(r=>r.sku==='000083')!.excluded='使用者排除：來源不適用';
+  assert.equal(derive([usage('20260616'),excluded],[],decisions).available.empty,false,'excluded zero-stock rows are not candidates');
+  const pending=structuredClone(stock);pending.stock[0].reviewed=false;
+  const unfinished=derive([usage('20260616'),pending],[],decisions);
+  assert.equal(unfinished.available.dead,false);assert.equal(unfinished.available.empty,false,'review must still be complete');
 });
 test('a report printed a week or more before today carries a warning on the page and on every printed list',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1);const usage=parsed(usagePage(1,1),'usage',0,1);
