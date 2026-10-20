@@ -19,7 +19,7 @@ const icon = (name: 'chart' | 'upload' | 'file' | 'arrow') => {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
 };
 const KINDS: ReportKind[] = ['inventory', 'usage'];
-const LISTS: ListKind[] = ['safety', 'dead', 'empty', 'selfPay'];
+const LISTS: ListKind[] = ['safety', 'dead', 'empty'];
 const PER_PAGE = 25;
 /** Text-only PDFs, never OCR: a stock sheet printed with zero stock runs to ~150 pages before the usage report is added. */
 const MAX_PAGES = 400;
@@ -36,14 +36,14 @@ let originals = new Map<string, UsageRow | StockRow>(); let reviewPage = 0; let 
 let feedbackSent = ''; let feedbackStatus = '';
 // generation is the review revision; any change to sources, rows or decisions bumps it and drops every PDF.
 let generation = 0; let outputs: Partial<Record<ListKind, Output>> = {}; let generating = false;
-const selected: Record<ListKind, boolean> = { safety: true, dead: true, empty: true, selfPay: true };
+const selected: Record<ListKind, boolean> = { safety: true, dead: true, empty: true };
 let fontBytes: Promise<Uint8Array> | undefined;
 const busy = () => adding || parsing || generating;
 
 app.innerHTML = `
   <header class="topbar"><a class="brand" href="${import.meta.env.BASE_URL}" aria-label="樹懶的管理，返回樹懶的工作主目錄">${icon('chart')}<span>樹懶的管理<span class="brand-sub">← 返回主目錄</span></span></a><a class="inventory-home" href="${import.meta.env.BASE_URL}">← 主目錄</a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
   <main>
-    <section class="intro"><div><div class="eyebrow">STOCK LEVELS, MADE CLEAR</div><h1>從調劑量，<br class="mobile-break">看出該備多少。</h1><p>匯入庫存簡表與醫品調劑數量統計表，以六碼合併計算，<br>產生安全量、呆藥、空位與自費品項四份 A4 清單。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>COUNT · RANK · PLAN</b></div></section>
+    <section class="intro"><div><div class="eyebrow">STOCK LEVELS, MADE CLEAR</div><h1>從調劑量，<br class="mobile-break">看出該備多少。</h1><p>匯入庫存簡表與醫品調劑數量統計表，以六碼合併計算，<br>產生安全量、呆藥與空位三份 A4 清單。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>COUNT · RANK · PLAN</b></div></section>
     <nav class="steps" aria-label="處理步驟"><div data-step="1" class="active"><span>01</span>匯入報表</div><div data-step="2"><span>02</span>核對來源</div><div data-step="3"><span>03</span>產生清單</div></nav>
     <div class="workspace mg-inputs">
       ${KINDS.map(kind => `<section class="card"><div class="section-heading"><h2>${KIND_LABEL[kind]}</h2><span class="small-label">${kind === 'inventory' ? '可加入多份、分次補頁' : '一次匯入一份'}</span></div>
@@ -266,7 +266,7 @@ function renderReview() {
     <div class="table-scroll"><table class="review-table mg-table"><thead><tr><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="5" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
     ${items.length > PER_PAGE ? `<div class="mg-pager"><button class="button secondary" data-review-page="${reviewPage - 1}" ${reviewPage ? '' : 'disabled'}>上一頁</button><span>${reviewPage + 1} / ${pagesTotal}</span><button class="button secondary" data-review-page="${reviewPage + 1}" ${reviewPage + 1 < pagesTotal ? '' : 'disabled'}>下一頁</button><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>` : shown.length ? '<div class="mg-pager"><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>' : ''}
     ${excluded.length ? `<details class="mg-details" ${excluded.some(row => !autoExclusion(row.sku)) ? 'open' : ''}><summary>排除紀錄 ${excluded.length} 列（不計入品項數 N 與任何清單）</summary><table class="review-table mg-table"><thead><tr><th>代號</th><th>名稱與來源</th><th>排除理由</th><th>操作</th></tr></thead><tbody>${excluded.map(row => `<tr><td>${input(row.id, 'sku', row.sku, '代號', 'sku-input')}</td><td><span class="mg-name">${escape(row.rawName)}</span><span class="source-label">${'unit' in row ? '調劑表' : '庫存簡表'}・${where(row.origin)}</span></td><td><span class="issue-text">${escape(row.excluded!)}</span></td><td class="mg-actions"><button class="text-button" data-trace="${row.id}">原圖</button><button class="text-button" data-restore="${row.id}" ${SIX.test(row.sku) ? '' : 'disabled title="代號須先改為六碼"'}>恢復此列</button></td></tr>`).join('')}</tbody></table></details>` : ''}
-    ${data.missing.length ? `<div class="mg-missing"><h3>調劑表有、庫存簡表沒有的六碼：${data.missing.length} 個</h3><p class="preview-note">不會補成零庫存，也不會從品項數 N 移除（N = ${data.summary.items.length}）。${data.partner ? '此門市判定有合作診所供貨，這些六碼視為合作診所供應，不列入安全量清單，由後一位遞補。' : '常見原因是庫存簡表的範圍未包含該品項（例如非第 9 類、已無庫存列）。'}${data.partner ? '' : missingOnList.length ? `其中 ${missingOnList.length} 個在安全量清單內，須確認後才能輸出，清單的現有庫存量欄會印「${NO_STOCK}」、待採量印「—」。` : '都不在安全量清單內，不影響各份清單。'}</p>
+    ${data.missing.length ? `<div class="mg-missing"><h3>調劑表有、庫存簡表沒有的六碼：${data.missing.length} 個</h3><p class="preview-note">不會補成零庫存，也不會從品項數 N 移除（N = ${data.summary.items.length}）。${data.partner ? '此門市判定有合作診所供貨，這些六碼視為合作診所供應，不列入安全量清單，由後一位遞補。' : '常見原因是庫存簡表的範圍未包含該品項（例如非第 9 類、已無庫存列）。'}${data.partner ? '' : missingOnList.length ? `其中 ${missingOnList.length} 個在安全量清單內，須確認後才能輸出，清單的現有庫存量欄會印「${NO_STOCK}」、待採量印「—」。` : '都不在安全量清單內，不影響三份清單。'}</p>
       ${missingOnList.length ? `<ul class="store-list">${missingOnList.map(item => `<li><span>${item.sku}・${escape(item.name)}</span><strong>調劑表第 ${item.pages.join('、')} 頁</strong></li>`).join('')}</ul><label class="checkbox-label mg-confirm"><input id="missing-ack" type="checkbox" ${decisions.missingAcknowledged === data.missingKey ? 'checked' : ''}>我已核對：以上 ${missingOnList.length} 個六碼不在這份庫存簡表，安全量清單照列並標示「${NO_STOCK}」</label>` : ''}
       <details class="mg-details"><summary>全部 ${data.missing.length} 個缺碼</summary><table class="review-table mg-table"><thead><tr><th>六碼</th><th>調劑表名稱</th><th>調劑表頁次</th></tr></thead><tbody>${data.missing.map(item => `<tr><td>${item.sku}${item.onList ? ' <span class="status-pill amber">安全量清單</span>' : ''}</td><td>${escape(item.name)}</td><td>${item.pages.join('、')}</td></tr>`).join('')}</tbody></table></details></div>` : ''}`;
 }
@@ -288,9 +288,9 @@ function renderLists() {
     const rows = listRows(kind, data!); const output = outputs[kind]; const columns = listSpec(kind, data!, context()).columns;
     const alerts = listAlerts(kind, data!);
     const preview = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
-    return `<div class="mg-list ${data!.available[kind] ? '' : 'mg-disabled'}"><div class="mg-list-head"><label class="checkbox-label"><input type="checkbox" data-select="${kind}" ${selected[kind] && data!.available[kind] ? 'checked' : ''} ${data!.available[kind] ? '' : 'disabled'}><strong>${LIST_TITLE[kind]}</strong></label><span class="small-label">${data!.available[kind] ? `${rows.length} 筆${kind === 'safety' ? ` · ${SAFETY_STRATEGIES[strategy].name} · 係數 ${safetyStrategyRange(strategy)}` : ''}` : escape(data!.reasons[kind])}</span>
+    return `<div class="mg-list ${data!.available[kind] ? '' : 'mg-disabled'}"><div class="mg-list-head"><label class="checkbox-label"><input type="checkbox" data-select="${kind}" ${selected[kind] && data!.available[kind] ? 'checked' : ''} ${data!.available[kind] ? '' : 'disabled'}><strong>${LIST_TITLE[kind]}</strong></label><span class="small-label">${data!.available[kind] ? `${rows.length} 筆${kind === 'safety' ? ` · ${SAFETY_STRATEGIES[strategy].name} · 係數 ${safetyStrategyRange(strategy)}` : kind === 'dead' && data!.selfPay.length ? `（另附自費品 ${data!.selfPay.length} 筆）` : ''}` : escape(data!.reasons[kind])}</span>
       ${output ? `<span class="mg-output"><button class="button secondary" data-preview="${kind}">預覽 PDF</button><button class="button primary" data-download="${kind}">${icon('file')}下載</button><small>${output.pages} 頁・版本 ${output.version}</small></span>` : ''}</div>
-      ${data!.available[kind] ? `<div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${preview || `<tr><td colspan="${columns.length}" class="empty-table">${escape(listSpec(kind, data!, context()).empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}` : ''}</div>`;
+      ${data!.available[kind] ? `<div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${preview || `<tr><td colspan="${columns.length}" class="empty-table">${escape(listSpec(kind, data!, context()).empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}${kind === 'dead' && data!.selfPay.length ? `<p class="preview-note">PDF 另以灰字在清單末附上 ${data!.selfPay.length} 筆偵測為自費品的品項（名稱前綴含「自費」、庫存不為 0），不計入呆藥筆數，請過目。</p>` : ''}` : ''}</div>`;
   };
   const anySelected = LISTS.some(kind => selected[kind] && data!.available[kind]);
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式 · 可各自勾選</span></div>
@@ -302,7 +302,7 @@ function renderLists() {
       <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
     </fieldset>
     <p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），下方建議安全量與 PDF 依此計算。</p>
-    <label class="checkbox-label mg-confirm"><input id="scope-confirm" type="checkbox" ${decisions.scopeConfirmed ? 'checked' : ''}>呆藥、空位與自費品項清單：我確認庫存簡表涵蓋要評估的全部儲位（PDF 無法證明範圍是否完整）</label>${zeroNote}
+    <label class="checkbox-label mg-confirm"><input id="scope-confirm" type="checkbox" ${decisions.scopeConfirmed ? 'checked' : ''}>呆藥與空位清單：我確認庫存簡表涵蓋要評估的全部儲位（PDF 無法證明範圍是否完整）</label>${zeroNote}
     ${LISTS.map(block).join('')}
     <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '選擇策略並勾選要輸出的清單，再按「產生 PDF」。資料、策略或勾選變更後，舊的 PDF 會失效。' : '沒有可輸出的清單。'}</p>${FEEDBACK_ENDPOINT ? `<p class="preview-note mg-feedback-note">產生 PDF 時，會一併送出這次的校對修改紀錄供開發者改進判讀規則：名稱修正、提示後未修改即確認的列、排除理由、所選策略與門市編號。<b>不送出報表檔案、店名、統計期間，也不送出任何次數、數量、庫存量的數值。</b>${feedbackStatus ? `<br>${escape(feedbackStatus)}` : ''}</p>` : ''}</div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
 }

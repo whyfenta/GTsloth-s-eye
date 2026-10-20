@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {createHash} from 'node:crypto';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive,listRows,listSpec,NO_STOCK,type Decisions} from '../src/management-report';
+import {derive,listRows,listSpec,NO_STOCK,SELF_PAY_HEADING,selfPayRows,type Decisions} from '../src/management-report';
 import {formatFrac} from '../src/management-model';
 import {generateListPDF} from '../src/management-pdf';
 import type {TextPage} from '../src/textlayer';
@@ -45,13 +45,13 @@ test('attached templates: the three lists after the reviewer\'s decisions, print
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   const pages=[...parseAll(await readPages(usageFile),'usage',0),...parseAll(await readPages(stockFile),'inventory',1)];
   const data=derive(pages,[],{...none,scopeConfirmed:true,missingAcknowledged:'123863,159262'});
-  assert.deepEqual(data.available,{safety:true,dead:true,empty:false,selfPay:true});assert.match(data.reasons.empty,/零庫存/);
+  assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/零庫存/);
   const safety=listRows('safety',data);assert.equal(safety.length,106);
   assert.deepEqual(safety.find(r=>r[0]==='000206'),['000206','EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754','1,764']);
   assert.deepEqual(safety.filter(r=>r[2]===NO_STOCK).map(r=>r[0]),['123863','159262']);
   const dead=listRows('dead',data);assert.equal(dead.length,data.dead.length);assert.ok(dead.length>0);
-  // Self-pay products are never NHI dispensing: 自費 lines outside the usage report are set apart from the dead-stock list.
-  const own=listRows('selfPay',data).map(r=>r[0]);
+  // Self-pay products are never NHI dispensing: 自費 lines outside the usage report follow the dead stock in grey, not in it.
+  const own=selfPayRows(data).map(r=>r[0]);assert.ok(data.selfPay.every(r=>r.qty!=='0'));
   for(const sku of ['005157','099972','106508','122504','126313','165341','165342','175305'])assert.ok(own.includes(sku),sku);
   assert.ok(!own.includes('000289')&&!own.includes('178361'),'self-pay codes in the usage report are used');
   assert.ok(!dead.some(r=>own.includes(r[0])));
@@ -59,12 +59,14 @@ test('attached templates: the three lists after the reviewer\'s decisions, print
   const font=new Uint8Array(fs.readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   const context={files:{usage:['usage.pdf'],inventory:['261011_09p.pdf']},version:7,appVersion:'test',time:'2026/10/17 10:00'};
   const out=process.env.MANAGEMENT_OUTPUT_DIR;
-  for(const [kind,source] of [['safety',data],['dead',data],['empty',empty],['selfPay',data]] as const){
+  for(const [kind,source] of [['safety',data],['dead',data],['empty',empty]] as const){
     const result=await generateListPDF(listSpec(kind,source,context),font);const text=await pdfText(result.bytes);
     if(out){fs.mkdirSync(out,{recursive:true});fs.writeFileSync(`${out}/${kind}.pdf`,result.bytes);}
     assert.equal(result.pageCount,text.length);
     for(const [i,page] of text.entries())for(const word of ['26永和福和店','2026/06/16～2026/10/15',kind==='safety'?'品名':'清理後名稱','校對版本 7',`${i+1} / ${text.length}`])assert.ok(page.text.includes(word),`${kind} page ${i+1}: ${word}`);
     const codes=text.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]);
-    assert.deepEqual(codes,listRows(kind,source).map(r=>r[0]),`${kind}: every code once, in list order`);
+    const tail=kind==='dead'?selfPayRows(source).map(r=>r[0]):[];
+    assert.deepEqual(codes,[...listRows(kind,source).map(r=>r[0]),...tail],`${kind}: every code once, in list order, self-pay last`);
+    assert.equal(text.some(page=>page.text.includes(SELF_PAY_HEADING)),tail.length>0);
   }
 });

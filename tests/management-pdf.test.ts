@@ -18,6 +18,16 @@ test('A4 pages repeat title, store, period, headings and page number; long names
   assert.deepEqual(codes,rows.map(r=>r[0]),'every code once, in order, none split across pages');
   assert.ok(pages[0].text.includes('很長的名稱很長的名稱'));
 });
+test('tail rows follow the list under a full-width heading, which never ends a page alone',async()=>{
+  const rows=Array.from({length:55},(_,i)=>[String(i+1).padStart(6,'0'),'EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754','1,764']);
+  const tail=[['900001','自費品一','4','','','',''],['900002','自費品二','2','','','','']];
+  for(const count of [rows.length,0]){
+    const result=await generateListPDF({...spec(rows.slice(0,count)),tail:{heading:'以下品項偵測應為自費品，請過目。',rows:tail}},font);const pages=await pdfText(result.bytes);
+    assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),[...rows.slice(0,count),...tail].map(r=>r[0]));
+    const at=pages.findIndex(page=>page.text.includes('以下品項偵測應為自費品'));assert.ok(at>=0);assert.ok(pages[at].text.includes('900001'),'heading kept with its first row');
+    assert.equal(result.rowCount,count);
+  }
+});
 test('a list without rows still prints a page that says why',async()=>{
   const result=await generateListPDF(spec([]),font);const [page]=await pdfText(result.bytes);
   assert.equal(result.pageCount,1);assert.ok(page.text.includes('沒有符合的品項。'));assert.ok(page.text.includes('1 / 1'));
