@@ -17,7 +17,7 @@ async function readPages(file:string){
   return pages;
 }
 const parseAll=(pages:TextPage[],kind:'usage'|'inventory',file:number)=>pages.map((page,i)=>{const r=parsePage(page,kind,file,i+1);assert.ok(r.ok,`${kind} page ${i+1}: ${!r.ok&&r.reason}`);return (r as {page:ParsedPage}).page;});
-const none:Decisions={storeConfirmed:false,scopeConfirmed:false,zeroConfirmed:false,missingAcknowledged:'',safetyStrategy:'hamster'};
+const none:Decisions={storeConfirmed:false,missingAcknowledged:'',safetyStrategy:'hamster'};
 test('attached templates: every page parses and the documented baseline is reproduced',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   assert.equal(createHash('sha256').update(fs.readFileSync(usageFile)).digest('hex'),HASH.usage);
@@ -39,13 +39,13 @@ test('attached templates: every page parses and the documented baseline is repro
   // 197 used codes have no stock line; they are listed, never zeroed, and N keeps them.
   assert.equal(data.missing.length,197);assert.deepEqual(data.missing.filter(m=>m.onList).map(m=>m.sku),['123863','159262']);
   assert.equal(data.partner,undefined,'only 2 of them, not more than 10: no partner clinic, so they stay on the list');
-  assert.match(data.reasons.safety,/2 個六碼/);assert.equal(data.available.dead,false,'scope not yet confirmed');assert.equal(data.available.empty,false);
+  assert.match(data.reasons.safety,/2 個六碼/);assert.equal(data.available.dead,true,'four months, no scope acknowledgement needed');assert.equal(data.available.empty,false);
 });
-test('attached templates: the three lists after the reviewer\'s decisions, printed as A4 PDFs',async t=>{
+test('attached templates: eligible lists after the reviewer\'s decisions, printed as A4 PDFs',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
   const pages=[...parseAll(await readPages(usageFile),'usage',0),...parseAll(await readPages(stockFile),'inventory',1)];
-  const data=derive(pages,[],{...none,scopeConfirmed:true,missingAcknowledged:'123863,159262'});
-  assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/零庫存/);
+  const data=derive(pages,[],{...none,missingAcknowledged:'123863,159262'});
+  assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/庫存為 0/);
   const safety=listRows('safety',data);assert.equal(safety.length,106);
   assert.deepEqual(safety.find(r=>r[0]==='000206'),['000206','EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754','1,764']);
   assert.deepEqual(safety.filter(r=>r[2]===NO_STOCK).map(r=>r[0]),['123863','159262']);
@@ -55,11 +55,11 @@ test('attached templates: the three lists after the reviewer\'s decisions, print
   for(const sku of ['005157','099972','106508','122504','126313','165341','165342','175305'])assert.ok(own.includes(sku),sku);
   assert.ok(!own.includes('000289')&&!own.includes('178361'),'self-pay codes in the usage report are used');
   assert.ok(!dead.some(r=>own.includes(r[0])));
-  const empty=derive(pages,[],{...none,scopeConfirmed:true,zeroConfirmed:true,missingAcknowledged:'123863,159262'});assert.equal(empty.available.empty,true);assert.equal(empty.empty.length,0);
+  assert.equal(data.empty.length,0,'no empty-slot PDF is offered without matching rows');
   const font=new Uint8Array(fs.readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   const context={files:{usage:['usage.pdf'],inventory:['261011_09p.pdf']},version:7,appVersion:'test',time:'2026/10/17 10:00'};
   const out=process.env.MANAGEMENT_OUTPUT_DIR;
-  for(const [kind,source] of [['safety',data],['dead',data],['empty',empty]] as const){
+  for(const [kind,source] of [['safety',data],['dead',data]] as const){
     const result=await generateListPDF(listSpec(kind,source,context),font);const text=await pdfText(result.bytes);
     if(out){fs.mkdirSync(out,{recursive:true});fs.writeFileSync(`${out}/${kind}.pdf`,result.bytes);}
     assert.equal(result.pageCount,text.length);
