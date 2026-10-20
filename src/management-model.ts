@@ -318,13 +318,15 @@ export type SlotRow = StockRow & { negative: boolean };
 export const selfPay = (row: StockRow) => /^[!\p{Script=Han}\s]*?自費[!\p{Script=Han}\s]*[ABC]\s*-/u.test(row.rawName.normalize('NFKC'));
 /**
  * Stock lines whose code is not in the usage report: non-zero stock is dead stock (negative kept and marked), zero is an
- * empty slot. Self-pay lines are kept apart in `selfPay` (any quantity), so they are not mistaken for either.
+ * empty slot. Self-pay lines are kept apart: with stock in `selfPay` (printed after the dead stock, for a person to check),
+ * and at 0 not at all, as nothing of them is held.
  */
 export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow[]; empty: SlotRow[]; selfPay: SlotRow[] } {
   const dead: SlotRow[] = []; const empty: SlotRow[] = []; const own: SlotRow[] = [];
   for (const row of active(stock)) {
     const qty = parseDecimal(row.qty); if (!SIX.test(row.sku) || qty === null || used.has(row.sku)) continue;
-    (selfPay(row) ? own : qty.n === 0n ? empty : dead).push({ ...row, negative: qty.n < 0n });
+    if (selfPay(row)) { if (qty.n !== 0n) own.push({ ...row, negative: qty.n < 0n }); continue; }
+    (qty.n === 0n ? empty : dead).push({ ...row, negative: qty.n < 0n });
   }
   return { dead: dead.sort(byLocation), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
 }

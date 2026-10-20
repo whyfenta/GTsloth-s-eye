@@ -9,9 +9,13 @@ export type ListColumn = { label: string; width: number; align?: 'left' | 'right
  * rows hold the printed cell text; a "\n" in a cell starts a new line (used for the 負庫存異常 mark).
  * alerts marks cells printed in red heavy type, row by row like rows; only plain numbers can be marked.
  */
-export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; note: string; empty: string; subject?: string };
+export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; note: string; empty: string; subject?: string;
+  /** Rows printed after the list in grey, under a heading that spans the table (the self-pay lines after the dead stock). */
+  tail?: { heading: string; rows: string[][] } };
 export type ListResult = { bytes: Uint8Array; pageCount: number; rowCount: number };
 const ALERT = rgb(.78, .07, .07);
+/** One step lighter than the black body text: set apart, still easy to read. */
+const MUTED = rgb(.45, .45, .45);
 export const LIST_PRINT = { size: 10, leading: 13, padding: 1.8, top: 262, bottom: 25, header: 7 };
 
 export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): Promise<ListResult> {
@@ -32,16 +36,26 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   // The footer note holds up to 5 lines above the page number; the table takes the room of the lines it does not use.
   const noteLines = wrapText(spec.note, font, 7, mm(170)).slice(0, 5); const unused = (5 - noteLines.length) * 8.5;
   const top = mm(LIST_PRINT.top); const bottom = mm(LIST_PRINT.bottom) - unused;
-  const prepared = spec.rows.map((cells, row) => {
-    const alerts = cells.map((_, i) => Boolean(spec.alerts?.[row]?.[i]));
+  type Item = { lines: string[][]; alerts: boolean[]; height: number; muted: boolean; heading?: string[]; stripe: boolean };
+  const prepare = (cells: string[], alerts: boolean[], muted: boolean, stripe: boolean): Item => {
     const lines = cells.map((cell, i) => wrapText(cell, alerts[i] ? bold : font, size, mm(spec.columns[i].width) - pad * 2));
     const height = Math.max(...lines.map(list => list.length)) * leading + pad * 2;
     if (height > top - bottom) throw new Error(`「${cells[0]}」內容過長，無法放入一頁。`);
-    return { lines, alerts, height };
-  });
-  // A whole row always stays on one page.
-  const groups: typeof prepared[] = []; let group: typeof prepared = []; let available = top - bottom;
-  for (const item of prepared) { if (item.height > available && group.length) { groups.push(group); group = []; available = top - bottom; } group.push(item); available -= item.height; }
+    return { lines, alerts, height, muted, stripe };
+  };
+  const prepared: Item[] = spec.rows.map((cells, row) => prepare(cells, cells.map((_, i) => Boolean(spec.alerts?.[row]?.[i])), false, row % 2 === 1));
+  if (spec.tail?.rows.length) {
+    const heading = wrapText(spec.tail.heading, font, size, mm(190) - pad * 2);
+    prepared.push({ lines: [], alerts: [], height: heading.length * leading + pad * 4, muted: true, heading, stripe: false });
+    prepared.push(...spec.tail.rows.map((cells, row) => prepare(cells, cells.map(() => false), true, row % 2 === 1)));
+  }
+  // A whole row always stays on one page, and the tail heading stays with its first row.
+  const groups: Item[][] = []; let group: Item[] = []; let available = top - bottom;
+  for (const [index, item] of prepared.entries()) {
+    const need = item.heading ? item.height + (prepared[index + 1]?.height ?? 0) : item.height;
+    if (need > available && group.length) { groups.push(group); group = []; available = top - bottom; }
+    group.push(item); available -= item.height;
+  }
   if (group.length || !groups.length) groups.push(group);
   const line = (page: ReturnType<typeof document.addPage>, x0: number, y0: number, x1: number, y1: number) => page.drawLine({ start: { x: x0, y: y0 }, end: { x: x1, y: y1 }, thickness: .45, color: rgb(.6, .65, .62) });
   for (let p = 0; p < groups.length; p++) {
@@ -64,16 +78,24 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
       page.drawRectangle({ x: xs[0], y: top - height, width: mm(190), height, borderColor: rgb(.6, .65, .62), borderWidth: .45 });
       line(page, xs[0], headerTop, xs.at(-1)!, headerTop); y = top;
     }
-    for (const [index, item] of groups[p].entries()) {
+    if (groups[p].length) line(page, xs[0], headerTop, xs.at(-1)!, headerTop);
+    for (const x of xs) if (groups[p].length) line(page, x, headerTop, x, top);
+    for (const item of groups[p]) {
       const next = y - item.height;
-      if (index % 2 === 1) page.drawRectangle({ x: xs[0], y: next, width: mm(190), height: item.height, color: rgb(.92, .95, .93) });
-      item.lines.forEach((cellLines, column) => cellLines.forEach((text, i) => {
-        const right = spec.columns[column].align === 'right'; const face = item.alerts[column] ? bold : font;
-        page.drawText(text, { x: right ? xs[column + 1] - pad - face.widthOfTextAtSize(text, size) : xs[column] + pad, y: y - pad - size * .88 - i * leading, size, font: face, color: item.alerts[column] ? ALERT : undefined });
-      }));
+      if (item.heading) {
+        // The heading spans the whole table, so only the outer lines run beside it.
+        item.heading.forEach((text, i) => page.drawText(text, { x: xs[0] + pad, y: y - pad * 2 - size * .88 - i * leading, size, font, color: MUTED }));
+        line(page, xs[0], y, xs[0], next); line(page, xs.at(-1)!, y, xs.at(-1)!, next);
+      } else {
+        if (item.stripe) page.drawRectangle({ x: xs[0], y: next, width: mm(190), height: item.height, color: rgb(.92, .95, .93) });
+        item.lines.forEach((cellLines, column) => cellLines.forEach((text, i) => {
+          const right = spec.columns[column].align === 'right'; const face = item.alerts[column] ? bold : font;
+          page.drawText(text, { x: right ? xs[column + 1] - pad - face.widthOfTextAtSize(text, size) : xs[column] + pad, y: y - pad - size * .88 - i * leading, size, font: face, color: item.alerts[column] ? ALERT : item.muted ? MUTED : undefined });
+        }));
+        for (const x of xs) line(page, x, y, x, next);
+      }
       line(page, xs[0], next, xs.at(-1)!, next); y = next;
     }
-    if (groups[p].length) { for (const x of xs) line(page, x, headerTop, x, y); line(page, xs[0], headerTop, xs.at(-1)!, headerTop); }
     noteLines.forEach((text, i) => page.drawText(text, { x: mm(10), y: mm(19) - unused - i * 8.5, size: 7, font }));
     const footer = `${p + 1} / ${groups.length}`;
     page.drawText(footer, { x: mm(200) - font.widthOfTextAtSize(footer, 8), y: mm(8), size: 8, font });

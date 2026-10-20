@@ -5,8 +5,10 @@ import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBef
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
 
-export type ListKind = 'safety' | 'dead' | 'empty' | 'selfPay';
-export const LIST_TITLE: Record<ListKind, string> = { safety: '安全量調整及採購建議清單', dead: '呆藥清單', empty: '空位清單', selfPay: '自費品項清單' };
+export type ListKind = 'safety' | 'dead' | 'empty';
+export const LIST_TITLE: Record<ListKind, string> = { safety: '安全量調整及採購建議清單', dead: '呆藥清單', empty: '空位清單' };
+/** Printed between the dead stock and the self-pay lines that follow it, in grey. */
+export const SELF_PAY_HEADING = '以下品項偵測應為自費品，耗量不在健保調劑量統計內，但機械判別難免有誤，請過目。';
 /** Reviewer decisions that are not edits of a row. */
 export type Decisions = { storeConfirmed: boolean; scopeConfirmed: boolean; zeroConfirmed: boolean; missingAcknowledged: string; safetyStrategy?: SafetyStrategy;
   /** Partner-clinic stores: how little stock (in months of use) counts as clinic-supplied. 'wide' is opt-in. */
@@ -18,7 +20,7 @@ export type Derived = {
   pendingUsage: UsageRow[]; pendingStock: StockRow[]; summary: UsageSummary; duplicates: StockRow[][];
   months?: Frac; period?: string; payment?: string; storeLabel: string; storeMatch?: 'same' | 'different' | 'unsure';
   safety?: SafetyResult; dead: SlotRow[]; empty: SlotRow[]; zeroRows: number;
-  /** Self-pay stock lines outside the usage report: set apart from the dead-stock and empty-slot lists. */
+  /** Self-pay lines with stock outside the usage report: kept out of dead stock, printed in grey after it. */
   selfPay: SlotRow[];
   /** Reports printed STALE_DAYS or more before today: their numbers may no longer match the store. */
   stale: { kind: 'usage' | 'inventory'; printed: Day; days: number }[];
@@ -79,15 +81,15 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const missingKey = missing.filter(item => item.onList).map(item => item.sku).join(',');
   const zeroRows = stockRows.filter(row => !row.excluded && parseDecimal(row.qty)?.n === 0n).length;
   const payment = first?.payment; const long = months ? longPeriod(months) : false;
-  const reasons: Record<ListKind, string> = { safety: '', dead: '', empty: '', selfPay: '' };
+  const reasons: Record<ListKind, string> = { safety: '', dead: '', empty: '' };
   const notReady = !sourcesReady ? '來源報表尚未齊備或有問題' : pendingUsage.length + pendingStock.length ? `還有 ${pendingUsage.length + pendingStock.length} 筆待校對` : summary.unitConflicts.length ? `${summary.unitConflicts.length} 個六碼的單位不一致` : '';
-  if (notReady) reasons.safety = reasons.dead = reasons.empty = reasons.selfPay = notReady;
+  if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
     if (missingKey && decisions.missingAcknowledged !== missingKey) reasons.safety = `清單內有 ${missingKey.split(',').length} 個六碼在庫存簡表找不到，請先核對並確認`;
     const slot = !long ? `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用` : payment !== '全部' ? `給付方式為「${payment}」，範圍外的使用會被誤判為未使用；請以「全部」重新列印調劑表` : !decisions.scopeConfirmed ? '請先確認庫存簡表涵蓋要評估的全部儲位' : '';
-    reasons.dead = reasons.selfPay = slot; reasons.empty = slot || (!zeroRows && !decisions.zeroConfirmed ? '庫存簡表沒有任何零庫存列；請以包含零庫存的條件重新列印，或確認列印時已包含零庫存' : '');
+    reasons.dead = slot; reasons.empty = slot || (!zeroRows && !decisions.zeroConfirmed ? '庫存簡表沒有任何零庫存列；請以包含零庫存的條件重新列印，或確認列印時已包含零庫存' : '');
   }
-  const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty, selfPay: !reasons.selfPay };
+  const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
   return { usage, stock, usageRows, stockRows, blockers, warnings, pendingUsage, pendingStock, summary, duplicates, months, period, payment, storeLabel: first?.store.label ?? firstStock?.store.label ?? '',
     storeMatch, safety, dead, empty, selfPay, zeroRows, stale, partner, missing, missingKey, ready, available, reasons };
@@ -101,9 +103,11 @@ export function toOrder(row: SafetyRow): Frac | undefined {
 }
 export function listRows(kind: ListKind, data: Derived): string[][] {
   if (kind === 'safety') return (data.safety?.rows ?? []).map(row => { const order = toOrder(row); return [row.sku, row.name, row.stock ? show(row.stock) : NO_STOCK, show(row.a), show(row.ab), show(frac(row.safety)), order ? show(order) : '—']; });
-  const rows = kind === 'dead' ? data.dead : kind === 'empty' ? data.empty : data.selfPay;
-  return rows.map(row => kind !== 'empty' ? [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)] : [row.sku, row.name, row.location]);
+  return kind === 'dead' ? data.dead.map(deadCells) : data.empty.map(row => [row.sku, row.name, row.location]);
 }
+const deadCells = (row: SlotRow) => [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)];
+/** The self-pay lines printed after the dead stock, cells as on the dead-stock list. */
+export const selfPayRows = (data: Derived) => data.selfPay.map(deadCells);
 /** Cells printed in red heavy type: on the safety list, stock above 4 months of use (OVERSTOCK_MONTHS). */
 export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
   if (kind !== 'safety') return listRows(kind, data).map(cells => cells.map(() => false));
@@ -115,7 +119,7 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   const warn = data.stale.length ? `【警語】${data.stale.map(item => `${label[item.kind]}列印於 ${formatDay(item.printed)}（距產生日 ${item.days} 天）`).join('、')}，已逾一週，輸出結果可能失真。` : '';
   const files = (kind: 'usage' | 'inventory') => { const names = context.files[kind]; return names.length > 1 ? `${names[0]} 等 ${names.length} 個檔案` : names[0] ?? ''; };
   const meta = [
-    `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆`,
+    `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆${kind === 'dead' && data.selfPay.length ? `（另附自費品 ${data.selfPay.length} 筆）` : ''}`,
     `來源：調劑表 ${files('usage')}（${data.usage.pages.length} 頁）；庫存簡表 ${files('inventory')}（${data.stock.pages.length} 頁）  |  校對版本 ${context.version}  |  樹懶的管理 ${context.appVersion}  |  ${context.time} 產生`,
   ];
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
@@ -128,12 +132,9 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
-    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷依據為使用者確認的庫存範圍。${data.selfPay.length ? `名稱前綴含「自費」的 ${data.selfPay.length} 筆不經健保調劑，另列於自費品項清單。` : ''}`,
+    tail: data.selfPay.length ? { heading: SELF_PAY_HEADING, rows: selfPayRows(data) } : undefined,
+    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷依據為使用者確認的庫存範圍。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
-  if (kind === 'selfPay') return { title: LIST_TITLE.selfPay, rows, meta,
-    columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 104 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 26, align: 'right' }],
-    note: warn + '自費品項：庫存簡表名稱前綴含「自費」、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。自費品項不符健保規則、不計入健保調劑，未調劑不代表滯銷，因此不列入呆藥與空位清單，請依自費銷售紀錄另行判斷。',
-    empty: '庫存簡表中沒有「名稱含自費且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
     note: warn + `空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。${data.zeroRows ? '' : '這份庫存簡表沒有零庫存列，結果依使用者確認「列印時已包含零庫存」。'}`,
