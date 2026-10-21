@@ -335,7 +335,7 @@ async function preparePDF(){
   // Build from a frozen copy so the PDF is exactly the data confirmed at this revision.
   const output=printable(structuredClone(rows));const snapshot=output.rows;const time=new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
   const names=source?.files.map(file=>file.file.name)??[];
-  const sourceLabel=`來源 ${names.length>1?`${names[0]} 等 ${names.length} 個檔案`:names[0]??''} · 輸出 ${snapshot.length} 筆 · 略過帳量 0 共 ${output.zero} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 校對版本 ${version} · ${time} 產生`;
+  const sourceLabel=`來源 ${names.length>1?`${names[0]} 等 ${names.length} 個檔案`:names[0]??''} · 輸出 ${snapshot.length} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 校對版本 ${version} · ${time} 產生`;
   try{const result=await generatePDF(snapshot,{storeName,sortMode,rowHeight,source:sourceLabel,warning:inventoryWarning(pages,day)});
     if(version!==generation)throw new Error('產生 PDF 期間資料或設定已變更，請重新確認修改的項目後再下載。');
     if(date!==formatDay(today()))throw new Error('日期已變更，請重新下載以更新庫存時效警語。');
