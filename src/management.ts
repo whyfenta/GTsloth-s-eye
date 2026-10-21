@@ -5,8 +5,7 @@ const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
 import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
-import { derive, LIST_TITLE, listAlerts, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
-import { generateListPDF } from './management-pdf';
+import { derive, LIST_TITLE, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
 import { FEEDBACK_ENDPOINT } from './feedback-config';
 import { DocumentSource } from './source';
@@ -198,9 +197,10 @@ function dialog(title: string, html: string, cancel: string, ok: string, reason:
 const ask = async (title: string, html: string, cancel: string, ok: string) => Boolean(await dialog(title, html, cancel, ok, false));
 
 // ---- Rendering ---------------------------------------------------------------
-function render() {
+/** `recompute: false` is for view-only changes (review page, list choice, feedback status): the derived data is reused. */
+function render(recompute = true) {
   renderInputs();
-  data = parsed || pages.length ? derive(pages, rejected, decisions) : undefined;
+  if (recompute || !data) data = parsed || pages.length ? derive(pages, rejected, decisions) : undefined;
   renderSources(); renderReview(); renderLists();
   const step = data?.ready ? 3 : data ? 2 : 1;
   document.querySelectorAll<HTMLElement>('[data-step]').forEach(item => item.classList.toggle('active', Number(item.dataset.step) === step));
@@ -292,10 +292,11 @@ function renderLists() {
   const s = data.safety;
   const block = (kind: ListKind) => {
     const available = data!.available[kind]; const chosen = available && selected[kind];
-    const rows = listRows(kind, data!); const output = outputs[kind];
+    // A chosen list builds its rows once, through its spec; the others only need the count.
+    const spec = chosen ? listSpec(kind, data!, context()) : undefined; const rows = spec?.rows ?? listRows(kind, data!); const output = outputs[kind];
     let preview = '';
-    if (chosen) {
-      const spec = listSpec(kind, data!, context()); const alerts = listAlerts(kind, data!);
+    if (spec) {
+      const alerts = spec.alerts ?? [];
       const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
       preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}</details>`;
     }
@@ -359,7 +360,8 @@ async function generate() {
   const results: Partial<Record<ListKind, Output>> = {};
   try {
     fontBytes ??= fetch((import.meta.env.BASE_URL ?? '/') + 'assets/fonts/NotoSansTC-PDF.ttf').then(async response => { if (!response.ok) throw new Error('無法載入 PDF 中文字型。'); return new Uint8Array(await response.arrayBuffer()); });
-    const font = await fontBytes; const frozen = data; const ctx = context();
+    // pdf-lib and fontkit (~1 MB) load on the first PDF, not with the page.
+    const [font, { generateListPDF }] = await Promise.all([fontBytes, import('./management-pdf')]); const frozen = data; const ctx = context();
     for (const kind of kinds) {
       const result = await generateListPDF(listSpec(kind, frozen, ctx), font);
       results[kind] = { bytes: result.bytes, url: URL.createObjectURL(new Blob([result.bytes.slice().buffer], { type: 'application/pdf' })), version, pages: result.pageCount, rows: result.rowCount };
@@ -387,7 +389,7 @@ async function submitFeedback() {
   feedbackSent = key;
   try { await sendFeedback(record, FEEDBACK_ENDPOINT); feedbackStatus = '已送出這次的校對紀錄，謝謝。'; }
   catch { feedbackSent = ''; feedbackStatus = '校對紀錄未能送出（網路問題），不影響清單；下次產生 PDF 時會再試。'; }
-  render();
+  render(false);
 }
 
 for (const kind of KINDS) {
@@ -415,7 +417,7 @@ document.addEventListener('change', event => {
   if (target.dataset.select) {
     const kind = target.dataset.select as ListKind;
     if (busy() || !data?.available[kind]) return;
-    selected[kind] = target.checked; changed();
+    selected[kind] = target.checked; invalidate(); render(false);
     document.querySelector<HTMLInputElement>(`[data-select="${kind}"]`)?.focus({ preventScroll: true }); return;
   }
   if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; return changed(); }
@@ -426,7 +428,7 @@ document.addEventListener('click', event => {
   const target = (event.target as HTMLElement).closest<HTMLElement>('button'); if (!target) return;
   const d = target.dataset;
   if (d.trace) void showTrace(d.trace); else if (d.exclude) void exclude(d.exclude); else if (d.restore) restore(d.restore);
-  else if (d.reviewPage !== undefined) { reviewPage = Number(d.reviewPage); render(); }
+  else if (d.reviewPage !== undefined) { reviewPage = Number(d.reviewPage); render(false); }
   else if (target.id === 'confirm-shown') { const items = reviewItems().slice(reviewPage * PER_PAGE, (reviewPage + 1) * PER_PAGE); for (const item of items) if (!rowProblems(item).errors.length) item.row.reviewed = true; changed(); }
   else if (target.id === 'clear-results') { void clearAll(); }
   else if (target.id === 'generate') void generate();

@@ -1,8 +1,8 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import JsBarcode from 'jsbarcode';
-import { asset, formatQuantity, isNegativeQuantity, sortRows, type InventoryRow, type SortMode } from './model';
-export const mm = (value: number) => value * 72 / 25.4;
+import { formatQuantity, isNegativeQuantity, sortRows, type InventoryRow, type SortMode } from './model';
+import { embedNoto, mm, wrapText } from './pdf-common';
+export { mm, wrapText };
 // Keep the 10 mm bars and 16 pt human-readable code.  These heights are not
 // compressed; only the surrounding white space is 80% of template 0015-09.
 export const ROW_HEIGHTS = [22.6, 25.8, 29] as const;
@@ -24,42 +24,12 @@ export function barcodeFontText(sku: string): string {
   const checksum = (105 + pairs.reduce((sum,n,i)=>sum+n*(i+1),0)) % 103;
   return [105,...pairs,checksum,106].map(n=>String.fromCharCode(n < 95 ? n+32 : n+100)).join('');
 }
-// Breaks between words, between CJK characters or after "/", so "3ML" or
-// "(黃盒)" is not split; a run wider than the column still breaks by character.
-export function wrapText(text: string, font: PDFFont, size: number, width: number): string[] {
-  const fits = (value: string) => font.widthOfTextAtSize(value, size) <= width;
-  const lines: string[] = [];
-  for (const paragraph of text.split('\n')) {
-    const tokens = paragraph.match(/\s+|\p{Script=Han}[)\]）】」』,，、。;；:：%]*|[^\s\p{Script=Han}]+?(?:\/|(?=[\s\p{Script=Han}]|$))/gu) ?? [];
-    for (let i = 0; i < tokens.length - 1; i++) { const open = tokens[i].match(/[([（【「『]+$/); if (open) { tokens[i] = tokens[i].slice(0, -open[0].length); tokens[i + 1] = open[0] + tokens[i + 1]; } }
-    // Keep short bracket groups such as (管4) or (黃盒) on one line.
-    for (let i = 0; i < tokens.length; i++) {
-      if (!/^[([（【]/.test(tokens[i]) || /[)\]）】]/.test(tokens[i])) continue;
-      let j = i, group = tokens[i];
-      while (j + 1 < tokens.length && !/[)\]）】]/.test(group) && Array.from(group + tokens[j + 1]).length <= 8 && tokens[j + 1].trim()) group += tokens[++j];
-      if (/[)\]）】]/.test(group)) tokens.splice(i, j - i + 1, group);
-    }
-    let current = '';
-    for (const token of tokens) {
-      if (fits(current + token)) { current += token; continue; }
-      if (current.trim()) { lines.push(current.trimEnd()); current = ''; }
-      if (!token.trim()) continue;
-      for (const char of Array.from(token)) { if (current && !fits(current + char)) { lines.push(current); current = ''; } current += char; }
-    }
-    lines.push(current.trimEnd());
-  }
-  return lines;
-}
 // source identifies the exact reviewed data (file, row count, revision) printed on every page.
 export type PDFOptions = { storeName: string; sortMode: SortMode; rowHeight: RowHeight; title?: string; note?: string; source?: string; warning?: string };
 export type PDFResult = { bytes: Uint8Array; pageCount: number; barcodeCount: number };
 export async function generatePDF(rows: InventoryRow[], options: PDFOptions, notoBytes?: Uint8Array): Promise<PDFResult> {
   const document = await PDFDocument.create();
-  document.registerFontkit({ ...fontkit, create(bytes: Uint8Array) { const font = fontkit.create(bytes) as any; return font.variationAxes?.wght ? font.getVariation({ wght: 400 }) : font; } });
-  const bytes = notoBytes ?? new Uint8Array(await (await fetch(asset('fonts/NotoSansTC-PDF.ttf'))).arrayBuffer());
-  // Full embedding: fontkit's CJK subsets keep the text layer but render blank glyphs
-  // (re-checked 2026-10-10 with the static font), so each PDF stays ~4.4 MB.
-  const font = await document.embedFont(bytes, { subset: false, features: {locl:false} }); const numeric = await document.embedFont(StandardFonts.Courier); const numericBold = await document.embedFont(StandardFonts.CourierBold);
+  const font = await embedNoto(document, notoBytes); const numeric = await document.embedFont(StandardFonts.Courier); const numericBold = await document.embedFont(StandardFonts.CourierBold);
   document.setTitle(options.title ?? '門市庫存盤點表'); document.setAuthor('樹懶的盤點'); document.setSubject('在瀏覽器產生的 A4 盤點表');
   const ordered = sortRows(rows, options.sortMode); const widths = PRINT.columns.map(mm); const xs = [mm(10)]; for(const width of widths) xs.push(xs.at(-1)! + width);
   // Table body 264 → 15 mm (249 mm) holds 11 rows of 22.6 mm. The footer baseline sits 8 mm and the

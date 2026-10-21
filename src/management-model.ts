@@ -329,11 +329,11 @@ export function transferRank(row: StockRow): number {
   return TRANSFER_MARKS.findIndex(mark => mark.startsWith('(') ? name.includes(mark) : prefix.includes(mark));
 }
 export const disposition = (row: StockRow): Disposition => transferRank(row) >= 0 ? '轉調協銷' : '月初退倉';
-/** Lines to transfer first, by TRANSFER_MARKS order, each group and the rest by location. */
-const byTransfer = (a: StockRow, b: StockRow) => {
-  const ra = transferRank(a); const rb = transferRank(b);
-  return (ra < 0 ? TRANSFER_MARKS.length : ra) - (rb < 0 ? TRANSFER_MARKS.length : rb) || byLocation(a, b);
-};
+/** Lines to transfer first, by TRANSFER_MARKS order, each group and the rest by location. Ranks are read once per line, not per comparison. */
+function byTransfer<R extends StockRow>(rows: R[]): R[] {
+  const rank = new Map(rows.map(row => { const r = transferRank(row); return [row, r < 0 ? TRANSFER_MARKS.length : r]; }));
+  return rows.sort((a, b) => rank.get(a)! - rank.get(b)! || byLocation(a, b));
+}
 export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow[]; empty: SlotRow[]; selfPay: SlotRow[] } {
   const dead: SlotRow[] = []; const empty: SlotRow[] = []; const own: SlotRow[] = [];
   for (const row of active(stock)) {
@@ -341,5 +341,5 @@ export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow
     if (selfPay(row)) { if (qty.n !== 0n) own.push({ ...row, negative: qty.n < 0n }); continue; }
     (qty.n === 0n ? empty : dead).push({ ...row, negative: qty.n < 0n });
   }
-  return { dead: dead.sort(byTransfer), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
+  return { dead: byTransfer(dead), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
 }
