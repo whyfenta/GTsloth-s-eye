@@ -21,7 +21,7 @@ const icon = (name: 'box'|'upload'|'file'|'arrow') => {
 let queue: DocumentSource[] = []; let adding = false; const forcedRotations = new Map<DocumentSource, number>(); let storeNote = '';
 let source: SourceSet | undefined; let job: InventoryJob | undefined; let rows: InventoryRow[] = []; let pages: PageReport[] = [];
 let selectedPage = 1; let filterIssues = true; let sortMode: SortMode = 'sku'; let rowHeight: RowHeight = 22.6;
-let storeName = ''; let finalConfirmed = false; let processingMessage = ''; let errorMessage = ''; let pdfUrl = ''; let pdfBytes: Uint8Array | undefined;
+let storeName = ''; let finalConfirmed = false; let processingMessage = ''; let pdfUrl = ''; let pdfBytes: Uint8Array | undefined;
 let generating = false; let retrying = false; let activeDialogCanvas: HTMLCanvasElement | undefined; let currentTrace: InventoryRow | undefined; let generation = 0;
 // Cache only within one Taipei calendar day, so a later download gets the current source-age warning.
 let pdfRevision = -1; let pdfDay = ''; let documentNumber = 0;
@@ -62,7 +62,7 @@ const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElem
 function invalidatePDF(){generation++;finalConfirmed=false;el<HTMLInputElement>('final-confirm').checked=false;pdfBytes=undefined;pdfRevision=-1;pdfDay='';if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl='';
   // A preview left open must not keep showing (or downloading) an outdated PDF.
   const dialog=el<HTMLDialogElement>('pdf-dialog');if(dialog.open)dialog.close();el<HTMLIFrameElement>('pdf-frame').removeAttribute('src');}
-function showError(message:string){errorMessage=message;el('error').hidden=!message;el('error').textContent=message;}
+function showError(message:string){el('error').hidden=!message;el('error').textContent=message;}
 function updateProgress(){
   const state=job?.state ?? 'idle';el('progress-panel').hidden=state==='idle';
   const titles={idle:'',loading:'準備辨識',running:'正在辨識',paused:'已暫停',cancelled:'辨識已取消',complete:'辨識完成，請校對',error:'辨識中止'};

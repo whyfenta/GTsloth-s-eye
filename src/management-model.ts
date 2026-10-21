@@ -60,7 +60,7 @@ export function statMonths(start: Day, end: Day): Frac | null {
   const from = serial(anchor(start, whole)); const segment = serial(anchor(start, whole + 1)) - from;
   return add(frac(BigInt(whole)), frac(BigInt(stop - from), BigInt(segment)));
 }
-/** Dead-stock and empty-slot lists need a period strictly longer than 2.5 months. */
+/** The dead-stock list needs a period strictly longer than 2.5 months; the empty-slot list does not depend on the period. */
 export const LONG_PERIOD = frac(5n, 2n);
 export const longPeriod = (months: Frac) => cmp(months, LONG_PERIOD) > 0;
 export const nextDay = (day: Day) => fromSerial(serial(day) + 1);
@@ -218,7 +218,7 @@ export const safetyStrategyRange = (strategy: SafetyStrategy) => {
  * Months of cover by rank on the store's own list, so a busy store does not give every code the maximum.
  * p = 1 − i / (K − 1) for the i-th row (0 = highest A; equal A share the first rank).
  * The top third (p ≥ 2/3) gets the strategy's maximum; below it the coefficient falls linearly to its minimum.
- * The default hamster strategy preserves the original 3.5–1.2 curve exactly.
+ * The hamster strategy preserves the original 3.5–1.2 curve exactly; the default is the balanced strategy.
  */
 const TOP = frac(2n, 3n);
 export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY): Frac {

@@ -1,6 +1,6 @@
 // 樹懶的管理: reads one text-layer page of either report into rows and page facts.
 // Only system-printed PDFs are accepted; a page with any image is refused instead of guessed.
-import { autoExclusion, managementName, parseDay, storeId, type Day, type Origin, type ReportPage, type StockRow, type StoreId, type UsageRow } from './management-model';
+import { autoExclusion, managementName, parseDay, storeId, type Day, type ReportPage, type StockRow, type StoreId, type UsageRow } from './management-model';
 import { extractTextPage, textLayer, type TextLayer, type TextPage } from './textlayer';
 import type { Span } from './parser';
 import { printedDay } from './report-date';
@@ -47,7 +47,7 @@ export function parseUsagePage(layer: TextLayer, file: number, filePage: number)
   if (!header) return { ok: false, kind: 'usage', reason: '找不到完整表頭（醫品編號、醫品名稱、單位、次數、數量、健保價）' };
   const edges = USAGE_LABELS.map(label => labelOn(layer, header, label));
   if (edges.some(edge => !edge) || edges.some((edge, i) => i && edge![0] <= edges[i - 1]![0])) return { ok: false, kind: 'usage', reason: '表頭欄位順序與範本不同' };
-  const [code, name, unit, count, quantity, price] = edges as [number, number][];
+  const [, name, unit, count, quantity, price] = edges as [number, number][];
   const above = lines.filter(line => line.y1 <= header.y0 + 1).map(line => line.text.normalize('NFKC')).join('\n');
   const period = above.match(/統計期間[:：]\s*(\d{8})\s*至\s*(\d{8})/); const start = period && parseDay(period[1]); const end = period && parseDay(period[2]);
   const pageNo = above.match(/頁次[:：]\s*(\d+)\s*\/\s*(\d+)/); const payment = above.match(/給付方式[:：]\s*(.+?)\s*(?:頁次|列印時間|$)/m)?.[1]?.trim();
@@ -96,7 +96,7 @@ export function parseUsagePage(layer: TextLayer, file: number, filePage: number)
 export function parseStockPage(text: TextPage, layer: TextLayer, file: number, filePage: number): PageResult {
   const all = compact(layer.reading.text);
   if (!all.includes('庫存簡表')) return { ok: false, reason: '不是庫存簡表' };
-  const result = extractTextPage(filePage, text);
+  const result = extractTextPage(filePage, text, undefined, layer);
   if (!result?.layout) return { ok: false, kind: 'inventory', reason: '找不到完整表頭（商品代號、名稱、國際條碼、儲位、庫存量）' };
   const full = layer.reading.lines.map(line => line.text.normalize('NFKC')).join('\n');
   const pageNo = full.match(/頁次[:：]?\s*(\d+)\s*(?:of|\/)\s*(\d+)/i); const title = result.report.storeName;

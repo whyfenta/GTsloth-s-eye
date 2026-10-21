@@ -38,6 +38,9 @@ test('sideways text is turned upright with the same rows',()=>{
   const a=extractTextPage(1,upright)!;const b=extractTextPage(1,sideways)!;
   assert.deepEqual(b.rows.map(r=>[r.sku,r.name,r.location,r.bookQty]),a.rows.map(r=>[r.sku,r.name,r.location,r.bookQty]));assert.equal(b.report.rotation,90);
 });
+test('a text layer built by the caller gives the same result as rebuilding it',()=>{
+  for(const page of [upright,sideways])assert.deepEqual(extractTextPage(1,page,undefined,textLayer(page)),extractTextPage(1,page));
+});
 test('printed date metadata survives upright, sideways and headerless continuation pages',()=>{
   const printed='報表編號: w_im1c1_1 列印時間：2026/10/18 09:00:00';
   const dateCells:[string,number,number][]=[...cells,[printed,5,660]];
