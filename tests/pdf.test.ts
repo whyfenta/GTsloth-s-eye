@@ -32,11 +32,11 @@ test('old source dates warn only on the first PDF page, preserving all rows and 
       const header=text.find(item=>item.str==='條碼 / 六編碼')!;
       if(n>1){assert.ok(Math.abs(header.transform[5]-mm(266.7))<.01,'later pages reclaim warning space');continue;}
       const warningStart=text.find(item=>item.str.includes('【提示】'))!;
-      assert.ok(Math.abs(warningStart.transform[0]-12)<.01,'warning uses enlarged 12 pt text');
+      assert.ok(Math.abs(warningStart.transform[0]-11.5)<.01,'warning uses enlarged 11.5 pt text');
       const operators=await page.getOperatorList();
       assert.ok(operators.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&operators.argsArray[i][0]===2),'warning glyphs use fill and outline for bold weight');
       const warningLines=text.filter(item=>item.str.trim()&&item.transform[5]<=warningStart.transform[5]&&item.transform[5]>header.transform[5]);
-      assert.ok(warningLines.length>=3,'stale warning and unreadable-date reminder wrap');
+      assert.ok(warningLines.length>=2,'stale warning and unreadable-date reminder use separate lines');
       assert.ok(Math.min(...warningLines.map(item=>item.transform[5]))>header.transform[5]+9,'warning does not overlap the header');
     }
   }finally{await doc.destroy();}
@@ -59,4 +59,26 @@ test('negative counts and the ordinary footer are omitted, while titles, columns
     assert.equal(text.includes('sample.pdf'),i===0);
   }
   assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),input.map(row=>row.sku));
+});
+
+test('the requested ten-day warning fits one bold line inside the printable width',async()=>{
+  const warning=inventoryWarning([{printed:{y:2026,m:10,d:11}}],{y:2026,m:10,d:21});
+  assert.equal(warning,'【提示】來源最早列印於 2026/10/11（距今 10 日）；庫存可能與現況不符，建議重新列印簡表再輸入。');
+  const result=await generatePDF(rows(21),{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,warning},font);
+  const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc=await pdfjs.getDocument({data:result.bytes.slice(),isEvalSupported:false,verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
+  try{
+    const page=await doc.getPage(1);const content=await page.getTextContent();
+    const text=content.items.flatMap(item=>'str' in item?[item]:[]);
+    const header=text.find(item=>item.str==='條碼 / 六編碼')!;
+    const start=text.find(item=>item.str.includes('【提示】'))!;
+    const lines=text.filter(item=>item.str.trim()&&item.transform[5]<=start.transform[5]&&item.transform[5]>header.transform[5]);
+    assert.equal(lines.length,1,'the complete warning takes exactly one line');
+    assert.equal(lines[0].str,warning);
+    assert.ok(lines[0].transform[4]+lines[0].width<=mm(200)-.15,'including the bold stroke, the line stays inside the right margin');
+    assert.ok(Math.abs(lines[0].transform[0]-11.5)<.01);
+    const ops=await page.getOperatorList();
+    assert.ok(ops.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&ops.argsArray[i][0]===2));
+    for(let n=2;n<=doc.numPages;n++)assert.ok(!(await (await doc.getPage(n)).getTextContent()).items.some(item=>'str' in item&&item.str.includes('【提示】')));
+  }finally{await doc.destroy();}
 });
