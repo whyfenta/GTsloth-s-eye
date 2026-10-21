@@ -38,7 +38,7 @@ export function inventoryWarning(pages: readonly Pick<PageReport, 'printed'>[], 
   const oldest = dates.reduce<Day | undefined>((first, day) => !first || daysBetween(day, first) > 0 ? day : first, undefined);
   const age = oldest ? daysBetween(oldest, now) : 0;
   const warning = oldest && age >= INVENTORY_STALE_DAYS
-    ? `【警語】來源庫存簡表最早列印於 ${formatDay(oldest)}（距今 ${age} 天，已達 ${INVENTORY_STALE_DAYS} 天）；庫存可能已因調劑異動，盤點表帳量可能與現況不符，建議重新列印最新庫存簡表。` : '';
+    ? `【提示】來源庫存簡表最早列印於 ${formatDay(oldest)}（距今 ${age} 日）；庫存可能與現況不符，建議重新列印最新庫存簡表。` : '';
   const unknown = pages.length - dates.length;
   const reminder = unknown ? `【提醒】有 ${unknown} 頁未能讀取列印日期，請對照原始報表確認庫存資料時效。` : '';
   return [warning, reminder].filter(Boolean).join('\n');
@@ -170,7 +170,7 @@ export function admit(rows: InventoryRow[]): InventoryRow[] {
   for (const row of rows) { if (hasDoubt(row)) row.attention = true; row.reviewed = !row.attention; }
   return rows;
 }
-// Rows with these issues must be confirmed one by one; "confirm page" skips them.
+// Issues that deserve stronger visual emphasis during individual review.
 const individualIssue = /名稱前綴無法完整解析|可能合併|代號不是六位數|代號只在|多次辨識不一致|同代號同儲位/;
 export function needsIndividualReview(row: Pick<InventoryRow, 'issues'>): boolean {
   return row.issues.some(issue => individualIssue.test(issue));

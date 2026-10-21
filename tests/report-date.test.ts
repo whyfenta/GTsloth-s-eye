@@ -18,13 +18,13 @@ test('today rolls over at Taipei midnight regardless of the host timezone', () =
 test('inventory warns at three calendar days inclusive, with no stale warning at two days', () => {
   const now = day('20261021');
   for (const date of ['20261019', '20261020', '20261021', '20261022']) assert.equal(inventoryWarning([{ printed: day(date) }], now), '');
-  assert.match(inventoryWarning([{ printed: day('20261018') }], now), /【警語】.*2026\/10\/18.*距今 3 天.*庫存可能已因調劑異動/);
-  assert.match(inventoryWarning([{ printed: day('20261017') }], now), /距今 4 天/);
+  assert.match(inventoryWarning([{ printed: day('20261018') }], now), /【提示】.*2026\/10\/18.*距今 3 日.*庫存可能與現況不符/);
+  assert.match(inventoryWarning([{ printed: day('20261017') }], now), /距今 4 日/);
 });
 test('calendar-day ages work across month, year and leap-day boundaries', () => {
   for (const [printed, now] of [['20260130', '20260202'], ['20261230', '20270102'], ['20240227', '20240301']]) {
     assert.equal(daysBetween(day(printed), day(now)), 3);
-    assert.match(inventoryWarning([{ printed: day(printed) }], day(now)), /距今 3 天/);
+    assert.match(inventoryWarning([{ printed: day(printed) }], day(now)), /距今 3 日/);
   }
 });
 test('the oldest page drives the warning, including later files, zero-row pages and duplicate pages', () => {
@@ -42,7 +42,12 @@ test('unreadable dates ask for a manual check instead of claiming that the repor
   assert.equal(inventoryWarning([], now), '');
   const unknown = inventoryWarning([{ printed: day('20261021') }, {}], now);
   assert.match(unknown, /【提醒】有 1 頁未能讀取列印日期/);
-  assert.ok(!unknown.includes('【警語】'));
+  assert.ok(!unknown.includes('【提示】'));
   const mixed = inventoryWarning([{ printed: day('20261018') }, {}], now);
-  assert.ok(mixed.includes('【警語】') && mixed.includes('【提醒】'));
+  assert.ok(mixed.includes('【提示】') && mixed.includes('【提醒】'));
+});
+
+test('nine-day warning matches the concise UI and PDF copy', () => {
+  assert.equal(inventoryWarning([{printed:day('20261012')}],day('20261021')),
+    '【提示】來源庫存簡表最早列印於 2026/10/12（距今 9 日）；庫存可能與現況不符，建議重新列印最新庫存簡表。');
 });
