@@ -62,7 +62,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
     const days = facts?.printed ? daysBetween(facts.printed, now) : 0;
     if (facts?.printed && days >= STALE_DAYS) {
       stale.push({ kind, printed: facts.printed, days });
-      warnings.push(`${label[kind]}列印於 ${formatDay(facts.printed)}，距今已 ${days} 天（一週以上）；門市現況可能已改變，輸出的清單可能失真，建議重新列印最新報表`);
+      warnings.push(`${label[kind]}列印於 ${formatDay(facts.printed)}，距今已 ${days} 天；輸出的清單可能失真，建議重新列印最新報表`);
     }
   }
   const pendingUsage = usageRows.filter(row => needsReview(row, usageErrors(row)));
@@ -127,15 +127,15 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六編碼', width: 18 }, { label: '品名', width: 68 }, { label: '現有庫存量', width: 22, align: 'right' }, { label: '調劑頻率(/月)', width: 24, align: 'right' }, { label: '均月銷', width: 18, align: 'right' }, { label: '建議安全量', width: 20, align: 'right' }, { label: '待採量', width: 20, align: 'right' }],
     // Formulas are on the web page; the footer keeps only what the reader needs beside the red cells and any risk.
-    note: warn + '紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。' + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
+    warning: warn, note: '紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。' + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 84 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 24, align: 'right' }, { label: '建議處置', width: 22 }],
     tail: data.selfPay.length ? { heading: SELF_PAY_HEADING, rows: selfPayRows(data) } : undefined,
-    note: warn + `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，名稱前綴含冷藏、缺貨、追追或名稱含(管4)、(管3)等管制藥標示者依序排前並建議「轉調協銷」，其餘建議「月初退倉」；各組依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷範圍以匯入的庫存簡表為準。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，建議處置為「待判定」，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
+    warning: warn, note: `呆藥：庫存簡表中庫存量不為 0、且統計期間內未出現在醫品調劑數量統計表的品項，名稱前綴含冷藏、缺貨、追追或名稱含(管4)、(管3)等管制藥標示者依序排前並建議「轉調協銷」，其餘建議「月初退倉」；各組依儲位排序（空白儲位在後）。負庫存依條件列入並標示「負庫存異常」。判斷範圍以匯入的庫存簡表為準。${data.selfPay.length ? '名稱前綴含「自費」的品項不經健保調劑，以灰字附於清單末，建議處置為「待判定」，不計入呆藥筆數；庫存為 0 者不列。' : ''}`,
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
-    note: warn + '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。判斷範圍以匯入的庫存簡表為準。',
+    warning: warn, note: '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。判斷範圍以匯入的庫存簡表為準。',
     empty: '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項。' };
 }

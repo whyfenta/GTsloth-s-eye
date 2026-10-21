@@ -151,11 +151,12 @@ test('a report printed a week or more before today carries a warning on the page
   const stock=parsed(fix(stockPage()),'inventory',1,1);const usage=parsed(usagePage(1,1),'usage',0,1);
   const ctx={files:{usage:['u.pdf'],inventory:['s.pdf']},version:1,appVersion:'test',time:'now'};
   const fresh=derive([usage,stock],[],decisions,{y:2026,m:10,d:17}); // stock printed 10/11: 6 days, usage 10/16: 1 day
-  assert.deepEqual(fresh.stale,[]);assert.ok(!fresh.warnings.some(w=>/失真/.test(w)));assert.ok(!listSpec('dead',fresh,ctx).note.includes('警語'));
+  assert.deepEqual(fresh.stale,[]);assert.ok(!fresh.warnings.some(w=>/失真/.test(w)));assert.ok(!listSpec('dead',fresh,ctx).warning);
   const old=derive([usage,stock],[],decisions,{y:2026,m:10,d:18}); // stock 7 days: warned; usage 2 days: not
+  assert.ok(old.warnings.every(w=>!w.includes('一週以上')&&!w.includes('門市現況可能已改變')));
   assert.deepEqual(old.stale.map(s=>[s.kind,s.days]),[['inventory',7]]);
   assert.ok(old.warnings.some(w=>/庫存簡表列印於 2026\/10\/11，距今已 7 天.*失真/.test(w)));
-  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).note,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），輸出結果可能失真。/);
+  for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).warning!,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），輸出結果可能失真。/);
   assert.deepEqual(derive([usage,stock],[],decisions,{y:2026,m:10,d:30}).stale.map(s=>s.kind),['inventory','usage']);
 });
 test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{

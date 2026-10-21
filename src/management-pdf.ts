@@ -1,5 +1,5 @@
 // 樹懶的管理: the three A4 lists. No barcodes, so rows are only as tall as their wrapped text.
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setTextRenderingMode, TextRenderingMode } from 'pdf-lib';
 import { embedNoto, mm, wrapText } from './pdf-common';
 
 export type ListColumn = { label: string; width: number; align?: 'left' | 'right' };
@@ -7,7 +7,7 @@ export type ListColumn = { label: string; width: number; align?: 'left' | 'right
  * rows hold the printed cell text; a "\n" in a cell starts a new line (used for the 負庫存異常 mark).
  * alerts marks cells printed in red heavy type, row by row like rows; only plain numbers can be marked.
  */
-export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; note: string; empty: string; subject?: string;
+export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; warning?: string; note: string; empty: string; subject?: string;
   /** Rows printed after the list in grey, under a heading that spans the table (the self-pay lines after the dead stock). */
   tail?: { heading: string; rows: string[][] } };
 export type ListResult = { bytes: Uint8Array; pageCount: number; rowCount: number };
@@ -30,7 +30,10 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   const { size, leading } = LIST_PRINT; const pad = mm(LIST_PRINT.padding);
   // The footer note holds up to 5 lines above the page number; the table takes the room of the lines it does not use.
   const noteLines = wrapText(spec.note, font, 7, mm(170)).slice(0, 5); const unused = (5 - noteLines.length) * 8.5;
-  const top = mm(LIST_PRINT.top); const bottom = mm(LIST_PRINT.bottom) - unused;
+  const warningLines = spec.warning ? wrapText(spec.warning,font,11.5,mm(190)) : [];
+  const warningHeight = warningLines.length ? warningLines.length*15+mm(3) : 0;
+  const pageTop = (index:number) => mm(LIST_PRINT.top)-(index===0?warningHeight:0);
+  const top = pageTop(0); const bottom = mm(LIST_PRINT.bottom) - unused;
   type Item = { lines: string[][]; alerts: boolean[]; height: number; muted: boolean; heading?: string[]; stripe: boolean };
   const prepare = (cells: string[], alerts: boolean[], muted: boolean, stripe: boolean): Item => {
     const lines = cells.map((cell, i) => wrapText(cell, alerts[i] ? bold : font, size, mm(spec.columns[i].width) - pad * 2));
@@ -48,7 +51,7 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   const groups: Item[][] = []; let group: Item[] = []; let available = top - bottom;
   for (const [index, item] of prepared.entries()) {
     const need = item.heading ? item.height + (prepared[index + 1]?.height ?? 0) : item.height;
-    if (need > available && group.length) { groups.push(group); group = []; available = top - bottom; }
+    if (need > available && group.length) { groups.push(group); group = []; available = pageTop(groups.length) - bottom; }
     group.push(item); available -= item.height;
   }
   if (group.length || !groups.length) groups.push(group);
@@ -56,8 +59,14 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   for (let p = 0; p < groups.length; p++) {
     const page = document.addPage([mm(210), mm(297)]);
     page.drawText(spec.title, { x: mm(10), y: mm(283), size: 16, font, color: rgb(.12, .23, .2) });
-    const meta = spec.meta.flatMap(text => wrapText(text, font, 8, mm(190))).slice(0, 3);
+    const top = pageTop(p);
+    const meta = p===0 ? spec.meta.flatMap(text => wrapText(text, font, 8, mm(190))).slice(0, 3) : [];
     meta.forEach((text, i) => page.drawText(text, { x: mm(10), y: mm(277.5) - i * 10, size: 8, font }));
+    if(p===0&&warningLines.length){
+      page.pushOperators(pushGraphicsState(),setLineWidth(.3),setStrokingColor(rgb(.7,.12,.08)),setTextRenderingMode(TextRenderingMode.FillAndOutline));
+      warningLines.forEach((text,i)=>page.drawText(text,{x:mm(10),y:mm(266)-11.5-i*15,size:11.5,font,color:rgb(.7,.12,.08)}));
+      page.pushOperators(popGraphicsState());
+    }
     const headerTop = top + mm(LIST_PRINT.header);
     page.drawRectangle({ x: xs[0], y: top, width: mm(190), height: mm(LIST_PRINT.header), color: rgb(.84, .9, .86) });
     spec.columns.forEach((column, i) => {
