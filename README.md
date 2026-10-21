@@ -4,7 +4,7 @@
 
 盤點工具獨立網址：https://whyfenta.github.io/GTsloth-s-eye/inventory/ ，可直接加入書籤；點盤點頁左上角品牌或手機版「主目錄」即可返回首頁。管理工具網址：https://whyfenta.github.io/GTsloth-s-eye/management/ 。首頁不載入盤點、管理、PDF 或 OCR 模組。
 
-公開網址：https://whyfenta.github.io/GTsloth-s-eye/ （GitHub Pages，main CI 通過後自動部署最新版）。舊版 Sites 網址 https://gtsloth-inventory.b93403003.chatgpt.site/ 停在 v1.1.2，僅能經 Codex 手動發布。GitHub 公開儲存庫 `whyfenta/GTsloth-s-eye` 是唯一修訂來源；Sites 保留獨立發布來源庫。
+公開網址：https://whyfenta.github.io/GTsloth-s-eye/ （GitHub Pages，main CI 通過後自動部署最新版）。GitHub 公開儲存庫 `whyfenta/GTsloth-s-eye` 是唯一修訂與發布來源。
 
 繁體中文的瀏覽器庫存 OCR 與 A4 條碼盤點表。使用 Vite、TypeScript、PDF.js、Tesseract.js、pdf-lib 與 JsBarcode。
 
@@ -15,6 +15,8 @@
 3. 校對代號、名稱、儲位及帳量。預設「只看有疑義」會彙整所有頁面的待確認列；點「對照」可看原始列與原名稱，名稱前綴可在對話框修改。沒有疑義時會明確顯示可直接產生盤點表。
 4. 有疑義的列已標色並在名稱下列出原因（只是說明已依格式移除前綴的提示不標色）；需要勘誤時直接修正欄位，代號或帳量辨識不一致時點選原圖旁的候選值。確認全部疑義後，勾選最終確認會一併放行其餘無疑義品項；確認後再修改任一欄，該列會回到待確認。可關閉「只看有疑義」逐頁瀏覽，← → 手動換頁，欄位中按 Enter 移到下一列。儲位空白是一般值，不列為疑義。辨識到帳量為 `0` 的安全列不會進入校對或輸出；負數保留。多份檔案的資料合併：不同檔案中同代號、同儲位且帳量相同的列視為重複，只保留一筆（保留較清楚的辨識；已確認的列不會被取代），頁面選單與統計顯示刪除筆數；帳量不同時兩筆都保留，標為須逐筆確認的疑義，改成一致後輸出只印一筆。同一檔案內的列一律不合併。所有來源頁必須通過格式檢查，全部疑義須確認，才能輸出。
 5. 選擇六編碼或儲位排序、22.6 / 25.8 / 29 mm 最低列高，下載 PDF。無論哪種排序，帳量為負數的品項都先排在最前，之後才是正數品項，方便優先處理。印表機使用 A4 直式、100% 原尺寸。
+
+**盤點資料時效提醒**：以台灣日曆日期計算，來源庫存簡表的列印日距今天已達 **3 天（含）** 時，輸出區與產生的 PDF 每一頁都會顯示「【警語】」，提醒庫存可能已因調劑異動、盤點表帳量可能與現況不符，建議重新列印最新庫存簡表。例如今天為 10/21，10/18（含）以前列印即提醒，10/19 不提醒。多頁、多檔以所有來源頁面中最早的列印日期判斷，含帳量為 0 或已去重的頁面；文字 PDF 直接擷取日期，掃描檔另辨識頁尾列印日期。未讀到日期的頁面會在畫面與 PDF 提醒人工核對時效。警語不阻擋校對或輸出；跨日重新預覽或下載時會更新警語。管理工具維持 7 天（含）的警語門檻，兩種工具均以台灣日期判斷。
 
 範本是掃描文件，中文藥名、包裝字形、儲位「三／二／四」與千分位容易誤辨；OCR 結果不是校對後資料。保留劑量、劑型及末尾 `(管3)` / `(管4)`，不以藥品字典猜測替換。
 
@@ -77,6 +79,8 @@
 
 ## 印刷
 
+有資料時效警語或日期未讀取提醒時，每頁表頭上方會以紅字印出完整訊息；表格下移騰出空間，可容納列數隨之減少。以下每頁列數為沒有警語、名稱未增加列高時的配置。
+
 A4 210 × 297 mm、留白 10 mm；五欄寬 40 / 60 / 22 / 25 / 43 mm。表格區由距下緣 264 mm 至 15 mm（249 mm），預設 22.6 mm 列高每頁 11 列（25.8 mm 為 9 列、29 mm 為 8 列；名稱換行增高的列會減少該頁列數）；標題頂端距上緣約 10 mm、頁尾基線距下緣 8 mm，仍避開一般印表機 3–5 mm 的不可列印邊界。Code 128C 含開始碼、校驗碼、停止碼，六位資料共 68 模組；X = 0.4 mm、線高 10 mm，置中後左右留白各 6.4 mm（16X）。為保留條碼高度與 16 pt 六位代碼，範本的各垂直留白縮小 20%：預設列高 22.6 mm、條碼黑線間距 12.6 mm；列頂至條碼 2.4 mm、條碼至代碼約 1.0 mm、代碼至列線約 2.2 mm，下一列條碼前再留 2.4 mm。代碼底部至下一列條碼約 4.6 mm；選擇較高列高時，下方留白隨之增加。
 
 原代號另印於條碼下，使用 16 pt Courier。實量欄 43 mm 完全留白，可手寫九位數。名稱 16 pt、帳量以 Courier-Bold 20 pt（數字過長放不下時才縮小到剛好放入，不拆行）、儲位 10 pt；負數帳量的品項一律排在正數之前（表頭註明負數筆數），兩組各自依所選規則排序；依儲位排序時，儲位空白的品項在各組內排在最後；名稱依字詞換行（不拆開 `3ML`、`(管4)` 等單位與短括號），可增加列高，整筆不跨頁。第二、四等交錯列從名稱欄延伸至實量欄套淡綠網底，條碼欄維持白底。每頁重複門市、欄名與頁碼；表頭另印來源檔名（多份時為第一份檔名與檔案數）、筆數、刪除重複筆數與校對版本，對應產生當下凍結的校對資料，資料或設定一改，舊 PDF 即失效無法下載。
@@ -91,9 +95,11 @@ Node.js 22.12+；`npm ci`、`npm test`、`npm run build`、`npm run dev`。
 
 GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu Node 22/24 及 Windows Node 22；包括 `npm ci`、source audit、單元測試、TypeScript/Vite build、dist audit，並保存 Ubuntu Node 22 的靜態 build artifact 七天。私有原檔測試在未提供本機原檔時明確跳過，CI 通過不代表門市實機或原檔 OCR 驗收。
 
+程式結構、已重現問題與簡化順序見 [2026-10-21 程式 review](docs/code-review-2026-10-21.md)。
+
 ## GitHub Pages 自動發布
 
-`.github/workflows/pages.yml` 在 main 的「Build and test」push 執行成功後，對同一 commit 重跑 source audit、測試、以 `--base=/GTsloth-s-eye/` 建置及 dist audit，再部署到 GitHub Pages；也可在 Actions 頁手動執行（僅限 main）。這條路徑只用 GitHub 內建的 `GITHUB_TOKEN` 與 OIDC，不需任何 Sites credential，也不會碰 Sites 來源庫。
+`.github/workflows/pages.yml` 在 main 的「Build and test」push 執行成功後，對同一 commit 重跑 source audit、測試、以 `--base=/GTsloth-s-eye/` 建置及 dist audit，再部署到 GitHub Pages；也可在 Actions 頁手動執行（僅限 main）。發布使用 GitHub 內建的 `GITHUB_TOKEN` 與 OIDC。
 
 首次啟用（只需一次）：
 
@@ -103,15 +109,11 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 尚未啟用 Pages 時，workflow 只留下警告並略過部署，不會讓 main 變紅。
 
-## 版本與 Sites 發布
+## 版本更新
 
 1. 從 GitHub main 建立修訂分支，修改 source；發布前以 `npm version patch --no-git-tag-version`（或適當的 minor/major）同步 package.json 與 lockfile。網頁頁尾版本直接由 package.json 產生。
-2. 提交、push、確認該完整 GitHub commit 的 CI 全數通過，再請有 Sites 權限的 Codex session 依 Sites skill 發布該 commit。
-3. 發布者 fresh clone GitHub 的指定完整 SHA，完成 audit/test/build；以 Sites 原生 credential 與 source helper 開啟乾淨 Sites checkout。只同步經審查的 GitHub tracked source，不複製 Git metadata、node_modules、dist、私有 PDF、fixtures、handoff 或 credentials。不要覆寫 dirty checkout。
-4. 以 Sites source helper 執行剩餘檢查/build，commit/push 至原 Sites project `appgprj_6ac91361a0d08191ae079a01fdd25874`，封裝 `.openai/hosting.json` 與 dist。核對封包路徑與版本、排除敏感資料；依序 save_site_version、deploy_site_version，確認終態 succeeded。
-5. 在發布紀錄保存 GitHub SHA、Sites source SHA、對應 source tree、archive SHA-256、Sites version/deployment ID 和公開網址。兩個來源庫的歷史不同，commit SHA 可以不同；必須核對對應內容。
-
-GitHub Actions 自動測試、建置並部署 GitHub Pages，但不會自動部署 Sites。現有原生 Sites 工具需要 session 中短效 credential，沒有在這個工作流配置公開網站的永久部署憑證或 GitHub webhook；GitHub push 不會自行更新公開網站。禁止把 Sites token 放進 repo、shell arguments 或 log，僅由原生 helper 的 stdin 使用。Windows package helper 可能需要 Git Bash 在 PATH，以及 `/c/...` 格式的 archive path。
+2. 完成 source audit、測試、建置及 dist audit 後提交、push，透過 pull request 合併至 main。
+3. 確認該 commit 的「Build and test」與「Deploy GitHub Pages」執行成功，再核對公開網站的頁尾版本。
 
 `public/assets/manifest.json` 記錄依賴版本、來源、SHA-256 和授權；`scripts/assets.mjs` 可重下載公開資源。完成後使用 Python 與 `fonttools==4.60.1` 執行 `scripts/static-font.py` 產生 PDF 靜態字型。一般建置不需重新下載資源。完整授權位於 `public/assets/licenses/`。
 

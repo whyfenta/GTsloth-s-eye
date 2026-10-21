@@ -38,6 +38,22 @@ test('sideways text is turned upright with the same rows',()=>{
   const a=extractTextPage(1,upright)!;const b=extractTextPage(1,sideways)!;
   assert.deepEqual(b.rows.map(r=>[r.sku,r.name,r.location,r.bookQty]),a.rows.map(r=>[r.sku,r.name,r.location,r.bookQty]));assert.equal(b.report.rotation,90);
 });
+test('a text layer built by the caller gives the same result as rebuilding it',()=>{
+  for(const page of [upright,sideways])assert.deepEqual(extractTextPage(1,page,undefined,textLayer(page)),extractTextPage(1,page));
+});
+test('printed date metadata survives upright, sideways and headerless continuation pages',()=>{
+  const printed='報表編號: w_im1c1_1 列印時間：2026/10/18 09:00:00';
+  const dateCells:[string,number,number][]=[...cells,[printed,5,660]];
+  const dated:TextPage={...upright,items:dateCells.map(([str,x,y])=>({str,width:weight(str)*size/2,transform:[size,0,0,size,x,H-y]}))};
+  const turned:TextPage={...sideways,items:dateCells.map(([str,x,y])=>({str,width:weight(str)*size/2,transform:[0,size,-size,0,y,x]}))};
+  const first=extractTextPage(1,dated)!;
+  assert.deepEqual(first.report.printed,{y:2026,m:10,d:18});
+  assert.deepEqual(extractTextPage(1,turned)!.report.printed,first.report.printed);
+  const headings=['商品代號','名稱','國際條碼','簡稱','儲位','庫存量','寄庫量'];
+  const continuation={...dated,items:dated.items.filter(item=>!headings.includes(item.str))};
+  assert.deepEqual(extractTextPage(2,continuation,first.layout)!.report.printed,first.report.printed);
+  assert.equal(extractTextPage(1,upright)!.report.printed,undefined,'no guessed creation date');
+});
 test('pages with images (scans, incl. hidden scanner OCR) or without a table fall back to OCR',()=>{
   assert.equal(extractTextPage(1,{...upright,hasImages:true}),undefined);
   assert.equal(extractTextPage(1,{...upright,items:[]}),undefined);

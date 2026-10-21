@@ -1,5 +1,6 @@
 import type { InventoryRow, PageReport } from './model';
 import { continuationValid, detectLayout, extractRows, type Layout, type Reading, type Span } from './parser';
+import { printedDay } from './report-date';
 
 // A PDF printed straight from the store system carries the report as real
 // text. Reading it gives exact codes and quantities, so OCR is not needed.
@@ -71,11 +72,12 @@ export function columnReading(layer: TextLayer, from: number, to: number, top: n
 /**
  * Extracts one text-layer page with the same header, row and prefix rules as
  * the OCR path. Returns undefined when the text is not a recognisable
- * inventory table, so the caller can fall back to OCR.
+ * inventory table, so the caller can fall back to OCR. A caller that already
+ * built the page's text layer passes it as `given` instead of rebuilding it.
  */
-export function extractTextPage(page: number, text: TextPage, previous?: Layout): { report: PageReport; rows: InventoryRow[]; layout?: Layout } | undefined {
+export function extractTextPage(page: number, text: TextPage, previous?: Layout, given?: TextLayer): { report: PageReport; rows: InventoryRow[]; layout?: Layout } | undefined {
   if (text.hasImages || !text.items.some(item => item.str.trim())) return undefined;
-  const layer = textLayer(text); const { width, height } = layer;
+  const layer = given ?? textLayer(text); const { width, height } = layer;
   const found = detectLayout(layer.reading, width, height); const layout = found ?? (previous && { ...previous, bodyTop: .018 });
   if (!layout) return undefined;
   const top = layout.bodyTop * height;
@@ -87,5 +89,5 @@ export function extractTextPage(page: number, text: TextPage, previous?: Layout)
   const rows = extractRows(page, width, height, layout, { codesA: codes, codesB: codes, names: column(layout.rawName), locations: column(layout.location), qtyA: quantities, qtyB: quantities }, true, bottom / height + .002);
   if (!continuationValid(rows, layer.reading.text)) return undefined;
   const title = layer.reading.lines.filter(line => line.y1 < height * .065 && !/庫存|報表|排序|庫別/.test(line.text.replace(/\s/g, ''))).sort((a, b) => a.y0 - b.y0)[0]?.text.replace(/\s+/g, '').trim() ?? '';
-  return { rows, layout: found ?? undefined, report: { page, width, height, rotation: layer.rotation, deskew: 0, status: 'accepted', reason: '', rowCount: rows.length, skippedZero: 0, storeName: found ? title : '', mode: 'text' } };
+  return { rows, layout: found ?? undefined, report: { page, width, height, rotation: layer.rotation, deskew: 0, status: 'accepted', reason: '', rowCount: rows.length, skippedZero: 0, storeName: found ? title : '', mode: 'text', printed: printedDay(layer.reading.text) } };
 }

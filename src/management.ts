@@ -355,17 +355,19 @@ async function showTrace(id: string) {
 async function generate() {
   if (busy() || !data) return; const version = generation; const kinds = LISTS.filter(kind => selected[kind] && data!.available[kind]); if (!kinds.length) return;
   generating = true; render();
+  // Every URL made here is either handed over to `outputs` (whose previous batch is then revoked) or revoked on failure.
+  const results: Partial<Record<ListKind, Output>> = {};
   try {
     fontBytes ??= fetch((import.meta.env.BASE_URL ?? '/') + 'assets/fonts/NotoSansTC-PDF.ttf').then(async response => { if (!response.ok) throw new Error('無法載入 PDF 中文字型。'); return new Uint8Array(await response.arrayBuffer()); });
     const font = await fontBytes; const frozen = data; const ctx = context();
-    const results: Partial<Record<ListKind, Output>> = {};
     for (const kind of kinds) {
       const result = await generateListPDF(listSpec(kind, frozen, ctx), font);
       results[kind] = { bytes: result.bytes, url: URL.createObjectURL(new Blob([result.bytes.slice().buffer], { type: 'application/pdf' })), version, pages: result.pageCount, rows: result.rowCount };
     }
-    if (version !== generation) { for (const output of Object.values(results)) URL.revokeObjectURL(output.url); throw new Error('產生 PDF 期間資料或設定已變更，請重新產生。'); }
+    if (version !== generation) throw new Error('產生 PDF 期間資料或設定已變更，請重新產生。');
+    for (const output of Object.values(outputs)) URL.revokeObjectURL(output.url);
     outputs = results; void submitFeedback();
-  } catch (error) { fontBytes = undefined; showError(error instanceof Error ? error.message : 'PDF 產生失敗。'); }
+  } catch (error) { for (const output of Object.values(results)) URL.revokeObjectURL(output.url); fontBytes = undefined; showError(error instanceof Error ? error.message : 'PDF 產生失敗。'); }
   finally { generating = false; render(); }
 }
 const pdfName = (kind: ListKind) => `${data?.storeLabel || '門市'}_${LIST_TITLE[kind]}${kind === 'safety' ? `_${SAFETY_STRATEGIES[data?.safety?.strategy ?? DEFAULT_SAFETY_STRATEGY].name}` : ''}.pdf`;

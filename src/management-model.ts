@@ -1,6 +1,8 @@
 // 樹懶的管理: pure rules for the safety-stock, dead-stock and empty-slot lists.
 // Nothing here touches the DOM, PDF.js or pdf-lib, so every rule is unit-tested on its own.
 import { canonicalQuantity, cleanProductName } from './model';
+import { daysInMonth, type Day } from './report-date';
+export { daysBetween, daysInMonth, formatDay, parseDay, today, type Day } from './report-date';
 /** Management keeps 缺貨 and 冷藏 in front of the cleaned name, in this order; every other prefix is cleaned as on the inventory sheet. */
 export const KEEP_STATUS = ['缺貨', '冷藏'] as const;
 export const managementName = (raw: string) => cleanProductName(raw, true, KEEP_STATUS);
@@ -40,13 +42,6 @@ export function formatFrac(a: Frac, digits = 2): string {
 export const fracNumber = (a: Frac) => Number(a.n) / Number(a.d);
 
 // ---- Calendar months -------------------------------------------------------
-export type Day = { y: number; m: number; d: number };
-export function parseDay(text: string): Day | null {
-  const match = text.match(/^(\d{4})[/-]?(\d{2})[/-]?(\d{2})$/); if (!match) return null;
-  const day = { y: +match[1], m: +match[2], d: +match[3] };
-  return day.m >= 1 && day.m <= 12 && day.d >= 1 && day.d <= daysInMonth(day.y, day.m) ? day : null;
-}
-export const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 const serial = (day: Day) => Date.UTC(day.y, day.m - 1, day.d) / 86_400_000;
 const fromSerial = (n: number): Day => { const date = new Date(n * 86_400_000); return { y: date.getUTCFullYear(), m: date.getUTCMonth() + 1, d: date.getUTCDate() }; };
 /** The k-th monthly anchor of a period: the start's own day number, cut to the end of shorter months (1/31 → 2/28 → 3/31). */
@@ -54,7 +49,6 @@ function anchor(start: Day, k: number): Day {
   const index = start.m - 1 + k; const y = start.y + Math.floor(index / 12); const m = index % 12 + 1;
   return { y, m, d: Math.min(start.d, daysInMonth(y, m)) };
 }
-export const formatDay = (day: Day) => `${day.y}/${String(day.m).padStart(2, '0')}/${String(day.d).padStart(2, '0')}`;
 /**
  * Calendar months of an inclusive period, as the interval [start, end + 1 day). Whole months are counted from the
  * start's monthly anchors; the remaining days are divided by the length of that anchor's month segment.
@@ -66,15 +60,13 @@ export function statMonths(start: Day, end: Day): Frac | null {
   const from = serial(anchor(start, whole)); const segment = serial(anchor(start, whole + 1)) - from;
   return add(frac(BigInt(whole)), frac(BigInt(stop - from), BigInt(segment)));
 }
-/** Dead-stock and empty-slot lists need a period strictly longer than 2.5 months. */
+/** The dead-stock list needs a period strictly longer than 2.5 months; the empty-slot list does not depend on the period. */
 export const LONG_PERIOD = frac(5n, 2n);
 export const longPeriod = (months: Frac) => cmp(months, LONG_PERIOD) > 0;
 export const nextDay = (day: Day) => fromSerial(serial(day) + 1);
 export const dayBefore = (a: Day, b: Day) => serial(a) < serial(b);
-export const daysBetween = (a: Day, b: Day) => serial(b) - serial(a);
 /** A report printed this many days or more before today may no longer match the store; its lists carry a warning. */
 export const STALE_DAYS = 7;
-export const today = (): Day => { const now = new Date(); return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() }; };
 
 // ---- Stores ----------------------------------------------------------------
 export type StoreId = { number?: number; core: string; label: string };
@@ -226,7 +218,7 @@ export const safetyStrategyRange = (strategy: SafetyStrategy) => {
  * Months of cover by rank on the store's own list, so a busy store does not give every code the maximum.
  * p = 1 − i / (K − 1) for the i-th row (0 = highest A; equal A share the first rank).
  * The top third (p ≥ 2/3) gets the strategy's maximum; below it the coefficient falls linearly to its minimum.
- * The default hamster strategy preserves the original 3.5–1.2 curve exactly.
+ * The hamster strategy preserves the original 3.5–1.2 curve exactly; the default is the balanced strategy.
  */
 const TOP = frac(2n, 3n);
 export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEFAULT_SAFETY_STRATEGY): Frac {

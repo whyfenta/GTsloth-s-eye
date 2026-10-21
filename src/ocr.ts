@@ -5,6 +5,7 @@ import { decide } from './vote';
 import { continuationValid, detectLayout, extractRows, headerAnchor, LOCATION_OVERFLOW, splitTrailingQuantity, type Layout, type Reading, type Span } from './parser';
 import type { PageSource } from './source';
 import { extractTextPage } from './textlayer';
+import { printedDay, type Day } from './report-date';
 export type OCRProgress = (message: string, fraction?: number) => void;
 function unpack(data: any, x = 0, y = 0): Reading {
   const words: Span[] = []; const lines: Span[] = [];
@@ -92,6 +93,20 @@ export class OCREngine {
     }
     return {header:broad,layout};
   }
+  /** Report dates usually sit in the footer, outside the header and product-column OCR crops. */
+  async readPrintedDay(canvas: HTMLCanvasElement, header: string): Promise<Day | undefined> {
+    const date = printedDay(header); if (date) return date;
+    this.progress('讀取報表列印日期');
+    const y = Math.floor(canvas.height * .85);
+    try {
+      const footer = await this.recognize(canvas, 'chinese', PSM.SPARSE_TEXT, { x: 0, y, width: canvas.width, height: canvas.height - y });
+      return printedDay(footer.text);
+    } catch (error) {
+      if (this.terminated) throw error;
+      // Missing date metadata prompts a manual date check, without discarding recognised products.
+      return undefined;
+    }
+  }
   async extract(source: PageSource, page: number, forcedRotation?: number): Promise<{ report: PageReport; rows: InventoryRow[] }> {
     this.current = this.fileLayout(source.fileIndex?.(page) ?? 0);
     // A forced rotation is a manual retry of a page the text layer could not read.
@@ -149,8 +164,9 @@ export class OCREngine {
       const title = header?.lines.filter(line => line.y1 < canvas.height * .065 && !/庫存|報表|排序|庫別/.test(line.text.replace(/\s/g,''))).sort((a,b)=>a.y0-b.y0)[0]?.text.replace(/\s+/g,'').trim() ?? '';
       // Validate continuation against every recognised row before safe zeroes are removed.
       const { kept, skipped } = valid ? dropZeroRows(rows) : { kept: [] as InventoryRow[], skipped: [] as InventoryRow[] };
+      const printed = valid ? await this.readPrintedDay(canvas, header?.text ?? '') : undefined;
       const report: PageReport = { page, width: canvas.width, height: canvas.height, rotation, deskew, rowCount: kept.length, skippedZero: skipped.length,
-        status: valid ? 'accepted' : 'rejected', reason: valid ? '' : '商品列的代號、名稱與庫存量結構不足，請確認是否混入其他文件或掃描品質不佳。', storeName: currentLayout ? title : '', mode: 'ocr' };
+        status: valid ? 'accepted' : 'rejected', reason: valid ? '' : '商品列的代號、名稱與庫存量結構不足，請確認是否混入其他文件或掃描品質不佳。', storeName: currentLayout ? title : '', mode: 'ocr', printed };
       if (valid && currentLayout) { this.layout = currentLayout; this.rotation = rotation; }
       return { report, rows: kept };
     } finally { if (canvas !== original) canvas.width = canvas.height = 1; original.width = original.height = 1; this.busyCanvases--; }

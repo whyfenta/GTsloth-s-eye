@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
+import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
   type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
