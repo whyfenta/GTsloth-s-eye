@@ -164,11 +164,27 @@ async function parseAll() {
   } catch (error) { if (current()) showError(error instanceof Error ? error.message : '解析失敗，請重試。'); }
   finally { if (docNo === documentNumber) { parsing = false; render(); if(parsed)scrollToNextAction(); } }
 }
-/** Move to the next card that needs a decision after parsing has finished. */
+/** Wait until rendered cards have their final layout before moving focus and the viewport. */
+let navigationFrame = 0;
+function scrollToCard(id: 'sources' | 'review' | 'lists') {
+  cancelAnimationFrame(navigationFrame);
+  const docNo = documentNumber;
+  navigationFrame = requestAnimationFrame(() => {
+    navigationFrame = requestAnimationFrame(() => {
+      const card = el(id);
+      if (docNo !== documentNumber || !parsed || card.hidden || document.querySelector('dialog[open]')) return;
+      // Focus must leave the clicked button before scrolling, or browser focus restoration can undo the move.
+      card.tabIndex = -1;
+      card.focus({ preventScroll: true });
+      card.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+  });
+}
+/** Move to the next card that needs a decision after parsing. */
 function scrollToNextAction() {
   if(!data)return;
   const target=data.blockers.length||(data.storeMatch==='unsure'&&!decisions.storeConfirmed)?'sources':reviewItems().some(item=>!reviewOk(item))?'review':'lists';
-  el(target).scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  scrollToCard(target);
 }
 /** Files of different stores stop at once; titles that cannot be matched automatically are put to the user. */
 async function checkFirstPages(): Promise<string | undefined> {
