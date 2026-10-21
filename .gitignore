@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.sites/
 output/
 tmp/
 *.tar.gz
@@ -17,6 +16,4 @@ handoff/
 *.key
 *.p12
 *.pfx
-.sites-runtime/
-.sites-checkout*/
 .release-evidence/

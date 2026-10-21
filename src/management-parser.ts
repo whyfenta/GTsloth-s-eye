@@ -3,6 +3,7 @@
 import { autoExclusion, managementName, parseDay, storeId, type Day, type Origin, type ReportPage, type StockRow, type StoreId, type UsageRow } from './management-model';
 import { extractTextPage, textLayer, type TextLayer, type TextPage } from './textlayer';
 import type { Span } from './parser';
+import { printedDay } from './report-date';
 
 export type ReportKind = 'usage' | 'inventory';
 export const KIND_LABEL: Record<ReportKind, string> = { usage: '醫品調劑數量統計表', inventory: '庫存簡表' };
@@ -18,7 +19,6 @@ export function reportKind(layer: TextLayer): ReportKind | undefined {
   if (text.includes('庫存簡表')) return 'inventory';
   return undefined;
 }
-const printedDay = (text: string) => { const m = text.normalize('NFKC').match(/列印時間[:：]\s*(\d{4})\/(\d{1,2})\/(\d{1,2})/); return m ? parseDay(`${m[1]}${m[2].padStart(2, '0')}${m[3].padStart(2, '0')}`) ?? undefined : undefined; };
 
 type Run = Span & { run: number };
 /** Whole text runs (never split), so a value is read exactly as the report printed it. */

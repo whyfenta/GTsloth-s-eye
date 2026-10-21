@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -10,9 +10,6 @@ assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
 assert.equal(lock.version, pkg.version);
 assert.equal(lock.packages[''].version, pkg.version);
 assert.equal(lock.name, pkg.name);
-const hosting = JSON.parse(readFileSync('.openai/hosting.json', 'utf8'));
-assert.equal(hosting.project_id, 'appgprj_6ac91361a0d08191ae079a01fdd25874');
-assert.equal(hosting.static.directory, 'dist');
 const deny = /(?:^|\/)(?:fixtures|handoff|node_modules|output|tmp|qa-results|\.git)(?:\/|$)|\.pdf$|(?:^|\/)\.env(?:\.|$)|\.(?:pem|key|p12|pfx|tar|zip|tgz)$|\.tar\.gz$/i;
 const secrets = [ /gh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{50,}/, /sk-(?:proj-)?[A-Za-z0-9_-]{40,}/, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ ];
 function inspect(file) {
@@ -31,8 +28,9 @@ function filesIn(dir) {
 }
 const mode = process.argv[2] ?? 'source';
 assert.ok(['source', 'dist'].includes(mode), 'Use source or dist');
+// Locally deleted tracked files are absent from the next release, even before staging.
 const files = mode === 'source'
-  ? execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)
+  ? execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(file => file && existsSync(file))
   : filesIn('dist');
 assert.ok(files.length > 0);
 for (const file of files) inspect(file);

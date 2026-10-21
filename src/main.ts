@@ -2,7 +2,8 @@ import './style.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { barcodeFontText, generatePDF, scanTestRows, type RowHeight } from './pdf';
-import { admit, canExport, canonicalQuantity, cleanProductName, compareStores, formatQuantity, hasDoubt, isNegativeQuantity, isZeroQuantity, LIMITS, mergeRows, needsIndividualReview, sortRows, validationErrors, type InventoryRow, type MergeResult, type PageReport, type SortMode } from './model';
+import { admit, canExport, canonicalQuantity, cleanProductName, compareStores, formatQuantity, hasDoubt, inventoryWarning, isNegativeQuantity, isZeroQuantity, LIMITS, mergeRows, needsIndividualReview, sortRows, validationErrors, type InventoryRow, type MergeResult, type PageReport, type SortMode } from './model';
+import { formatDay, today } from './report-date';
 import { DocumentSource, MIN_SCAN_DPI } from './source';
 import { SourceSet } from './sourceset';
 import { OCREngine } from './ocr';
@@ -22,8 +23,8 @@ let source: SourceSet | undefined; let job: InventoryJob | undefined; let rows: 
 let selectedPage = 1; let filterIssues = true; let sortMode: SortMode = 'sku'; let rowHeight: RowHeight = 22.6;
 let storeName = ''; let finalConfirmed = false; let processingMessage = ''; let errorMessage = ''; let pdfUrl = ''; let pdfBytes: Uint8Array | undefined;
 let generating = false; let retrying = false; let activeDialogCanvas: HTMLCanvasElement | undefined; let currentTrace: InventoryRow | undefined; let generation = 0;
-// pdfRevision is the data revision (generation) the cached PDF was built from; any edit bumps generation.
-let pdfRevision = -1; let documentNumber = 0;
+// Cache only within one Taipei calendar day, so a later download gets the current source-age warning.
+let pdfRevision = -1; let pdfDay = ''; let documentNumber = 0;
 let startedAt = 0; let elapsedSeconds = 0; let timer: ReturnType<typeof setInterval> | undefined;
 const stats = { renderedPages:0, peakOCRCanvases:0 };
 const busy = () => job?.running || generating || retrying || adding;
@@ -51,14 +52,14 @@ app.innerHTML = `
       <div class="table-scroll"><table class="review-table"><thead><tr><th>六編碼</th><th>清理後名稱</th><th>儲位</th><th>帳量</th><th>原圖</th></tr></thead><tbody id="review-body"></tbody></table></div>
       <p id="keyboard-hint" class="keyboard-hint">有疑義的列已標色，需要勘誤時直接修正欄位（有候選按鈕時點選正確值）；Enter 移到下一列。勾選下方整頁確認後會自動換到下一頁，← → 可手動換頁。</p><div class="page-confirm"><label class="checkbox-label"><input id="confirm-page" type="checkbox"><span id="confirm-page-label">我已確認這一頁全部資料（含標色的疑義列）</span></label><p id="page-confirm-note">信心分數不代表正確保證。名稱、劑量與庫存量請一併確認。</p></div>
     </section>
-    <section id="export" class="card export-card" hidden><div class="section-heading"><div><span class="eyebrow">READY TO COUNT</span><h2>產生盤點表</h2></div><span class="small-label">A4 直式 · 五欄</span></div><div class="export-options"><label>門市名稱<input id="store-name" type="text" placeholder="可自行填寫門市名稱" maxlength="80"></label><label>排序方式<select id="sort"><option value="location">儲位（適合預盤與儲位修訂）</option><option value="sku" selected>六編碼（適合盤點當日輸出）</option></select></label><label>最低列高<select id="row-height"><option value="22.6">22.6 mm · 緊湊</option><option value="25.8">25.8 mm · 增加間距</option><option value="29">29 mm · 更寬鬆</option></select></label></div><div id="output-preview" class="output-preview"></div><div class="export-bottom"><div><label class="checkbox-label"><input id="final-confirm" type="checkbox"><span id="final-confirm-label">我已完成校對，可以產生盤點表</span></label><p id="export-hint"></p></div><div class="export-actions"><button id="preview-pdf" class="button secondary" disabled>預覽 PDF</button><button id="download-pdf" class="button primary" disabled>${icon('file')}下載盤點 PDF</button></div></div></section>
+    <section id="export" class="card export-card" hidden><div class="section-heading"><div><span class="eyebrow">READY TO COUNT</span><h2>產生盤點表</h2></div><span class="small-label">A4 直式 · 五欄</span></div><div class="export-options"><label>門市名稱<input id="store-name" type="text" placeholder="可自行填寫門市名稱" maxlength="80"></label><label>排序方式<select id="sort"><option value="location">儲位（適合預盤與儲位修訂）</option><option value="sku" selected>六編碼（適合盤點當日輸出）</option></select></label><label>最低列高<select id="row-height"><option value="22.6">22.6 mm · 緊湊</option><option value="25.8">25.8 mm · 增加間距</option><option value="29">29 mm · 更寬鬆</option></select></label></div><div id="report-warning" class="report-warning" role="status" hidden></div><div id="output-preview" class="output-preview"></div><div class="export-bottom"><div><label class="checkbox-label"><input id="final-confirm" type="checkbox"><span id="final-confirm-label">我已完成校對，可以產生盤點表</span></label><p id="export-hint"></p></div><div class="export-actions"><button id="preview-pdf" class="button secondary" disabled>預覽 PDF</button><button id="download-pdf" class="button primary" disabled>${icon('file')}下載盤點 PDF</button></div></div></section>
     <footer class="footer"><span>樹懶的盤點 · 每次盤點，清楚一點。 <span id="app-version">${appVersion}</span></span><span>瀏覽器內 OCR · 不上傳 · 不保存庫存資料</span></footer>
   </main>
   <dialog id="ask-dialog"><div class="dialog-heading"><h2 id="ask-title"></h2></div><div id="ask-text" class="resolution-text"></div><div class="resolution-actions"><button id="ask-cancel" class="button secondary"></button><button id="ask-continue" class="button primary"></button></div></dialog>
   <dialog id="trace-dialog"><div class="dialog-heading"><h2 id="trace-title">原圖校對</h2><button id="close-trace" class="icon-button" aria-label="關閉原圖">×</button></div><div id="trace-content"></div></dialog>
   <dialog id="pdf-dialog"><div class="dialog-heading"><h2>盤點表預覽</h2><button id="close-pdf" class="icon-button" aria-label="關閉預覽">×</button></div><p class="preview-note">列印時選擇 A4、原尺寸 100%，關閉印表機的縮放。若未顯示預覽，可<a id="pdf-open-tab" href="#" target="_blank" rel="noopener">在新分頁開啟</a>或直接下載 PDF。</p><iframe id="pdf-frame" title="盤點 PDF 預覽"></iframe><button id="dialog-download" class="button primary">下載 PDF</button></dialog>`;
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-function invalidatePDF(){generation++;finalConfirmed=false;el<HTMLInputElement>('final-confirm').checked=false;pdfBytes=undefined;pdfRevision=-1;if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl='';
+function invalidatePDF(){generation++;finalConfirmed=false;el<HTMLInputElement>('final-confirm').checked=false;pdfBytes=undefined;pdfRevision=-1;pdfDay='';if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl='';
   // A preview left open must not keep showing (or downloading) an outdated PDF.
   const dialog=el<HTMLDialogElement>('pdf-dialog');if(dialog.open)dialog.close();el<HTMLIFrameElement>('pdf-frame').removeAttribute('src');}
 function showError(message:string){errorMessage=message;el('error').hidden=!message;el('error').textContent=message;}
@@ -153,6 +154,7 @@ function updateReview(){
   updateExport();
 }
 function updateExport(){
+  const warning=inventoryWarning(pages);el('report-warning').hidden=!warning;el('report-warning').textContent=warning;
   const ready=canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages);
   const pending=rows.filter(r=>!r.reviewed||validationErrors(r).length).length;const rejected=pages.filter(p=>p.status==='rejected').length;
   el<HTMLButtonElement>('preview-pdf').disabled=!ready||!finalConfirmed||generating;el<HTMLButtonElement>('download-pdf').disabled=!ready||!finalConfirmed||generating;
@@ -336,25 +338,29 @@ const exportReady=()=>canExport(rows,pages,job?.state==='complete'&&pages.length
 const pdfName=()=>`${storeName||'門市'}_盤點表_${sortMode==='sku'?'六編碼':'儲位'}.pdf`;
 async function preparePDF(){
   if(!exportReady())throw new Error('請先完成全部資料與格式校對。');
-  if(pdfBytes&&pdfRevision===generation)return;generating=true;updateProgress();updateExport();const version=generation;
+  const day=today();const date=formatDay(day);
+  if(pdfBytes&&pdfRevision===generation&&pdfDay===date)return;generating=true;updateProgress();updateExport();const version=generation;
   // Build from a frozen copy so the PDF is exactly the data confirmed at this revision.
   const output=printable(structuredClone(rows));const snapshot=output.rows;const time=new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
   const names=source?.files.map(file=>file.file.name)??[];
   const sourceLabel=`來源 ${names.length>1?`${names[0]} 等 ${names.length} 個檔案`:names[0]??''} · 輸出 ${snapshot.length} 筆 · 略過帳量 0 共 ${output.zero} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 校對版本 ${version} · ${time} 產生`;
-  try{const result=await generatePDF(snapshot,{storeName,sortMode,rowHeight,source:sourceLabel});
+  try{const result=await generatePDF(snapshot,{storeName,sortMode,rowHeight,source:sourceLabel,warning:inventoryWarning(pages,day)});
     if(version!==generation)throw new Error('產生 PDF 期間資料或設定已變更，請重新勾選完成校對後再下載。');
-    pdfBytes=result.bytes;pdfRevision=version;pdfUrl=URL.createObjectURL(new Blob([result.bytes.slice().buffer],{type:'application/pdf'}));}
+    if(date!==formatDay(today()))throw new Error('日期已變更，請重新下載以更新庫存時效警語。');
+    const url=URL.createObjectURL(new Blob([result.bytes.slice().buffer],{type:'application/pdf'}));if(pdfUrl)URL.revokeObjectURL(pdfUrl);
+    pdfBytes=result.bytes;pdfRevision=version;pdfDay=date;pdfUrl=url;
+    if(el<HTMLDialogElement>('pdf-dialog').open){el<HTMLIFrameElement>('pdf-frame').src=url;el<HTMLAnchorElement>('pdf-open-tab').href=url;}}
   finally{generating=false;updateProgress();updateExport();}
 }
 function currentPDF():Uint8Array{
-  if(!pdfBytes||pdfRevision!==generation||!exportReady())throw new Error('盤點表已因資料修改而失效，請重新確認後再產生。');
+  if(!pdfBytes||pdfRevision!==generation||pdfDay!==formatDay(today())||!exportReady())throw new Error('盤點表資料或日期已變更，請重新產生。');
   return pdfBytes;
 }
 function saveBytes(bytes:Uint8Array,name:string){const url=URL.createObjectURL(new Blob([bytes.slice().buffer],{type:'application/pdf'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-async function downloadPDF(){try{await preparePDF();saveBytes(currentPDF(),pdfName());}catch(error){showError(error instanceof Error?error.message:'PDF 產生失敗。');}}
+async function downloadPDF(){if(generating)return;try{await preparePDF();saveBytes(currentPDF(),pdfName());}catch(error){if(el<HTMLDialogElement>('pdf-dialog').open)el<HTMLDialogElement>('pdf-dialog').close();showError(error instanceof Error?error.message:'PDF 產生失敗。');}}
 el('download-pdf').addEventListener('click',()=>void downloadPDF());
 el('preview-pdf').addEventListener('click',async()=>{try{await preparePDF();currentPDF();el<HTMLIFrameElement>('pdf-frame').src=pdfUrl;el<HTMLAnchorElement>('pdf-open-tab').href=pdfUrl;el<HTMLDialogElement>('pdf-dialog').showModal();}catch(error){showError(error instanceof Error?error.message:'PDF 產生失敗。');}});
-el('close-pdf').addEventListener('click',()=>el<HTMLDialogElement>('pdf-dialog').close());el('dialog-download').addEventListener('click',()=>{try{saveBytes(currentPDF(),pdfName());}catch(error){el<HTMLDialogElement>('pdf-dialog').close();showError(error instanceof Error?error.message:'PDF 已失效。');}});
+el('close-pdf').addEventListener('click',()=>el<HTMLDialogElement>('pdf-dialog').close());el('dialog-download').addEventListener('click',()=>void downloadPDF());
 el('scan-test').addEventListener('click',async()=>{try{const result=await generatePDF(scanTestRows(),{storeName:'掃描器實機驗收',sortMode:'sku',rowHeight:22.6,title:'相鄰條碼掃讀測試',note:'請以原尺寸 100% 列印，掃描每列，確認六碼與前導零。'});saveBytes(result.bytes,'條碼掃讀測試_A4.pdf');}catch(error){showError(error instanceof Error?error.message:'測試頁產生失敗。');}});
 renderQueue();updateReview();
 if(import.meta.env.DEV){Object.defineProperty(window,'inventoryQA',{get:()=>({state:job?.state,completed:job?.completed,total:source?.pages,rows:rows.length,pending:rows.filter(r=>!r.reviewed).length,rejected:pages.filter(p=>p.status==='rejected').length,elapsedSeconds,stats,results:rows,pages,headers:job?.engine.headerDebug})});}

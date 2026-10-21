@@ -1,3 +1,5 @@
+import { daysBetween, formatDay, today, type Day } from './report-date';
+
 export type Field = 'sku' | 'rawName' | 'location' | 'bookQty';
 export type Box = { x: number; y: number; width: number; height: number };
 export type InventoryRow = {
@@ -20,12 +22,27 @@ export type PageReport = {
   mode?: 'text' | 'ocr';
   /** Rows of this page already read from another file (same code, location and quantity), so not kept twice. */
   duplicates?: number;
+  /** The date printed on this source page, including pages whose rows are zero or duplicates. */
+  printed?: Day;
 };
 export type JobState = 'idle' | 'loading' | 'running' | 'paused' | 'cancelled' | 'complete' | 'error';
 export type SortMode = 'sku' | 'location';
 // Public assets resolve against Vite's base, so the site also works under a sub-path.
 export const asset = (path: string) => (import.meta.env?.BASE_URL ?? '/') + 'assets/' + path;
 export const LIMITS = { pages: 200, bytes: 200 * 1024 * 1024, dpi: 300, longestEdge: 4000 };
+
+export const INVENTORY_STALE_DAYS = 3;
+/** One shared message for the output screen and every PDF page; the oldest source page determines age. */
+export function inventoryWarning(pages: readonly Pick<PageReport, 'printed'>[], now: Day = today()): string {
+  const dates = pages.flatMap(page => page.printed ? [page.printed] : []);
+  const oldest = dates.reduce<Day | undefined>((first, day) => !first || daysBetween(day, first) > 0 ? day : first, undefined);
+  const age = oldest ? daysBetween(oldest, now) : 0;
+  const warning = oldest && age >= INVENTORY_STALE_DAYS
+    ? `【警語】來源庫存簡表最早列印於 ${formatDay(oldest)}（距今 ${age} 天，已達 ${INVENTORY_STALE_DAYS} 天）；庫存可能已因調劑異動，盤點表帳量可能與現況不符，建議重新列印最新庫存簡表。` : '';
+  const unknown = pages.length - dates.length;
+  const reminder = unknown ? `【提醒】有 ${unknown} 頁未能讀取列印日期，請對照原始報表確認庫存資料時效。` : '';
+  return [warning, reminder].filter(Boolean).join('\n');
+}
 
 export function normalizeOCR(text: string): string {
   // The report prints no spaces next to Chinese text; OCR adds them. Spaces
