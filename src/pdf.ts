@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, pushGraphicsState, popGraphicsState, setTextRenderingMode, TextRenderingMode, setLineWidth, setStrokingColor } from 'pdf-lib';
 import JsBarcode from 'jsbarcode';
 import { formatQuantity, isNegativeQuantity, sortRows, type InventoryRow, type SortMode } from './model';
 import { embedNoto, mm, wrapText } from './pdf-common';
@@ -35,8 +35,8 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   // Table body 264 → 15 mm (249 mm) holds 11 rows of 22.6 mm. The footer baseline sits 8 mm and the
   // title top ~10 mm from the paper edge, clear of the 3–5 mm unprintable margin of common printers.
   // Reserve space above the table for the source-date warning on every page.
-  const warningLines = options.warning ? wrapText(options.warning, font, 9, mm(190)) : [];
-  const warningHeight = warningLines.length ? warningLines.length * 11 + mm(2) : 0;
+  const warningLines = options.warning ? wrapText(options.warning, font, 12, mm(190)) : [];
+  const warningHeight = warningLines.length ? warningLines.length * 16 + mm(2) : 0;
   const top = mm(264) - warningHeight; const bottom = mm(15); const leading = (size: number) => size * PRINT.lineSpacing;
   const prepared = ordered.map(row => {
     const nameLines = wrapText(row.name, font, PRINT.nameSize, widths[1]-mm(4));
@@ -61,7 +61,12 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
     const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${order}${options.source ? `  |  ${options.source}` : ''}`;
     const metaLines = wrapText(meta,font,8,mm(190));
     page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(277),size:8,lineHeight:9,font});
-    warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 9 - i * 11, size: 9, font, color: rgb(.7,.12,.08) }));
+    // Stroke the embedded CJK glyphs as well as filling them for a bolder warning.
+    if(warningLines.length){
+      page.pushOperators(pushGraphicsState(),setLineWidth(.3),setStrokingColor(rgb(.7,.12,.08)),setTextRenderingMode(TextRenderingMode.FillAndOutline));
+      warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 12 - i * 16, size: 12, font, color: rgb(.7,.12,.08) }));
+      page.pushOperators(popGraphicsState());
+    }
     const headerTop = top + mm(8); page.drawRectangle({x:xs[0],y:top,width:mm(190),height:mm(8),color:rgb(...PRINT.headerFill)});
     const labels = ['條碼 / 六編碼','名稱','儲位','帳量','實量'];
     labels.forEach((label,i)=>page.drawText(label,{x:xs[i]+mm(2),y:top+mm(2.7),size:9,font}));

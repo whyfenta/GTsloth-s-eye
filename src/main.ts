@@ -21,7 +21,7 @@ const icon = (name: 'box'|'upload'|'file'|'arrow') => {
 let queue: DocumentSource[] = []; let adding = false; const forcedRotations = new Map<DocumentSource, number>(); let storeNote = '';
 let source: SourceSet | undefined; let job: InventoryJob | undefined; let rows: InventoryRow[] = []; let pages: PageReport[] = [];
 let selectedPage = 1; let filterIssues = true; let sortMode: SortMode = 'sku'; let rowHeight: RowHeight = 22.6;
-let storeName = ''; let finalConfirmed = false; let processingMessage = ''; let pdfUrl = ''; let pdfBytes: Uint8Array | undefined;
+let storeName = ''; let processingMessage = ''; let pdfUrl = ''; let pdfBytes: Uint8Array | undefined;
 let generating = false; let retrying = false; let activeDialogCanvas: HTMLCanvasElement | undefined; let currentTrace: InventoryRow | undefined; let generation = 0;
 // Cache only within one Taipei calendar day, so a later download gets the current source-age warning.
 let pdfRevision = -1; let pdfDay = ''; let documentNumber = 0;
@@ -31,7 +31,7 @@ const busy = () => job?.running || generating || retrying || adding;
 app.innerHTML = `
   <header class="topbar"><a class="brand" href="${import.meta.env.BASE_URL}" aria-label="樹懶的盤點，返回樹懶的工作主目錄">${icon('box')}<span>樹懶的盤點<span class="brand-sub">← 返回主目錄</span></span></a><a class="inventory-home" href="${import.meta.env.BASE_URL}">← 主目錄</a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
   <main>
-    <section class="intro"><div><div class="eyebrow">INVENTORY, MADE CLEAR</div><h1>把庫存表，<br class="mobile-break">變成好用的盤點表。</h1><p>匯入庫存簡表，校對辨識結果，印出附條碼的 A4 表單。<br>讓每一個品項，都有清楚的盤點位置。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>SCAN · CHECK · COUNT</b></div></section>
+    <section class="intro"><div><div class="eyebrow">INVENTORY, MADE CLEAR</div><h1>庫存簡表直接轉盤點表，告別手動維護。</h1><p>按儲位輸出，藥師能方便校正儲位，高效預盤及調帳。<br>按六編碼輸出，方便盤點小組作業及覆盤核對。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>SCAN · CHECK · COUNT</b></div></section>
     <nav class="steps" aria-label="處理步驟"><div data-step="1" class="active"><span>01</span>匯入與辨識</div><div data-step="2"><span>02</span>校對資料</div><div data-step="3"><span>03</span>下載盤點表</div></nav>
     <div class="workspace">
       <section class="upload-card card"><div class="section-heading"><h2>匯入庫存表</h2><span class="small-label">可加入多份檔案</span></div>
@@ -49,17 +49,17 @@ app.innerHTML = `
     <section id="review" class="card review-card" hidden><div class="section-heading"><div><span class="eyebrow">CHECK BEFORE PRINT</span><h2>校對辨識結果</h2></div><button id="clear" class="button quiet">清除這次資料</button></div><div class="stats"><div><strong id="stat-rows">0</strong><span>擷取品項</span></div><div><strong id="stat-skipped-zero">0</strong><span>略過帳量 0</span></div><div><strong id="stat-pending">0</strong><span>待確認品項</span></div><div><strong id="stat-pages">0</strong><span>來源頁面</span></div><div id="stat-duplicates-box" hidden><strong id="stat-duplicates">0</strong><span>刪除重複</span></div></div>
       <div class="review-toolbar"><label id="page-picker">來源頁 <select id="page-select" aria-label="來源頁"></select></label><label class="checkbox-label"><input id="issues-only" type="checkbox" checked>只看有疑義</label><button id="view-page" class="text-button">查看原頁</button></div>
       <div id="page-error" class="error-box" hidden></div><div id="retry-controls" class="retry-controls" hidden><span>確認方向後，重試這一頁：</span><button class="button secondary" data-rotate="0">0°</button><button class="button secondary" data-rotate="90">90°</button><button class="button secondary" data-rotate="180">180°</button><button class="button secondary" data-rotate="270">270°</button></div>
-      <div class="table-scroll"><table class="review-table"><thead><tr><th>六編碼</th><th>清理後名稱</th><th>儲位</th><th>帳量</th><th>原圖</th></tr></thead><tbody id="review-body"></tbody></table></div>
-      <p id="keyboard-hint" class="keyboard-hint">有疑義的列已標色，需要勘誤時直接修正欄位（有候選按鈕時點選正確值）；Enter 移到下一列。勾選下方整頁確認後會自動換到下一頁，← → 可手動換頁。</p><div class="page-confirm"><label class="checkbox-label"><input id="confirm-page" type="checkbox"><span id="confirm-page-label">我已確認這一頁全部資料（含標色的疑義列）</span></label><p id="page-confirm-note">信心分數不代表正確保證。名稱、劑量與庫存量請一併確認。</p></div>
+      <div class="table-scroll"><table class="review-table"><thead><tr><th>六編碼</th><th>清理後名稱</th><th>儲位</th><th>帳量</th><th>原圖 / 確認</th></tr></thead><tbody id="review-body"></tbody></table></div>
+      <p id="keyboard-hint" class="keyboard-hint">有疑義的項目請對照原圖、調整後逐筆勾選確認；修改欄位後需重新確認。Enter 移到下一列，← → 可手動換頁。</p>
     </section>
-    <section id="export" class="card export-card" hidden><div class="section-heading"><div><span class="eyebrow">READY TO COUNT</span><h2>產生盤點表</h2></div><span class="small-label">A4 直式 · 五欄</span></div><div class="export-options"><label>門市名稱<input id="store-name" type="text" placeholder="可自行填寫門市名稱" maxlength="80"></label><label>排序方式<select id="sort"><option value="location">儲位（適合預盤與儲位修訂）</option><option value="sku" selected>六編碼（適合盤點當日輸出）</option></select></label><label>最低列高<select id="row-height"><option value="22.6">22.6 mm · 緊湊</option><option value="25.8">25.8 mm · 增加間距</option><option value="29">29 mm · 更寬鬆</option></select></label></div><div id="report-warning" class="report-warning" role="status" hidden></div><div id="output-preview" class="output-preview"></div><div class="export-bottom"><div><label class="checkbox-label"><input id="final-confirm" type="checkbox"><span id="final-confirm-label">我已完成校對，可以產生盤點表</span></label><p id="export-hint"></p></div><div class="export-actions"><button id="preview-pdf" class="button secondary" disabled>預覽 PDF</button><button id="download-pdf" class="button primary" disabled>${icon('file')}下載盤點 PDF</button></div></div></section>
+    <section id="export" class="card export-card" hidden><div class="section-heading"><div><span class="eyebrow">READY TO COUNT</span><h2>產生盤點表</h2></div><span class="small-label">A4 直式 · 五欄</span></div><div class="export-options"><label>門市名稱<input id="store-name" type="text" placeholder="可自行填寫門市名稱" maxlength="80"></label><label>排序方式<select id="sort"><option value="location">儲位（適合預盤與儲位修訂）</option><option value="sku" selected>六編碼（適合盤點當日輸出）</option></select></label><label>最低列高<select id="row-height"><option value="22.6">22.6 mm · 緊湊</option><option value="25.8">25.8 mm · 增加間距</option><option value="29">29 mm · 更寬鬆</option></select></label></div><div id="report-warning" class="report-warning" role="status" hidden></div><div id="output-preview" class="output-preview"></div><div class="export-bottom"><div><p id="export-hint"></p></div><div class="export-actions"><button id="preview-pdf" class="button secondary" disabled>預覽 PDF</button><button id="download-pdf" class="button primary" disabled>${icon('file')}下載盤點 PDF</button></div></div></section>
     <footer class="footer"><span>樹懶的盤點 · 每次盤點，清楚一點。 <span id="app-version">${appVersion}</span></span><span>瀏覽器內 OCR · 不上傳 · 不保存庫存資料</span></footer>
   </main>
   <dialog id="ask-dialog"><div class="dialog-heading"><h2 id="ask-title"></h2></div><div id="ask-text" class="resolution-text"></div><div class="resolution-actions"><button id="ask-cancel" class="button secondary"></button><button id="ask-continue" class="button primary"></button></div></dialog>
   <dialog id="trace-dialog"><div class="dialog-heading"><h2 id="trace-title">原圖校對</h2><button id="close-trace" class="icon-button" aria-label="關閉原圖">×</button></div><div id="trace-content"></div></dialog>
   <dialog id="pdf-dialog"><div class="dialog-heading"><h2>盤點表預覽</h2><button id="close-pdf" class="icon-button" aria-label="關閉預覽">×</button></div><p class="preview-note">列印時選擇 A4、原尺寸 100%，關閉印表機的縮放。若未顯示預覽，可<a id="pdf-open-tab" href="#" target="_blank" rel="noopener">在新分頁開啟</a>或直接下載 PDF。</p><iframe id="pdf-frame" title="盤點 PDF 預覽"></iframe><button id="dialog-download" class="button primary">下載 PDF</button></dialog>`;
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-function invalidatePDF(){generation++;finalConfirmed=false;el<HTMLInputElement>('final-confirm').checked=false;pdfBytes=undefined;pdfRevision=-1;pdfDay='';if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl='';
+function invalidatePDF(){generation++;pdfBytes=undefined;pdfRevision=-1;pdfDay='';if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl='';
   // A preview left open must not keep showing (or downloading) an outdated PDF.
   const dialog=el<HTMLDialogElement>('pdf-dialog');if(dialog.open)dialog.close();el<HTMLIFrameElement>('pdf-frame').removeAttribute('src');}
 function showError(message:string){el('error').hidden=!message;el('error').textContent=message;}
@@ -112,14 +112,13 @@ const doubtIssue={sku:/^代號多次辨識不一致/,bookQty:/^庫存量多次�
 const flagged = hasDoubt;
 const byPageAndId = (a: InventoryRow, b: InventoryRow) => a.page - b.page || a.id.localeCompare(b.id, undefined, { numeric: true });
 const attentionRows = () => rows.filter(row => row.attention).sort(byPageAndId);
-/** Pages that still have rows to confirm, in page order. */
-const openPages=()=>pages.filter(p=>p.status==='accepted'&&rows.some(r=>r.page===p.page&&!r.reviewed)).map(p=>p.page);
-function showPage(page:number){selectedPage=page;updateReview();el('review').scrollIntoView({block:'start'});}
-/** After a page is confirmed: the next unfinished page, or the export section when all are done. */
-function advanceAfterConfirm(){
-  const open=openPages();if(!open.length){el('export').scrollIntoView({block:'start'});el<HTMLInputElement>('final-confirm').focus();return;}
-  showPage(open.find(p=>p>selectedPage)??open[0]);
+function scrollToNextAction(){
+  const rejected=pages.find(page=>page.status==='rejected');
+  if(rejected){filterIssues=false;selectedPage=rejected.page;el<HTMLInputElement>('issues-only').checked=false;updateReview();}
+  const target=exportReady()?'export':'review';
+  el(target).scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }
+function showPage(page:number){selectedPage=page;updateReview();el('review').scrollIntoView({block:'start'});}
 function stepPage(direction:1|-1){const list=pages.map(p=>p.page);const i=list.indexOf(selectedPage);const next=list[i+direction];if(next!==undefined)showPage(next);}
 /** The next pending row after the given one on the shown page, for keyboard review. */
 /** Moves to the same field of the next shown row, like a spreadsheet. */
@@ -141,28 +140,20 @@ function updateReview(){
   el('page-picker').hidden=aggregate;el('view-page').hidden=aggregate;el('retry-controls').hidden=aggregate||report?.status!=='rejected'||Boolean(busy());
   if(aggregate&&rejected.length){el('page-error').hidden=false;el('page-error').textContent=`${source&&source.files.length>1?rejected.map(page=>pageLabel(page.page)).join('、'):`第 ${rejected.map(page=>page.page).join('、')} 頁`}無法辨識。取消勾選「只看有疑義」，選擇該頁，再用方向按鈕重試。`;}
   else {el('page-error').hidden=report?.status!=='rejected';el('page-error').textContent=report?.reason??'';}
-  el('keyboard-hint').hidden=aggregate;
   el('review-body').innerHTML=visible.length?visible.map(row=>{
     const invalid=validationErrors(row);const notes=[...(invalid.length?invalid:row.issues),...(isZeroQuantity(row.bookQty)?['帳量為 0，不會輸出']:[])];
-    return `<tr data-row="${row.id}" class="${flagged(row)?needsIndividualReview(row)||invalid.length?'flagged strong':'flagged':''}"><td><input aria-label="${row.id} 商品代號" data-field="sku" inputmode="numeric" value="${escape(row.sku)}" maxlength="6" class="sku-input">${doubtPicker(row,'sku')}</td><td><input aria-label="${row.id} 清理後名稱" data-field="name" value="${escape(row.name)}" class="name-input${row.issues.includes(POOR_NAME)?' doubtful':''}"><span class="source-label">${pageLabel(row.page)}${row.rawName===row.name?'':' · 已清理前後綴'}</span>${notes.length?`<span class="issue-text">${escape(notes.join('；'))}</span>`:''}</td><td><input aria-label="${row.id} 儲位" data-field="location" value="${escape(row.location)}" class="location-input${row.issues.includes(POOR_LOCATION)?' doubtful':''}" placeholder="原表空白"></td><td><input aria-label="${row.id} 帳量" data-field="bookQty" inputmode="decimal" value="${escape(row.bookQty)}" class="qty-input">${doubtPicker(row,'bookQty')}</td><td><button class="text-button trace-button" data-id="${row.id}" aria-label="對照 ${row.sku} 原圖">對照</button></td></tr>`;
+    return `<tr data-row="${row.id}" class="${flagged(row)?needsIndividualReview(row)||invalid.length?'flagged strong':'flagged':''}"><td><input aria-label="${row.id} 商品代號" data-field="sku" inputmode="numeric" value="${escape(row.sku)}" maxlength="6" class="sku-input">${doubtPicker(row,'sku')}</td><td><input aria-label="${row.id} 清理後名稱" data-field="name" value="${escape(row.name)}" class="name-input${row.issues.includes(POOR_NAME)?' doubtful':''}"><span class="source-label">${pageLabel(row.page)}${row.rawName===row.name?'':' · 已清理前後綴'}</span>${notes.length?`<span class="issue-text">${escape(notes.join('；'))}</span>`:''}</td><td><input aria-label="${row.id} 儲位" data-field="location" value="${escape(row.location)}" class="location-input${row.issues.includes(POOR_LOCATION)?' doubtful':''}" placeholder="原表空白"></td><td><input aria-label="${row.id} 帳量" data-field="bookQty" inputmode="decimal" value="${escape(row.bookQty)}" class="qty-input">${doubtPicker(row,'bookQty')}</td><td><button class="text-button trace-button" data-id="${row.id}" aria-label="對照 ${row.sku} 原圖">對照</button>${row.attention?`<label class="row-confirm checkbox-label"><input type="checkbox" data-confirm-row aria-label="確認 ${escape(row.sku)} ${escape(row.name)}" ${row.reviewed?'checked':''} ${invalid.length||busy()?'disabled':''}>已確認</label>`:''}</td></tr>`;
   }).join(''):`<tr><td colspan="5" class="empty-table">${aggregate?'沒有疑義項目，可直接到下方產生盤點表。':report?.status==='rejected'?'這一頁無法確認格式，修正方向後可重試。':'辨識結果會在這裡顯示。'}</td></tr>`;
-  const reviewRows=aggregate?doubts:pageRows;const invalidRows=reviewRows.filter(row=>validationErrors(row).length).length;
-  const pageCheck=el<HTMLInputElement>('confirm-page');pageCheck.disabled=!reviewRows.length||invalidRows>0;pageCheck.checked=reviewRows.length>0&&reviewRows.every(row=>row.reviewed);
-  el('confirm-page-label').textContent=aggregate?`我已確認全部疑義項目（${doubts.length} 筆）`:'我已確認這一頁全部資料（含標色的疑義列）';
-  const doubtful=reviewRows.filter(flagged).length;
-  el('page-confirm-note').textContent=invalidRows?`有 ${invalidRows} 筆代號或帳量格式不正確，修正後才能確認。`:aggregate?doubts.length?`共有 ${doubts.length} 筆疑義列（已標色）；勾選即一併確認。`:'沒有疑義項目，無需逐頁確認。':doubtful?`這一頁有 ${doubtful} 筆疑義列（已標色），勾選即一併確認；需要勘誤請先修正。`:report?.mode==='text'?'此頁由 PDF 文字直接讀取，代號、名稱與帳量不經辨識；請確認前綴清理與儲位。':'信心分數不代表正確保證。名稱、劑量與庫存量請一併確認。';
   updateExport();
 }
 function updateExport(){
   const warning=inventoryWarning(pages);el('report-warning').hidden=!warning;el('report-warning').textContent=warning;
   const ready=canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages);
   const pending=rows.filter(r=>!r.reviewed||validationErrors(r).length).length;const rejected=pages.filter(p=>p.status==='rejected').length;
-  el<HTMLButtonElement>('preview-pdf').disabled=!ready||!finalConfirmed||generating;el<HTMLButtonElement>('download-pdf').disabled=!ready||!finalConfirmed||generating;
-  el<HTMLInputElement>('final-confirm').disabled=!ready||generating;
-  el('export-hint').textContent=retrying?'正在重新辨識這一頁，請稍候。':generating?'正在產生 PDF，請稍候。':rejected?`${rejected} 頁無法確認格式，修正前不能輸出。`:job?.state!=='complete'||pages.length!==source?.pages?'整份辨識完成後才能輸出。':pending?`還有 ${pending} 筆待確認；可逐筆或逐頁完成校對。`:'全部資料已確認。請勾選完成校對，再產生 PDF。';
+  el<HTMLButtonElement>('preview-pdf').disabled=!ready||generating;el<HTMLButtonElement>('download-pdf').disabled=!ready||generating;
+  el('export-hint').textContent=retrying?'正在重新辨識這一頁，請稍候。':generating?'正在產生 PDF，請稍候。':rejected?`${rejected} 頁無法確認格式，修正前不能輸出。`:job?.state!=='complete'||pages.length!==source?.pages?'整份辨識完成後才能輸出。':pending?`還有 ${pending} 筆待確認；請調整後逐筆勾選確認。`:'全部資料已確認，可以產生 PDF。';
   const output=printable(rows);const preview=sortRows(output.rows,sortMode).slice(0,3);const negatives=output.rows.filter(row=>isNegativeQuantity(row.bookQty)).length;
   el('output-preview').innerHTML=preview.map(row=>`<div class="preview-row"><div class="preview-code"><span class="barcode-font" aria-hidden="true">${escape(barcodeFontText(row.sku))}</span><span>${escape(row.sku)}</span></div><span>${escape(row.name)}</span><span>${escape(row.location)||'—'}</span><span>${escape(formatQuantity(row.bookQty))}</span><span class="handwriting-preview"></span></div>`).join('')+`<p>輸出 ${output.rows.length} 筆${negatives?` · 負數帳量 ${negatives} 筆排在最前`:''} · 略過帳量 0 共 ${output.zero} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 名稱依長度換行 · 實量欄留白供手寫</p>`;
-  el('final-confirm-label').textContent=`我已完成校對：疑義已確認，其餘 ${rows.filter(row=>!row.attention).length} 筆無疑義品項一併放行`;
   document.querySelectorAll<HTMLElement>('[data-step]').forEach(step=>step.classList.toggle('active',Number(step.dataset.step)===(ready?3:rows.length?2:1)));
 }
 /** Drops recognition and review results; the queued files stay. */
@@ -181,7 +172,7 @@ function startJob(){
   rows=[];pages=[];storeNote='';selectedPage=1;filterIssues=true;el<HTMLInputElement>('issues-only').checked=true;invalidatePDF();
   // Callbacks from a job of an earlier document must never write into this one.
   const current=()=>docNo===documentNumber;
-  job=new InventoryJob(engine,set,{state:()=>{if(!current())return;updateProgress();updateReview();if(job?.state==='complete'||job?.state==='error'||job?.state==='cancelled'){if(timer)clearInterval(timer);timer=undefined;}},
+  job=new InventoryJob(engine,set,{state:()=>{if(!current())return;updateProgress();updateReview();if(job?.state==='complete'||job?.state==='error'||job?.state==='cancelled'){if(timer)clearInterval(timer);timer=undefined;}if(job?.state==='complete'||job?.state==='error')scrollToNextAction();},
     page:(report,pageRows)=>{if(!current())return;admitPage(report,pageRows);pages.push(report);pages.sort((a,b)=>a.page-b.page);stats.renderedPages++;stats.peakOCRCanvases=Math.max(stats.peakOCRCanvases,engine.peakCanvases);
       if(report.storeName&&!storeName){storeName=report.storeName;el<HTMLInputElement>('store-name').value=storeName;}
       invalidatePDF();updateProgress();updateReview();},
@@ -271,7 +262,7 @@ el('review-body').addEventListener('input',event=>{
   const input=event.target as HTMLInputElement;const id=input.closest<HTMLElement>('[data-row]')?.dataset.row;const row=rows.find(r=>r.id===id);
   if(!row||!input.dataset.field)return;
   const field=input.dataset.field as 'sku'|'name'|'location'|'bookQty';row[field]=input.value.trim();row.attention=true;row.reviewed=false;invalidatePDF();
-  el('stat-pending').textContent=String(rows.filter(r=>!r.reviewed||validationErrors(r).length).length);el<HTMLInputElement>('confirm-page').checked=false;updateExport();
+  el('stat-pending').textContent=String(rows.filter(r=>!r.reviewed||validationErrors(r).length).length);const check=input.closest('tr')?.querySelector<HTMLInputElement>('[data-confirm-row]');if(check)check.checked=false;updateExport();
 });
 el('review-body').addEventListener('keydown',event=>{
   const input=event.target as HTMLInputElement;if(event.key!=='Enter'||event.isComposing||input.type==='checkbox'||!input.dataset.field)return;
@@ -279,7 +270,14 @@ el('review-body').addEventListener('keydown',event=>{
   input.dispatchEvent(new Event('change',{bubbles:true}));if(id)focusNextRow(id,field);
 });
 el('review-body').addEventListener('change',event=>{
-  const input=event.target as HTMLInputElement;const id=input.closest<HTMLElement>('[data-row]')?.dataset.row;const row=rows.find(r=>r.id===id);if(!row||!input.dataset.field)return;
+  const input=event.target as HTMLInputElement;const id=input.closest<HTMLElement>('[data-row]')?.dataset.row;const row=rows.find(r=>r.id===id);if(!row)return;
+  if(input.matches('[data-confirm-row]')){
+    if(busy())return;
+    invalidatePDF();row.reviewed=input.checked&&validationErrors(row).length===0;
+    if(row.reviewed)delete row.numberDoubts;
+    updateReview();if(exportReady())scrollToNextAction();return;
+  }
+  if(!input.dataset.field)return;
   invalidatePDF();const field=input.dataset.field as 'sku'|'name'|'location'|'bookQty';row[field]=input.value.trim();if(field==='bookQty')row.bookQty=canonicalQuantity(row.bookQty)??row.bookQty;row.attention=true;row.reviewed=false;
   updateReview();
 });
@@ -288,11 +286,6 @@ el('review-body').addEventListener('click',event=>{
   if(pick){const id=pick.closest<HTMLElement>('[data-row]')?.dataset.row;const row=rows.find(r=>r.id===id);if(!row)return;
     const field=pick.dataset.pick as 'sku'|'bookQty';row[field]=pick.dataset.value!;delete row.numberDoubts?.[field];row.issues=row.issues.filter(i=>!doubtIssue[field].test(i));
     invalidatePDF();row.attention=true;row.reviewed=false;updateReview();return;}const id=(event.target as HTMLElement).closest<HTMLElement>('.trace-button')?.dataset.id;if(id){const row=rows.find(r=>r.id===id);if(row)void showTrace(row);}});
-el<HTMLInputElement>('confirm-page').addEventListener('change',event=>{
-  invalidatePDF();const checked=(event.target as HTMLInputElement).checked;const targets=filterIssues?attentionRows():rows.filter(row=>row.page===selectedPage);
-  targets.forEach(row=>{row.reviewed=checked&&validationErrors(row).length===0;if(checked)delete row.numberDoubts;});
-  updateReview();if(checked)advanceAfterConfirm();
-});
 // ← → change the review page unless the user is typing or a dialog is open.
 document.addEventListener('keydown',event=>{
   if(filterIssues||!['ArrowLeft','ArrowRight'].includes(event.key)||el('review').hidden||document.querySelector('dialog[open]'))return;
@@ -333,8 +326,7 @@ el('retry-controls').addEventListener('click',async event=>{
 el<HTMLInputElement>('store-name').addEventListener('input',event=>{storeName=(event.target as HTMLInputElement).value.trim();invalidatePDF();updateExport();});
 el<HTMLSelectElement>('sort').addEventListener('change',event=>{sortMode=(event.target as HTMLSelectElement).value as SortMode;invalidatePDF();updateExport();});
 el<HTMLSelectElement>('row-height').addEventListener('change',event=>{rowHeight=Number((event.target as HTMLSelectElement).value) as RowHeight;invalidatePDF();updateExport();});
-el<HTMLInputElement>('final-confirm').addEventListener('change',event=>{finalConfirmed=(event.target as HTMLInputElement).checked;updateExport();});
-const exportReady=()=>canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages)&&finalConfirmed;
+const exportReady=()=>canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages);
 const pdfName=()=>`${storeName||'門市'}_盤點表_${sortMode==='sku'?'六編碼':'儲位'}.pdf`;
 async function preparePDF(){
   if(!exportReady())throw new Error('請先完成全部資料與格式校對。');
@@ -345,7 +337,7 @@ async function preparePDF(){
   const names=source?.files.map(file=>file.file.name)??[];
   const sourceLabel=`來源 ${names.length>1?`${names[0]} 等 ${names.length} 個檔案`:names[0]??''} · 輸出 ${snapshot.length} 筆 · 略過帳量 0 共 ${output.zero} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 校對版本 ${version} · ${time} 產生`;
   try{const result=await generatePDF(snapshot,{storeName,sortMode,rowHeight,source:sourceLabel,warning:inventoryWarning(pages,day)});
-    if(version!==generation)throw new Error('產生 PDF 期間資料或設定已變更，請重新勾選完成校對後再下載。');
+    if(version!==generation)throw new Error('產生 PDF 期間資料或設定已變更，請重新確認修改的項目後再下載。');
     if(date!==formatDay(today()))throw new Error('日期已變更，請重新下載以更新庫存時效警語。');
     const url=URL.createObjectURL(new Blob([result.bytes.slice().buffer],{type:'application/pdf'}));if(pdfUrl)URL.revokeObjectURL(pdfUrl);
     pdfBytes=result.bytes;pdfRevision=version;pdfDay=date;pdfUrl=url;

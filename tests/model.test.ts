@@ -106,7 +106,7 @@ test('quantities with inner spaces are rejected and leading zeros normalised',()
   assert.equal(canonicalQuantity('12 34'),null);assert.equal(canonicalQuantity(' 1,234 '),'1234');
   assert.equal(canonicalQuantity('0012'),'12');assert.equal(formatQuantity('0012'),'12');assert.equal(canonicalQuantity('0.50'),'0.50');
 });
-test('page confirmation leaves prefix/code doubts for individual review',()=>{
+test('prefix/code doubts receive stronger visual emphasis',()=>{
   assert.equal(needsIndividualReview({issues:['名稱前綴無法完整解析']}),true);
   assert.equal(needsIndividualReview({issues:['此列範圍內有多個代號或庫存量，可能合併了兩筆商品']}),true);
   assert.equal(needsIndividualReview({issues:['名稱辨識品質差，請逐字核對原圖','儲位空白，請確認原表']}),false);

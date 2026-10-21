@@ -19,7 +19,7 @@ test('old source dates warn on every PDF page, preserving all rows and keeping t
   const pages=await pdfText(result.bytes);assert.equal(pages.length,result.pageCount);assert.ok(pages.length>1);
   for(const page of pages){
     const text=page.text.replace(/\s/g,'');
-    for(const phrase of ['【警語】','2026/10/18','距今3天','庫存可能已因調劑異動','【提醒】','未能讀取列印日期','校對版本5'])assert.ok(text.includes(phrase),phrase);
+    for(const phrase of ['【提示】','2026/10/18','距今3日','庫存可能與現況不符','【提醒】','未能讀取列印日期','校對版本5'])assert.ok(text.includes(phrase),phrase);
     assert.ok(Math.abs(page.width-mm(210))<.01&&Math.abs(page.height-mm(297))<.01);
   }
   assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),rows(21).map(row=>row.sku));
@@ -30,7 +30,10 @@ test('old source dates warn on every PDF page, preserving all rows and keeping t
       const page=await doc.getPage(n);const content=await page.getTextContent();
       const text=content.items.flatMap(item=>'str' in item?[item]:[]);
       const header=text.find(item=>item.str==='條碼 / 六編碼')!;
-      const warningStart=text.find(item=>item.str.includes('【警語】'))!;
+      const warningStart=text.find(item=>item.str.includes('【提示】'))!;
+      assert.ok(Math.abs(warningStart.transform[0]-12)<.01,'warning uses enlarged 12 pt text');
+      const operators=await page.getOperatorList();
+      assert.ok(operators.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&operators.argsArray[i][0]===2),'warning glyphs use fill and outline for bold weight');
       const warningLines=text.filter(item=>item.str.trim()&&item.transform[5]<=warningStart.transform[5]&&item.transform[5]>header.transform[5]);
       assert.ok(warningLines.length>=3,'stale warning and unreadable-date reminder wrap');
       assert.ok(Math.min(...warningLines.map(item=>item.transform[5]))>header.transform[5]+9,'warning does not overlap the header');
@@ -41,5 +44,5 @@ test('a source only two days old keeps the ordinary 11-row layout with no warnin
   const warning=inventoryWarning([{printed:{y:2026,m:10,d:19}}],{y:2026,m:10,d:21});
   const result=await generatePDF(rows(11),{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,warning},font);
   assert.equal(result.pageCount,1);
-  assert.ok(!(await pdfText(result.bytes))[0].text.includes('【警語】'));
+  assert.ok(!(await pdfText(result.bytes))[0].text.includes('【提示】'));
 });
