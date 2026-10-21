@@ -162,7 +162,13 @@ async function parseAll() {
     }
     parsed = true; progress.message = `共讀取 ${pages.length} 頁${rejected.length ? `，${rejected.length} 頁無法使用` : ''}`; admit();
   } catch (error) { if (current()) showError(error instanceof Error ? error.message : '解析失敗，請重試。'); }
-  finally { if (docNo === documentNumber) { parsing = false; render(); } }
+  finally { if (docNo === documentNumber) { parsing = false; render(); if(parsed)scrollToNextAction(); } }
+}
+/** Move to the next card that needs a decision after parsing has finished. */
+function scrollToNextAction() {
+  if(!data)return;
+  const target=data.blockers.length||(data.storeMatch==='unsure'&&!decisions.storeConfirmed)?'sources':reviewItems().some(item=>!reviewOk(item))?'review':'lists';
+  el(target).scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }
 /** Files of different stores stop at once; titles that cannot be matched automatically are put to the user. */
 async function checkFirstPages(): Promise<string | undefined> {
@@ -223,7 +229,7 @@ function renderSources() {
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">SOURCE CHECK</span><h2>來源核對</h2></div><span class="small-label">${data.storeMatch === 'same' ? '門市編號與店名一致' : ''}</span></div>
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
-    ${data.warnings.length ? `<div class="mg-warning">${data.warnings.map(escape).join('\n')}</div>` : ''}
+    ${data.warnings.length ? `<div class="mg-warning${data.stale.length ? ' mg-stale-warning' : ''}">${data.warnings.map(escape).join('\n')}</div>` : ''}
     ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或各儲位庫存合計為 0（超過 ${PARTNER_LIMIT} 個）。本店無庫存，或庫存不足 ${formatFrac(PARTNER_COVERS[decisions.partnerCover ?? 'standard'])} 個月用量（含負庫存）的六碼，視為主要由合作診所供應，不由本店監控安全量；安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>
     <label class="checkbox-label mg-confirm"><input id="partner-wide" type="checkbox" ${decisions.partnerCover === 'wide' ? 'checked' : ''} ${busy() ? 'disabled' : ''}>放寬合作診所遮罩：庫存不足 ${formatFrac(PARTNER_COVERS.wide)} 個月用量（約 6 天）即視為合作診所供應，讓更多品項向前遞補（預設 ${formatFrac(PARTNER_COVERS.standard)} 個月，約 3 天）</label>
     ${decisions.partnerCover === 'wide' ? `<div class="mg-warning">已放寬遮罩：本店自己庫存偏低、確實需要採購的品項，也可能因不足 ${formatFrac(PARTNER_COVERS.wide)} 個月而被略過，不會出現在安全量清單。請另行留意這些品項的採購需求。</div>` : ''}` : ''}`;
@@ -311,7 +317,7 @@ function renderLists() {
   const anySelected = LISTS.some(kind => selected[kind] && data!.available[kind]);
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式 · 可各自勾選</span></div>
     <div class="stats"><div><strong>${data.months ? formatFrac(data.months) : '—'}</strong><span>統計月數</span></div><div><strong>${s?.n ?? 0}</strong><span>品項數 N</span></div><div><strong>${s?.limit ?? 0}</strong><span>前 10%</span></div><div><strong>${s?.eligible ?? 0}</strong><span>A &gt; 8</span></div><div><strong>${s?.k ?? 0}</strong><span>安全量筆數 K</span></div></div>
-    ${data.stale.length ? `<div class="mg-warning">${data.stale.map(item => `${KIND_LABEL[item.kind]}列印於 ${formatDay(item.printed)}，距今已 ${item.days} 天`).join('；')}。報表已逾一週，門市現況可能已改變，以下清單與 PDF 的輸出結果可能失真；PDF 會附上這段警語。建議重新列印最新報表後再匯入。</div>` : ''}
+    ${data.stale.length ? `<div class="mg-warning mg-stale-warning">${data.stale.map(item => `${KIND_LABEL[item.kind]}列印於 ${formatDay(item.printed)}，距今已 ${item.days} 天`).join('；')}。以下清單與 PDF 的輸出結果可能失真；PDF 第一頁會附上警語。建議重新列印最新報表後再匯入。</div>` : ''}
     <p class="preview-note">勾選要產生的清單；選擇安全量清單後，可在卡片內設定備貨策略。</p>
     <div class="mg-list-grid">${LISTS.map(block).join('')}</div>
     <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '按「產生勾選的 PDF」輸出清單。資料、策略或勾選變更後，舊的 PDF 會失效。' : LISTS.some(kind => data!.available[kind]) ? '請先勾選要產生的清單。' : '目前資料不足以產生清單，請依卡片提示補齊資料或確認。'}</p>${FEEDBACK_ENDPOINT ? `<p class="preview-note mg-feedback-note">產生 PDF 時，會一併送出這次的校對修改紀錄供開發者改進判讀規則：名稱修正、提示後未修改即確認的列、排除理由、所選策略與門市編號。<b>不送出報表檔案、店名、統計期間，也不送出任何次數、數量、庫存量的數值。</b>${feedbackStatus ? `<br>${escape(feedbackStatus)}` : ''}</p>` : ''}</div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
