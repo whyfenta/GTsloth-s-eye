@@ -1,8 +1,6 @@
 // 樹懶的管理: the three A4 lists. No barcodes, so rows are only as tall as their wrapped text.
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
-import { asset } from './model';
-import { mm, wrapText } from './pdf';
+import { embedNoto, mm, wrapText } from './pdf-common';
 
 export type ListColumn = { label: string; width: number; align?: 'left' | 'right' };
 /**
@@ -22,10 +20,7 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   const total = spec.columns.reduce((sum, column) => sum + column.width, 0);
   if (Math.abs(total - 190) > .01) throw new Error(`欄寬合計須為 190 mm（目前 ${total} mm）`);
   const document = await PDFDocument.create();
-  document.registerFontkit({ ...fontkit, create(bytes: Uint8Array) { const font = fontkit.create(bytes) as any; return font.variationAxes?.wght ? font.getVariation({ wght: 400 }) : font; } });
-  const bytes = notoBytes ?? new Uint8Array(await (await fetch(asset('fonts/NotoSansTC-PDF.ttf'))).arrayBuffer());
-  // Full embedding, as on the inventory sheet: subset CJK glyphs render blank.
-  const font = await document.embedFont(bytes, { subset: false, features: { locl: false } });
+  const font = await embedNoto(document, notoBytes);
   // The embedded Noto has one weight; a marked number uses the standard Helvetica-Bold, which needs no embedding.
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   if (spec.alerts?.some((cells, row) => cells.some((alert, column) => alert && !/^[-\d,.]+$/.test(spec.rows[row]?.[column] ?? ''))))
