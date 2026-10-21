@@ -12,14 +12,14 @@ test('a page holds 11 rows at 22.6 mm, 9 at 25.8 mm and 8 at 29 mm',async()=>{
     assert.equal(await pages(perPage+1,rowHeight),2,`${perPage+1} rows of ${rowHeight} mm need a second page`);
   }
 });
-test('old source dates warn on every PDF page, preserving all rows and keeping the warning above the table',async()=>{
+test('old source dates warn only on the first PDF page, preserving all rows and keeping the warning above the table',async()=>{
   const warning=inventoryWarning([{printed:{y:2026,m:10,d:18}},{}],{y:2026,m:10,d:21});
   const result=await generatePDF(rows(21),{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,source:'多份來源・校對版本 5',warning},font);
   assert.equal(result.barcodeCount,21);
   const pages=await pdfText(result.bytes);assert.equal(pages.length,result.pageCount);assert.ok(pages.length>1);
-  for(const page of pages){
+  for(const [index,page] of pages.entries()){
     const text=page.text.replace(/\s/g,'');
-    for(const phrase of ['【提示】','2026/10/18','距今3日','庫存可能與現況不符','【提醒】','未能讀取列印日期','校對版本5'])assert.ok(text.includes(phrase),phrase);
+    for(const phrase of ['【提示】','2026/10/18','距今3日','庫存可能與現況不符','【提醒】','未能讀取列印日期','校對版本5'])assert.equal(text.includes(phrase),index===0,phrase);
     assert.ok(Math.abs(page.width-mm(210))<.01&&Math.abs(page.height-mm(297))<.01);
   }
   assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),rows(21).map(row=>row.sku));
@@ -30,6 +30,7 @@ test('old source dates warn on every PDF page, preserving all rows and keeping t
       const page=await doc.getPage(n);const content=await page.getTextContent();
       const text=content.items.flatMap(item=>'str' in item?[item]:[]);
       const header=text.find(item=>item.str==='條碼 / 六編碼')!;
+      if(n>1){assert.ok(Math.abs(header.transform[5]-mm(266.7))<.01,'later pages reclaim warning space');continue;}
       const warningStart=text.find(item=>item.str.includes('【提示】'))!;
       assert.ok(Math.abs(warningStart.transform[0]-12)<.01,'warning uses enlarged 12 pt text');
       const operators=await page.getOperatorList();
@@ -45,4 +46,17 @@ test('a source only two days old keeps the ordinary 11-row layout with no warnin
   const result=await generatePDF(rows(11),{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,warning},font);
   assert.equal(result.pageCount,1);
   assert.ok(!(await pdfText(result.bytes))[0].text.includes('【提示】'));
+});
+
+test('negative counts and the ordinary footer are omitted, while titles, columns and page numbers remain',async()=>{
+  const input=rows(22);input[0].bookQty='-2';
+  const result=await generatePDF(input,{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,source:'來源 sample.pdf · 輸出 22 筆'},font);
+  const pages=await pdfText(result.bytes);assert.equal(pages.length,2);
+  for(const [i,page] of pages.entries()){
+    const text=page.text.replace(/\s/g,'');
+    for(const phrase of ['負數帳量','略過帳量0','A4原尺寸','最低列高','實量請手寫'])assert.ok(!text.includes(phrase),phrase);
+    for(const phrase of ['門市庫存盤點表','條碼/六編碼',`${i+1}/2`])assert.ok(text.includes(phrase),phrase);
+    assert.equal(text.includes('sample.pdf'),i===0);
+  }
+  assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),input.map(row=>row.sku));
 });

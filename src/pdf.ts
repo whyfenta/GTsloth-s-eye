@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, pushGraphicsState, popGraphicsState, setTextRenderingMode, TextRenderingMode, setLineWidth, setStrokingColor } from 'pdf-lib';
 import JsBarcode from 'jsbarcode';
-import { formatQuantity, isNegativeQuantity, sortRows, type InventoryRow, type SortMode } from './model';
+import { formatQuantity, sortRows, type InventoryRow, type SortMode } from './model';
 import { embedNoto, mm, wrapText } from './pdf-common';
 export { mm, wrapText };
 // Keep the 10 mm bars and 16 pt human-readable code.  These heights are not
@@ -24,7 +24,7 @@ export function barcodeFontText(sku: string): string {
   const checksum = (105 + pairs.reduce((sum,n,i)=>sum+n*(i+1),0)) % 103;
   return [105,...pairs,checksum,106].map(n=>String.fromCharCode(n < 95 ? n+32 : n+100)).join('');
 }
-// source identifies the exact reviewed data (file, row count, revision) printed on every page.
+// Source details and warnings appear once, on the first page.
 export type PDFOptions = { storeName: string; sortMode: SortMode; rowHeight: RowHeight; title?: string; note?: string; source?: string; warning?: string };
 export type PDFResult = { bytes: Uint8Array; pageCount: number; barcodeCount: number };
 export async function generatePDF(rows: InventoryRow[], options: PDFOptions, notoBytes?: Uint8Array): Promise<PDFResult> {
@@ -34,10 +34,11 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   const ordered = sortRows(rows, options.sortMode); const widths = PRINT.columns.map(mm); const xs = [mm(10)]; for(const width of widths) xs.push(xs.at(-1)! + width);
   // Table body 264 → 15 mm (249 mm) holds 11 rows of 22.6 mm. The footer baseline sits 8 mm and the
   // title top ~10 mm from the paper edge, clear of the 3–5 mm unprintable margin of common printers.
-  // Reserve space above the table for the source-date warning on every page.
+  // Only the first page reserves space for the source-date warning.
   const warningLines = options.warning ? wrapText(options.warning, font, 12, mm(190)) : [];
   const warningHeight = warningLines.length ? warningLines.length * 16 + mm(2) : 0;
-  const top = mm(264) - warningHeight; const bottom = mm(15); const leading = (size: number) => size * PRINT.lineSpacing;
+  const pageTop = (index: number) => mm(264) - (index === 0 ? warningHeight : 0);
+  const top = pageTop(0); const bottom = mm(15); const leading = (size: number) => size * PRINT.lineSpacing;
   const prepared = ordered.map(row => {
     const nameLines = wrapText(row.name, font, PRINT.nameSize, widths[1]-mm(4));
     const locationLines = wrapText(row.location, font, PRINT.locationSize, widths[2]-mm(4));
@@ -50,22 +51,24 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
     return { row, nameLines, locationLines, qtyLines, qtySize, rowHeight };
   });
   const groups: typeof prepared[] = []; let group: typeof prepared = []; let available = top-bottom;
-  for(const item of prepared) { if(item.rowHeight > available && group.length) { groups.push(group); group=[]; available=top-bottom; } group.push(item); available-=item.rowHeight; }
+  for(const item of prepared) { if(item.rowHeight > available && group.length) { groups.push(group); group=[]; available=pageTop(groups.length)-bottom; } group.push(item); available-=item.rowHeight; }
   if(group.length) groups.push(group);
-  const negatives = rows.filter(row => isNegativeQuantity(row.bookQty)).length;
-  const order = `${options.sortMode==='sku'?'六編碼排序':'儲位排序'}${negatives?`（負數帳量 ${negatives} 筆在前）`:''}`;
+  const order = options.sortMode==='sku'?'六編碼排序':'儲位排序';
   const today = new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   for(let p=0;p<groups.length;p++) {
     const page = document.addPage([mm(210),mm(297)]);
     page.drawText(options.title ?? '門市庫存盤點表',{x:mm(10),y:mm(282),size:17,font,color:rgb(.12,.23,.2)});
-    const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${order}${options.source ? `  |  ${options.source}` : ''}`;
-    const metaLines = wrapText(meta,font,8,mm(190));
-    page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(277),size:8,lineHeight:9,font});
-    // Stroke the embedded CJK glyphs as well as filling them for a bolder warning.
-    if(warningLines.length){
-      page.pushOperators(pushGraphicsState(),setLineWidth(.3),setStrokingColor(rgb(.7,.12,.08)),setTextRenderingMode(TextRenderingMode.FillAndOutline));
-      warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 12 - i * 16, size: 12, font, color: rgb(.7,.12,.08) }));
-      page.pushOperators(popGraphicsState());
+    const top = pageTop(p);
+    if(p===0){
+      const meta = `${options.storeName || '門市未填'}  |  ${today}  |  ${order}${options.source ? `  |  ${options.source}` : ''}`;
+      const metaLines = wrapText(meta,font,8,mm(190));
+      page.drawText(metaLines.slice(0,2).join('\n'),{x:mm(10),y:mm(277),size:8,lineHeight:9,font});
+      // Stroke the embedded CJK glyphs as well as filling them for a bolder warning.
+      if(warningLines.length){
+        page.pushOperators(pushGraphicsState(),setLineWidth(.3),setStrokingColor(rgb(.7,.12,.08)),setTextRenderingMode(TextRenderingMode.FillAndOutline));
+        warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 12 - i * 16, size: 12, font, color: rgb(.7,.12,.08) }));
+        page.pushOperators(popGraphicsState());
+      }
     }
     const headerTop = top + mm(8); page.drawRectangle({x:xs[0],y:top,width:mm(190),height:mm(8),color:rgb(...PRINT.headerFill)});
     const labels = ['條碼 / 六編碼','名稱','儲位','帳量','實量'];
@@ -85,7 +88,7 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
     }
     for(const x of xs) page.drawLine({start:{x,y:headerTop},end:{x,y},thickness:.45,color:rgb(.6,.65,.62)});
     page.drawLine({start:{x:xs[0],y:headerTop},end:{x:xs[5],y:headerTop},thickness:.45,color:rgb(.6,.65,.62)});
-    page.drawText(options.note ?? `A4 原尺寸 100%  ·  最低列高 ${options.rowHeight} mm  ·  實量請手寫`,{x:mm(10),y:mm(8),size:7,font});
+    if(p===0&&options.note)page.drawText(options.note,{x:mm(10),y:mm(8),size:7,font});
     const footer=`${p+1} / ${groups.length}`;page.drawText(footer,{x:mm(200)-numeric.widthOfTextAtSize(footer,8),y:mm(8),size:8,font:numeric});
   }
   return {bytes:await document.save(),pageCount:groups.length,barcodeCount:rows.length};
