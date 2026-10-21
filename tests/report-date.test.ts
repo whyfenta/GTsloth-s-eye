@@ -47,7 +47,7 @@ test('unreadable dates ask for a manual check instead of claiming that the repor
   assert.ok(mixed.includes('【提示】') && mixed.includes('【提醒】'));
 });
 
-test('nine-day warning matches the concise UI and PDF copy', () => {
-  assert.equal(inventoryWarning([{printed:day('20261012')}],day('20261021')),
-    '【提示】來源庫存簡表最早列印於 2026/10/12（距今 9 日）；庫存可能與現況不符，建議重新列印最新庫存簡表。');
+test('ten-day warning matches the concise UI and PDF copy', () => {
+  assert.equal(inventoryWarning([{printed:day('20261011')}],day('20261021')),
+    '【提示】來源最早列印於 2026/10/11（距今 10 日）；庫存可能與現況不符，建議重新列印簡表再輸入。');
 });

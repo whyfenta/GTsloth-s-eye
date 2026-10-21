@@ -38,7 +38,7 @@ export function inventoryWarning(pages: readonly Pick<PageReport, 'printed'>[], 
   const oldest = dates.reduce<Day | undefined>((first, day) => !first || daysBetween(day, first) > 0 ? day : first, undefined);
   const age = oldest ? daysBetween(oldest, now) : 0;
   const warning = oldest && age >= INVENTORY_STALE_DAYS
-    ? `【提示】來源庫存簡表最早列印於 ${formatDay(oldest)}（距今 ${age} 日）；庫存可能與現況不符，建議重新列印最新庫存簡表。` : '';
+    ? `【提示】來源最早列印於 ${formatDay(oldest)}（距今 ${age} 日）；庫存可能與現況不符，建議重新列印簡表再輸入。` : '';
   const unknown = pages.length - dates.length;
   const reminder = unknown ? `【提醒】有 ${unknown} 頁未能讀取列印日期，請對照原始報表確認庫存資料時效。` : '';
   return [warning, reminder].filter(Boolean).join('\n');

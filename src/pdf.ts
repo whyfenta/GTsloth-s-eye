@@ -35,7 +35,7 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
   // Table body 264 → 15 mm (249 mm) holds 11 rows of 22.6 mm. The footer baseline sits 8 mm and the
   // title top ~10 mm from the paper edge, clear of the 3–5 mm unprintable margin of common printers.
   // Only the first page reserves space for the source-date warning.
-  const warningLines = options.warning ? wrapText(options.warning, font, 12, mm(190)) : [];
+  const warningLines = options.warning ? wrapText(options.warning, font, 11.5, mm(190)) : [];
   const warningHeight = warningLines.length ? warningLines.length * 16 + mm(2) : 0;
   const pageTop = (index: number) => mm(264) - (index === 0 ? warningHeight : 0);
   const top = pageTop(0); const bottom = mm(15); const leading = (size: number) => size * PRINT.lineSpacing;
@@ -66,7 +66,7 @@ export async function generatePDF(rows: InventoryRow[], options: PDFOptions, not
       // Stroke the embedded CJK glyphs as well as filling them for a bolder warning.
       if(warningLines.length){
         page.pushOperators(pushGraphicsState(),setLineWidth(.3),setStrokingColor(rgb(.7,.12,.08)),setTextRenderingMode(TextRenderingMode.FillAndOutline));
-        warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 12 - i * 16, size: 12, font, color: rgb(.7,.12,.08) }));
+        warningLines.forEach((line, i) => page.drawText(line, { x: mm(10), y: mm(272) - 11.5 - i * 16, size: 11.5, font, color: rgb(.7,.12,.08) }));
         page.pushOperators(popGraphicsState());
       }
     }
