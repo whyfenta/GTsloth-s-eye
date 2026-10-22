@@ -85,7 +85,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
     reasons.dead = long ? '' : `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用`;
-    reasons.empty = empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
+    reasons.empty = !long ? reasons.dead : empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
   }
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;

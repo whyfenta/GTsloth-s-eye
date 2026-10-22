@@ -60,7 +60,7 @@ export function statMonths(start: Day, end: Day): Frac | null {
   const from = serial(anchor(start, whole)); const segment = serial(anchor(start, whole + 1)) - from;
   return add(frac(BigInt(whole)), frac(BigInt(stop - from), BigInt(segment)));
 }
-/** The dead-stock list needs a period strictly longer than 2.5 months; the empty-slot list does not depend on the period. */
+/** Both the dead-stock and empty-slot lists require a period strictly longer than 2.5 months. */
 export const LONG_PERIOD = frac(5n, 2n);
 export const longPeriod = (months: Frac) => cmp(months, LONG_PERIOD) > 0;
 export const nextDay = (day: Day) => fromSerial(serial(day) + 1);
