@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { daysBetween, parseDay, printedDay, today } from '../src/report-date';
+import { daysBetween, parseDay, printedDay, printedTime, today } from '../src/report-date';
 import { inventoryWarning } from '../src/model';
 
 const day = (text: string) => parseDay(text)!;
@@ -50,4 +50,12 @@ test('unreadable dates ask for a manual check instead of claiming that the repor
 test('ten-day warning matches the concise UI and PDF copy', () => {
   assert.equal(inventoryWarning([{printed:day('20261011')}],day('20261021')),
     '【提示】來源最早列印於 2026/10/11（距今 10 日）；庫存可能與現況不符，建議重新列印簡表再輸入。');
+});
+test('the printed time beside the printed date: 24-hour or 上午/下午, in seconds after midnight', () => {
+  assert.equal(printedTime('報表編號: w_im1c1_1 列印時間：2026/10/22 19:58:21'), 19 * 3600 + 58 * 60 + 21);
+  assert.equal(printedTime('列印時間：2026/10/22 下午 03:55:52'), 15 * 3600 + 55 * 60 + 52);
+  assert.equal(printedTime('列印時間：2026/10/22 上午 12:05:00'), 5 * 60);
+  assert.equal(printedTime('列 印 時 間 : ２０２６ / ２ / ２８ 09:00'), 9 * 3600);
+  assert.equal(printedTime('列印時間：2026/10/22'), undefined);
+  assert.equal(printedTime('有效期限 2026/10/22 19:58'), undefined, 'only the printed-date label');
 });

@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
+import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
   type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
@@ -14,7 +14,10 @@ export type Decisions = { storeConfirmed: boolean; safetyStrategy?: SafetyStrate
   /** Partner-clinic stores: how little stock (in months of use) counts as clinic-supplied. 'wide' is opt-in. */
   partnerCover?: PartnerCover };
 export type Derived = {
-  usage: Assembly<ParsedPage>; stock: Assembly<ParsedPage>; usageRows: UsageRow[]; stockRows: StockRow[];
+  /** `stock` combines every stock sheet's pages; `stockReports` keeps each separately printed sheet, in import order. */
+  usage: Assembly<ParsedPage>; stock: Assembly<ParsedPage>; stockReports: Assembly<ParsedPage>[]; usageRows: UsageRow[]; stockRows: StockRow[];
+  /** Lines printed by more than one stock sheet (same code and location) that were counted once. */
+  stockOverlap: number;
   /** Problems with the sources themselves; any one blocks every list. */
   blockers: string[]; warnings: string[];
   pendingUsage: UsageRow[]; pendingStock: StockRow[]; summary: UsageSummary; duplicates: StockRow[][];
@@ -35,18 +38,29 @@ const pagesOf = (rows: { origin: { reportPage: number } }[]) => [...new Set(rows
 const label = { usage: '醫品調劑數量統計表', inventory: '庫存簡表' };
 
 export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'inventory'; reason: string }[], decisions: Decisions, now: Day = today()): Derived {
-  const usage = assemble(pages.filter(page => page.kind === 'usage')); const stock = assemble(pages.filter(page => page.kind === 'inventory'));
+  const usage = assemble(pages.filter(page => page.kind === 'usage'));
+  // Stock sheets may be several separate printouts (a main sheet and a supplement): each must be complete on its own.
+  const stockReports = assembleReports(pages.filter(page => page.kind === 'inventory'));
+  const stock: Assembly<ParsedPage> = { pages: stockReports.flatMap(set => set.pages), duplicates: stockReports.flatMap(set => set.duplicates), conflicts: stockReports.flatMap(set => set.conflicts),
+    missing: [], totals: [...new Set(stockReports.flatMap(set => set.totals))], metas: stockReports.flatMap(set => set.metas) };
   const blockers: string[] = []; const warnings: string[] = [];
   for (const item of rejected) blockers.push(`${label[item.kind]}：${item.reason}`);
-  for (const [kind, set] of [['usage', usage], ['inventory', stock]] as const) {
-    if (!set.pages.length) { blockers.push(`尚未取得可用的${label[kind]}`); continue; }
-    if (set.totals.length > 1) blockers.push(`${label[kind]}各頁的總頁數不同（${set.totals.join('、')}），不是同一份報表`);
-    if (set.metas.length > 1) blockers.push(`${label[kind]}各頁的門市、期間、給付方式或列印日期不一致，不能混算`);
-    if (set.missing.length) blockers.push(`${label[kind]}缺少第 ${set.missing.join('、')} 頁（共 ${Math.max(...set.totals)} 頁）；缺頁不能當成沒有資料`);
-    for (const [a, b] of set.conflicts) blockers.push(`${label[kind]}第 ${a.reportPage} 頁出現兩次且內容不同（第 ${a.file + 1} 份第 ${a.filePage} 頁、第 ${b.file + 1} 份第 ${b.filePage} 頁），請移除錯誤的檔案`);
+  if (!stockReports.length) blockers.push(`尚未取得可用的${label.inventory}`);
+  const reportName = (i: number) => stockReports.length > 1 ? `${label.inventory}（第 ${i + 1} 份報表，共 ${stockReports[i].totals[0]} 頁）` : label.inventory;
+  for (const [name, set] of [[label.usage, usage] as const, ...stockReports.map((set, i) => [reportName(i), set] as const)]) {
+    if (!set.pages.length) { blockers.push(`尚未取得可用的${name}`); continue; }
+    if (set.totals.length > 1) blockers.push(`${name}各頁的總頁數不同（${set.totals.join('、')}），不是同一份報表`);
+    if (set.metas.length > 1) blockers.push(`${name}各頁的門市、期間、給付方式或列印日期不一致，不能混算`);
+    if (set.missing.length) blockers.push(`${name}缺少第 ${set.missing.join('、')} 頁（共 ${Math.max(...set.totals)} 頁）；缺頁不能當成沒有資料`);
+    for (const [a, b] of set.conflicts) blockers.push(`${name}第 ${a.reportPage} 頁出現兩次且內容不同（第 ${a.file + 1} 份第 ${a.filePage} 頁、第 ${b.file + 1} 份第 ${b.filePage} 頁），請移除錯誤的檔案`);
   }
-  const usageRows = usage.pages.flatMap(page => page.usage); const stockRows = stock.pages.flatMap(page => page.stock);
-  const first = usage.pages[0]?.facts; const firstStock = stock.pages[0]?.facts;
+  const stores = [...new Set(stockReports.map(set => set.pages[0].facts.store.label))];
+  if (stores.length > 1) blockers.push(`各份庫存簡表不是同一門市（${stores.join('、')}），不能合併`);
+  const usageRows = usage.pages.flatMap(page => page.usage);
+  const merged = mergeStockReports(stockReports.map(set => ({ rows: set.pages.flatMap(page => page.stock), printed: set.pages[0].facts.printed, time: set.pages[0].facts.printedTime })));
+  const stockRows = merged.rows;
+  // The oldest stock sheet decides the print-date warnings: its quantities are the least current.
+  const first = usage.pages[0]?.facts; const firstStock = stockReports.map(set => set.pages[0].facts).sort((a, b) => a.printed && b.printed ? (dayBefore(a.printed, b.printed) ? -1 : dayBefore(b.printed, a.printed) ? 1 : 0) : 0)[0];
   let storeMatch: Derived['storeMatch'];
   if (first && firstStock) {
     storeMatch = matchStores(first.store, firstStock.store);
@@ -69,7 +83,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const duplicates = stockDuplicates(stockRows); const duplicated = new Set(duplicates.flat());
   const pendingStock = stockRows.filter(row => needsReview(row, stockErrors(row)) || duplicated.has(row));
   const summary = aggregateUsage(usageRows); const items = aggregateStock(stockRows);
-  const sourcesReady = !blockers.length && assemblyComplete(usage) && assemblyComplete(stock) && Boolean(months);
+  const sourcesReady = !blockers.length && assemblyComplete(usage) && stockReports.length > 0 && stockReports.every(assemblyComplete) && Boolean(months);
   const ready = sourcesReady && !pendingUsage.length && !pendingStock.length && !summary.unitConflicts.length && !summary.invalid.length;
   const strategy = decisions.safetyStrategy ?? DEFAULT_SAFETY_STRATEGY;
   const ordinary = months ? safetyList(summary.items, months, items, false, strategy) : undefined;
@@ -85,11 +99,11 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
     reasons.dead = long ? '' : `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用`;
-    reasons.empty = !long ? reasons.dead : empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
+    reasons.empty = !long ? reasons.dead : empty.length ? '' : '庫存簡表沒有庫存為 0、有儲位且未出現在調劑統計內的品項';
   }
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
-  return { usage, stock, usageRows, stockRows, blockers, warnings, pendingUsage, pendingStock, summary, duplicates, months, period, payment, storeLabel: first?.store.label ?? firstStock?.store.label ?? '',
+  return { usage, stock, stockReports, stockOverlap: merged.overlap, usageRows, stockRows, blockers, warnings, pendingUsage, pendingStock, summary, duplicates, months, period, payment, storeLabel: first?.store.label ?? firstStock?.store.label ?? '',
     storeMatch, safety, dead, empty, selfPay, zeroRows, stale, partner, missing, ready, available, reasons };
 }
 
@@ -136,6 +150,6 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
-    warning: warn, note: '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。判斷範圍以匯入的庫存簡表為準。',
-    empty: '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項。' };
+    warning: warn, note: '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序；儲位空白者本不佔位，不列入。判斷範圍以匯入的庫存簡表為準。',
+    empty: '庫存簡表沒有庫存為 0、有儲位且未出現在調劑統計內的品項。' };
 }

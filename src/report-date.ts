@@ -15,6 +15,14 @@ export function today(now = new Date()): Day {
   const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === type)!.value);
   return { y: part('year'), m: part('month'), d: part('day') };
 }
+/** Seconds after midnight of the printed time beside the printed date (24-hour, or 上午/下午); undefined when not printed. */
+export function printedTime(text: string): number | undefined {
+  const match = text.normalize('NFKC').match(/列\s*印\s*(?:時\s*間|日\s*期)\s*[:：]?\s*\d{4}\s*[/年.-]\s*\d{1,2}\s*[/月.-]\s*\d{1,2}日?\s+(?:(上午|下午)\s*)?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return undefined;
+  let hour = +match[2]; if (hour > 23 || +match[3] > 59 || +(match[4] ?? 0) > 59) return undefined;
+  if (match[1] === '下午' && hour < 12) hour += 12; else if (match[1] === '上午' && hour === 12) hour = 0;
+  return hour * 3600 + +match[3] * 60 + +(match[4] ?? 0);
+}
 /** Require the printed-date label so dates in product names are never treated as the report's date. */
 export function printedDay(text: string): Day | undefined {
   const match = text.normalize('NFKC').match(/列\s*印\s*(?:時\s*間|日\s*期)\s*[:：]?\s*(\d{4})\s*[/年.-]\s*(\d{1,2})\s*[/月.-]\s*(\d{1,2})(?!\d)/);

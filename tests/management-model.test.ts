@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,COLD_FACTOR,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -89,6 +89,19 @@ test('a 冷藏 name multiplies the coefficient by 0.8 after any 缺貨 bonus, wi
   assert.deepEqual(cold.rows.map(r=>formatFrac(r.coefficient,6)),['2.8','3.14','1.2'],'3.5 × 0.8; (2.925 + 1) × 0.8; plain');
   assert.deepEqual(cold.rows.map(r=>r.safety),[84n,63n,12n],'30 × 2.8; ceil(20 × 3.14); 10 × 1.2');
   assert.deepEqual(plain.rows.map(r=>r.cold),[false,false,false]);
+});
+test('a (管3) or (管4) name multiplies the coefficient by 1.2 before any 缺貨 bonus, without changing membership or rank',()=>{
+  assert.equal(formatFrac(CONTROLLED_FACTOR),'1.2');
+  for(const name of ['C-&100粒/盒XANAX贊安諾錠0.5MG(管4)','HALCION酣樂欣錠0.25MG(管3)','C-&1000粒/瓶DIPOXIDO大益神膠囊10MG(管','測試錠(管4','測試錠（管３）'])assert.ok(controlled(name),name);
+  for(const name of ['NOVORAPID諾和瑞諾芯管100U/','測試錠(管2)','測試錠(管1)','管制錠5MG'])assert.ok(!controlled(name),name);
+  const base=Array.from({length:27},(_,i)=>use(String(500000+i),1,1));
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',10,10)]).items;
+  const plain=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','品二'),stock('000003',0,'A3','品三')]),false,'hamster');
+  const ctrl=safetyList(items,frac(1n),aggregateStock([stock('000001',0,'A1','品一(管4)'),stock('000002',0,'A2','缺貨 品二(管3)'),stock('000003',0,'A3','品三')]),false,'hamster');
+  assert.deepEqual(ctrl.rows.map(r=>r.sku),plain.rows.map(r=>r.sku));
+  assert.deepEqual(ctrl.rows.map(r=>[r.controlled,r.shortage]),[[true,false],[true,true],[false,false]]);
+  assert.deepEqual(ctrl.rows.map(r=>formatFrac(r.coefficient,6)),['4.2','4.51','1.2'],'3.5 × 1.2; 2.925 × 1.2 + 1; plain');
+  assert.deepEqual(ctrl.rows.map(r=>r.safety),[126n,91n,12n],'30 × 4.2; ceil(20 × 4.51); 10 × 1.2');
 });
 test('management keeps 冷藏 in front of the name, after 缺貨 whatever the report order; the inventory sheet still removes it',()=>{
   assert.equal(cleanProductName('冷藏 C-(紅)5 支/盒 Delta Pen 測試筆',true,['缺貨','冷藏']).name,'冷藏 Delta Pen測試筆');
@@ -181,11 +194,30 @@ test('stock: locations add up per code, the first name is kept; same code + loca
   const items=aggregateStock(rows);assert.equal(formatFrac(items.get('000001')!.qty),'3');assert.equal(items.get('000001')!.name,'第一名稱');
   assert.deepEqual(stockDuplicates(rows).map(list=>list.map(r=>r.location)),[['A1','A 1']]);
 });
-test('dead stock (≠ 0, incl. negative) and empty slots (= 0) only for codes outside the usage report, by location with blanks last',()=>{
+test('separately printed stock sheets: grouped by their page facts, a report split over files stays one; overlaps merge from the later print',()=>{
+  const pg=(file:number,reportPage:number,reportTotal:number,meta:string)=>({key:`${file}-${reportPage}`,file,filePage:reportPage,reportPage,reportTotal,signature:`${meta}${reportPage}`,meta});
+  const reports=assembleReports([pg(0,1,3,'main'),pg(2,1,1,'supplement'),pg(1,2,3,'main'),pg(1,3,3,'main')]);
+  assert.deepEqual(reports.map(r=>[r.pages.map(p=>p.reportPage),r.missing]),[[[1,2,3],[]],[[1],[]]]);
+  const a=[stock('000001',5,'A1'),stock('000002',3,'A2'),stock('000002',3,'A2')];
+  const b=[stock('000001',6,'A 1'),stock('000002',3,'A2'),stock('000003',1,'B1')];
+  const later=mergeStockReports([{rows:a,printed:{y:2026,m:10,d:11}},{rows:b,printed:{y:2026,m:10,d:12}}]);
+  assert.deepEqual(later.rows.map(r=>[r.sku,r.qty]),[['000001','6'],['000002','3'],['000003','1']],'the later sheet holds every overlapping line');
+  assert.equal(later.overlap,3,'000001 (location spaced differently) and both copies of 000002');
+  const single=mergeStockReports([{rows:a,printed:{y:2026,m:10,d:11}}]);
+  assert.equal(single.rows.length,3,'one report keeps its own repeated line for the duplicate review');
+  const sameDay=mergeStockReports([{rows:a.slice(0,2),printed:{y:2026,m:10,d:12}},{rows:b,printed:{y:2026,m:10,d:12}}]);
+  assert.deepEqual(sameDay.rows.map(r=>[r.sku,r.qty]),[['000001','5'],['000002','3'],['000001','6'],['000003','1']],'same day, different quantity: both kept');
+  assert.equal(stockDuplicates(sameDay.rows).length,1,'and sent to the duplicate review');
+  const day={y:2026,m:10,d:22};
+  const byTime=mergeStockReports([{rows:a.slice(0,2),printed:day,time:19*3600},{rows:b,printed:day,time:15*3600}]);
+  assert.deepEqual(byTime.rows.map(r=>[r.sku,r.qty]),[['000001','5'],['000002','3'],['000003','1']],'same day: the later print time wins');
+  assert.equal(byTime.overlap,2);
+});
+test('dead stock (≠ 0, incl. negative, by location with blanks last) and empty slots (= 0, with a location) only for codes outside the usage report',()=>{
   const rows=[stock('000001',3,'B2'),stock('000002',0,'A1'),stock('000003',-1,''),stock('000004',2,'A10'),stock('000005',4,'A9'),stock('000006',0,''),stock('000007',0,'A2')];
   const lists=slotLists(rows,new Set(['000004','000007']));
   assert.deepEqual(lists.dead.map(r=>[r.sku,r.negative]),[['000005',false],['000001',false],['000003',true]]);
-  assert.deepEqual(lists.empty.map(r=>r.sku),['000002','000006']);
+  assert.deepEqual(lists.empty.map(r=>r.sku),['000002'],'000006 at 0 without a location takes no slot');
   assert.deepEqual(lists.selfPay,[]);
 });
 test('self-pay lines (自費 anywhere in the status prefix) are set apart from dead stock and empty slots; at 0 they are not listed',()=>{

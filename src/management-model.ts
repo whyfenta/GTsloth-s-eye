@@ -115,6 +115,21 @@ export function assemble<P extends ReportPage>(input: P[]): Assembly<P> {
   for (let n = 1; n <= total; n++) if (!byNumber.has(n)) missing.push(n);
   return { pages: [...byNumber.values()].sort((a, b) => a.reportPage - b.reportPage), duplicates, conflicts, missing, totals, metas };
 }
+/**
+ * Pages of one or more separately printed reports, such as a main stock sheet and a later supplement for a few locations,
+ * each assembled on its own. A file's pages join the first report with the same page facts (`meta`) whose pages they do
+ * not contradict, so a report split over several files stays one, while two printouts that share their facts (same store,
+ * day and page count) but differ on a page number stay apart. Reports follow import order.
+ */
+export function assembleReports<P extends ReportPage>(input: P[]): Assembly<P>[] {
+  const groups: { meta: string; pages: P[] }[] = []; const byFile = new Map<string, P[]>();
+  for (const page of [...input].sort((a, b) => a.file - b.file || a.filePage - b.filePage)) { const key = `${page.file}\u0000${page.meta}`; const list = byFile.get(key); if (list) list.push(page); else byFile.set(key, [page]); }
+  for (const pages of byFile.values()) {
+    const fits = (group: { meta: string; pages: P[] }) => group.meta === pages[0].meta && pages.every(page => group.pages.every(other => other.reportPage !== page.reportPage || other.signature === page.signature));
+    const group = groups.find(fits); if (group) group.pages.push(...pages); else groups.push({ meta: pages[0].meta, pages });
+  }
+  return groups.map(group => assemble(group.pages));
+}
 export const assemblyComplete = (a: Assembly<ReportPage>) => a.pages.length > 0 && !a.conflicts.length && !a.missing.length && a.totals.length === 1 && a.metas.length === 1;
 
 // ---- Rows ------------------------------------------------------------------
@@ -181,6 +196,31 @@ export function aggregateStock(rows: StockRow[]): Map<string, StockItem> {
 }
 const locationKey = (location: string) => location.normalize('NFKC').replace(/\s+/g, '');
 /** The same code at the same location twice cannot be told apart from a repeated report, so it is never added up silently. */
+/**
+ * Merges the rows of separately printed stock sheets (`reports`, each with its print day and, when printed, time). A code
+ * at one location printed by more than one report is the same shelf line: it counts once, from the latest print, or the
+ * first imported of equal prints. Only reports printed at the same time (or the same day with a time missing) that
+ * disagree on its quantity keep both lines, for the duplicate review to settle.
+ * Rows inside one report, and lines that are not six-digit codes, are never merged here.
+ */
+export function mergeStockReports(reports: { rows: StockRow[]; printed?: Day; time?: number }[]): { rows: StockRow[]; overlap: number } {
+  type Print = { printed?: Day; time?: number };
+  // Seconds between two prints, 0 when either is unknown or the order cannot be told (a time missing on the same day).
+  const later = (a: Print, b: Print) => !a.printed || !b.printed ? 0 : serial(a.printed) !== serial(b.printed) ? (serial(a.printed) - serial(b.printed)) * 86_400
+    : a.time !== undefined && b.time !== undefined ? a.time - b.time : 0;
+  const order = reports.map((report, i) => ({ ...report, i })).sort((a, b) => later(b, a) || a.i - b.i);
+  const kept = new Map<string, { report: number; print: Print; qty: string }>(); const dropped = new Set<StockRow>();
+  for (const report of order) {
+    for (const row of active(report.rows)) {
+      if (!SIX.test(row.sku)) continue;
+      const key = row.sku + '\u0000' + locationKey(row.location); const first = kept.get(key);
+      if (!first) { kept.set(key, { report: report.i, print: report, qty: row.qty }); continue; }
+      if (first.report === report.i) continue;
+      if (later(first.print, report) !== 0 || cmp(parseDecimal(first.qty) ?? ZERO, parseDecimal(row.qty) ?? ZERO) === 0) dropped.add(row);
+    }
+  }
+  return { rows: reports.flatMap(report => report.rows.filter(row => !dropped.has(row))), overlap: dropped.size };
+}
 export function stockDuplicates(rows: StockRow[]): StockRow[][] {
   const lines = new Map<string, StockRow[]>();
   for (const row of active(rows)) { if (!SIX.test(row.sku)) continue; const key = row.sku + '\u0000' + locationKey(row.location); const list = lines.get(key); if (list) list.push(row); else lines.set(key, [row]); }
@@ -210,6 +250,13 @@ export const shortage = (name: string) => keptPrefix(name).includes('缺貨');
  */
 export const COLD_FACTOR = frac(4n, 5n);
 export const refrigerated = (name: string) => keptPrefix(name).includes('冷藏');
+/**
+ * A grade 3 or 4 controlled drug, tagged (管3) or (管4) at the end of its name, takes longer to reorder:
+ * its rank coefficient is multiplied by CONTROLLED_FACTOR before any 缺貨 bonus. The usage report cuts long names,
+ * so a name ending in a cut tag, "(管4" or just "(管", counts too.
+ */
+export const CONTROLLED_FACTOR = frac(6n, 5n);
+export const controlled = (name: string) => /\(管[34]\)|\(管[34]?$/.test(name.normalize('NFKC').replace(/\s+/g, ''));
 export const safetyStrategyRange = (strategy: SafetyStrategy) => {
   const { maximum, minimum } = SAFETY_STRATEGIES[strategy];
   return `${formatFrac(maximum)}～${formatFrac(minimum)}`;
@@ -228,14 +275,14 @@ export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEF
 }
 /** One code's use; `all` holds every code with a count, the list only the selected ones. */
 export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
-export type SafetyRow = UsageRate & { coefficient: Frac; shortage: boolean; cold: boolean; safety: bigint };
+export type SafetyRow = UsageRate & { coefficient: Frac; controlled: boolean; shortage: boolean; cold: boolean; safety: bigint };
 export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
   /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under `cover` months of it, and how many later codes moved up. */
   outside?: { none: number; low: number; filled: number; cover: Frac } };
 /**
  * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank),
- * the coefficient raised by SHORTAGE_BONUS for a 缺貨 name and then multiplied by COLD_FACTOR for a 冷藏 name; neither
- * changes which codes are listed or their rank.
+ * the coefficient multiplied by CONTROLLED_FACTOR for a (管3)/(管4) name, then raised by SHORTAGE_BONUS for a 缺貨 name and
+ * then multiplied by COLD_FACTOR for a 冷藏 name; none changes which codes are listed or their rank.
  * Only A > 8 qualifies; K = min(floor(N × 10%), qualifying items), highest A first, ties by code. N counts every code.
  * With a partner clinic, codes the store holds no stock of, or less than `cover` months of their monthly use, are mostly
  * supplied by the clinic: they are skipped and the next qualifying code moves up, so K still aims at floor(N × 10%).
@@ -252,9 +299,10 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   const eligible = partner ? qualifying.filter(row => held(row) && !lowCover(row, cover)) : qualifying;
   const k = Math.min(limit, eligible.length); const picked = eligible.slice(0, k);
   const rows = picked.map((row, i) => {
-    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const short = shortage(row.name); const cold = refrigerated(row.name);
-    const raised = add(coefficient(rank < 0 ? i : rank, k, strategy), short ? SHORTAGE_BONUS : ZERO); const c = cold ? mul(raised, COLD_FACTOR) : raised;
-    return { ...row, coefficient: c, shortage: short, cold, safety: ceil(mul(row.ab, c)) };
+    const rank = picked.findIndex(other => cmp(other.a, row.a) === 0); const short = shortage(row.name); const cold = refrigerated(row.name); const ctrl = controlled(row.name);
+    const base = coefficient(rank < 0 ? i : rank, k, strategy); const raised = add(ctrl ? mul(base, CONTROLLED_FACTOR) : base, short ? SHORTAGE_BONUS : ZERO);
+    const c = cold ? mul(raised, COLD_FACTOR) : raised;
+    return { ...row, coefficient: c, controlled: ctrl, shortage: short, cold, safety: ceil(mul(row.ab, c)) };
   });
   const none = qualifying.filter(row => !held(row)).length;
   const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length, cover } : undefined;
@@ -339,7 +387,8 @@ export function slotLists(stock: StockRow[], used: Set<string>): { dead: SlotRow
   for (const row of active(stock)) {
     const qty = parseDecimal(row.qty); if (!SIX.test(row.sku) || qty === null || used.has(row.sku)) continue;
     if (selfPay(row)) { if (qty.n !== 0n) own.push({ ...row, negative: qty.n < 0n }); continue; }
-    (qty.n === 0n ? empty : dead).push({ ...row, negative: qty.n < 0n });
+    // A line without a location takes no slot, so it is never an empty slot to clear.
+    if (qty.n === 0n) { if (row.location.trim()) empty.push({ ...row, negative: false }); } else dead.push({ ...row, negative: qty.n < 0n });
   }
   return { dead: byTransfer(dead), empty: empty.sort(byLocation), selfPay: own.sort(byLocation) };
 }

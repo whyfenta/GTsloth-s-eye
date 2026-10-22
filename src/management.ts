@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
@@ -49,7 +49,7 @@ app.innerHTML = `
         <input id="input-${kind}" type="file" accept="application/pdf" ${kind === 'inventory' ? 'multiple' : ''} hidden>
         <div id="drop-${kind}" data-kind="${kind}" class="drop-zone mg-drop" role="button" tabindex="0" aria-label="選擇或拖放${KIND_LABEL[kind]} PDF"><div class="upload-icon">${icon('upload')}</div><h3>把${KIND_LABEL[kind]}拖到這裡</h3><p>或點選，從裝置選擇 PDF${kind === 'inventory' ? '（可多選）' : ''}</p><span class="file-types">系統列印的 PDF</span></div>
         <ol id="files-${kind}" class="file-list" aria-label="${KIND_LABEL[kind]}檔案" hidden></ol>
-        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥與空位清單；空位另須庫存為零且期間內未調劑。'}</p></div>
+        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。主檔之外另印的補件簡表可一起匯入，同六碼同儲位重疊的列只計一次，以較晚列印的為準。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥與空位清單；空位另須庫存為零、儲位不空白，且期間內未調劑。'}</p></div>
       </section>`).join('')}
     </div>
     <section class="card mg-start"><div id="start-row" class="start-row"><span id="queue-summary" aria-live="polite"></span><button id="clear-all" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始解析</span>${icon('arrow')}</button></div>
@@ -236,14 +236,18 @@ function renderSources() {
   const section = el('sources'); section.hidden = !data;
   if (!data) return;
   const stale = (kind: ReportKind) => data!.stale.find(item => item.kind === kind);
+  const printedOf = (f: ParsedPage['facts'], kind: ReportKind) => { const old = stale(kind); const day = f.printed;
+    return (day ? `${day.y}/${day.m}/${day.d}` : '未印') + (old && day && formatDay(old.printed) === formatDay(day) ? `・<b class="mg-bad">距今 ${old.days} 天，結果可能失真</b>` : ''); };
+  const pagesOf = (set: Derived['stock']) => `${set.pages.length} / ${Math.max(...set.totals)} 頁${set.missing.length ? `・<b class="mg-bad">缺第 ${set.missing.join('、')} 頁</b>` : '・齊全'}${set.duplicates.length ? `・重複匯入 ${set.duplicates.length} 頁已只計一次` : ''}`;
+  const clock = (seconds?: number) => seconds === undefined ? '' : ` ${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
   const facts = (kind: ReportKind) => { const set = kind === 'usage' ? data!.usage : data!.stock; const page = set.pages[0]; const rows = kind === 'usage' ? data!.usageRows : data!.stockRows;
     if (!page) return `<div class="mg-source"><h3>${KIND_LABEL[kind]}</h3><p class="issue-text">尚未取得可用頁面</p></div>`;
-    const f = page.facts; const total = Math.max(...set.totals);
+    const f = page.facts;
     return `<div class="mg-source"><h3>${KIND_LABEL[kind]}</h3><dl>
       <dt>門市</dt><dd>${escape(f.store.label)}${f.warehouse ? `（庫別 ${escape(f.warehouse)}）` : ''}</dd>
       ${kind === 'usage' ? `<dt>統計期間</dt><dd>${escape(data!.period ?? '')}${data!.months ? `・${formatFrac(data!.months)} 個月` : ''}</dd><dt>給付方式</dt><dd>${escape(f.payment ?? '')}</dd>` : ''}
-      <dt>列印日期</dt><dd>${f.printed ? `${f.printed.y}/${f.printed.m}/${f.printed.d}` : '未印'}${stale(kind) ? `・<b class="mg-bad">距今 ${stale(kind)!.days} 天，結果可能失真</b>` : ''}</dd>
-      <dt>頁面</dt><dd>${set.pages.length} / ${total} 頁${set.missing.length ? `・<b class="mg-bad">缺第 ${set.missing.join('、')} 頁</b>` : '・齊全'}${set.duplicates.length ? `・重複匯入 ${set.duplicates.length} 頁已只計一次` : ''}</dd>
+      ${kind === 'inventory' && data!.stockReports.length > 1 ? data!.stockReports.map((report, i) => `<dt>第 ${i + 1} 份報表</dt><dd>${printedOf(report.pages[0].facts, kind)}${clock(report.pages[0].facts.printedTime)}・${pagesOf(report)}</dd>`).join('') + (data!.stockOverlap ? `<dt>合併</dt><dd>重疊 ${data!.stockOverlap} 列（同六碼同儲位）只計一次</dd>` : '')
+        : `<dt>列印日期</dt><dd>${printedOf(f, kind)}</dd><dt>頁面</dt><dd>${pagesOf(kind === 'usage' ? set : data!.stockReports[0])}</dd>`}
       <dt>明細</dt><dd>${rows.length} 列${rows.filter(r => r.excluded).length ? `（排除 ${rows.filter(r => r.excluded).length} 列）` : ''}${kind === 'usage' ? `・${data!.summary.items.length} 個六碼` : `・零庫存 ${data!.zeroRows} 列`}</dd></dl></div>`; };
   const storeAsk = data.storeMatch === 'unsure' ? `<label class="checkbox-label mg-confirm"><input id="store-confirm" type="checkbox" ${decisions.storeConfirmed ? 'checked' : ''}>我已對照原始報表，確認「${escape(data.usage.pages[0]?.facts.store.label ?? '')}」與「${escape(data.stock.pages[0]?.facts.store.label ?? '')}」是同一門市</label>` : '';
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">SOURCE CHECK</span><h2>來源核對</h2></div><span class="small-label">${data.storeMatch === 'same' ? '門市編號與店名一致' : ''}</span></div>
@@ -309,7 +313,7 @@ function renderLists() {
   const strategyOptions = `<div id="safety-options" class="mg-list-options"><fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>安全量策略</legend>
     <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為平衡派。</p>
     <div class="mg-strategy-grid">${strategyCards}</div>
-    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
+    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；品名保有「缺貨」前綴的品項，係數再 +1（管制藥又缺貨時先 × ${formatFrac(CONTROLLED_FACTOR)} 再 +1）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
     </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
     safety: '預防常用藥物臨時缺貨，建議您的安全及採購量',
