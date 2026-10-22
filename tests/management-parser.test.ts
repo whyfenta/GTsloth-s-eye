@@ -162,6 +162,26 @@ test('a report printed a week or more before today carries a warning on the page
   for(const kind of ['safety','dead','empty'] as const)assert.match(listSpec(kind,old,ctx).warning!,/^【警語】庫存簡表列印於 2026\/10\/11（距產生日 7 天），輸出結果可能失真。/);
   assert.deepEqual(derive([usage,stock],[],decisions,{y:2026,m:10,d:30}).stale.map(s=>s.kind),['inventory','usage']);
 });
+test('a main stock sheet and a separately printed supplement merge: each complete on its own, overlapping lines counted once from the later print',()=>{
+  const item=(y:number,sku:string,name:string,location:string,qty:string):Cell[]=>[[sku,5,y],[name,95,y],['4710000'+sku,395,y],['A-測試',665,y],[location,745,y],[qty,840,y],['0',890,y]];
+  // Without the three standard lines (y 140 to 180), with its own rows and print day.
+  const sheet=(n:number,total:number,rows:Cell[],day='2026/10/11',standard=false)=>page(stockCells(n,total,'26北-測試店',rows).filter(c=>standard||![140,160,180].includes(c[2])).map(c=>c[0].startsWith('報表編號')?[c[0].replace('2026/10/11',day),c[1],c[2]] as Cell:c),700);
+  const usage=parsed(usagePage(1,1),'usage',0,1);
+  const main=[parsed(sheet(1,2,[],'2026/10/11',true),'inventory',1,1),parsed(sheet(2,2,[...item(150,'000700','C-新藥','B1','5')]),'inventory',1,2)];
+  const supplement=parsed(sheet(1,1,[...item(150,'000206','C-30粒/盒EZETROL怡妥錠10MG','5脂41@','2,000'),...item(170,'000083','缺貨C-1000粒/盒(10粒/排)PENTOP循妥斯持續性錠400MG','3心16','368'),...item(190,'000800','C-補件藥','C9','7')],'2026/10/12'),'inventory',2,1);
+  const data=derive([usage,...main,supplement],[],decisions,{y:2026,m:10,d:16});
+  assert.deepEqual(data.blockers.filter(b=>b.includes('庫存簡表')),[]);
+  assert.deepEqual(data.stockReports.map(r=>[r.pages.length,r.totals[0],r.missing.length]),[[2,2,0],[1,1,0]]);
+  assert.equal(data.stockOverlap,2,'000206 and 000083 at the same locations');
+  assert.deepEqual(data.stockRows.map(r=>[r.sku,r.qty]),[['000500','-2'],['000700','5'],['000206','2000'],['000083','368'],['000800','7']],'the later supplement wins 000206');
+  assert.deepEqual(data.duplicates,[]);
+  assert.match(data.warnings.join('\n'),/庫存簡表列印於 2026\/10\/11/,'the older sheet decides the print-date warning');
+  // A supplement missing a page still blocks, named by its own page count.
+  const partial=derive([usage,...main,parsed(sheet(1,2,item(150,'000800','C-補件藥','C9','7')),'inventory',2,1)],[],decisions,{y:2026,m:10,d:16});
+  assert.ok(partial.blockers.includes('庫存簡表（第 2 份報表，共 2 頁）缺少第 2 頁（共 2 頁）；缺頁不能當成沒有資料'),partial.blockers.join('\n'));
+  const other=derive([usage,...main,parsed(page(stockCells(1,1,'27北-別店'),700),'inventory',2,1)],[],decisions,{y:2026,m:10,d:16});
+  assert.ok(other.blockers.some(b=>/各份庫存簡表不是同一門市/.test(b)));
+});
 test('a store with a partner clinic: more than 10 codes of the safety list without stock (no line or 0) are skipped and backfilled',()=>{
   const stock=parsed(fix(stockPage()),'inventory',1,1); // 000206, 000083, 000500
   // N = 120, 10% = 12. 000206 A = 50; `missing` codes without a stock line A = 25; 000083 A = 10; the rest A = 0.25.

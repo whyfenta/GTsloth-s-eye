@@ -115,6 +115,21 @@ export function assemble<P extends ReportPage>(input: P[]): Assembly<P> {
   for (let n = 1; n <= total; n++) if (!byNumber.has(n)) missing.push(n);
   return { pages: [...byNumber.values()].sort((a, b) => a.reportPage - b.reportPage), duplicates, conflicts, missing, totals, metas };
 }
+/**
+ * Pages of one or more separately printed reports, such as a main stock sheet and a later supplement for a few locations,
+ * each assembled on its own. A file's pages join the first report with the same page facts (`meta`) whose pages they do
+ * not contradict, so a report split over several files stays one, while two printouts that share their facts (same store,
+ * day and page count) but differ on a page number stay apart. Reports follow import order.
+ */
+export function assembleReports<P extends ReportPage>(input: P[]): Assembly<P>[] {
+  const groups: { meta: string; pages: P[] }[] = []; const byFile = new Map<string, P[]>();
+  for (const page of [...input].sort((a, b) => a.file - b.file || a.filePage - b.filePage)) { const key = `${page.file}\u0000${page.meta}`; const list = byFile.get(key); if (list) list.push(page); else byFile.set(key, [page]); }
+  for (const pages of byFile.values()) {
+    const fits = (group: { meta: string; pages: P[] }) => group.meta === pages[0].meta && pages.every(page => group.pages.every(other => other.reportPage !== page.reportPage || other.signature === page.signature));
+    const group = groups.find(fits); if (group) group.pages.push(...pages); else groups.push({ meta: pages[0].meta, pages });
+  }
+  return groups.map(group => assemble(group.pages));
+}
 export const assemblyComplete = (a: Assembly<ReportPage>) => a.pages.length > 0 && !a.conflicts.length && !a.missing.length && a.totals.length === 1 && a.metas.length === 1;
 
 // ---- Rows ------------------------------------------------------------------
@@ -181,6 +196,27 @@ export function aggregateStock(rows: StockRow[]): Map<string, StockItem> {
 }
 const locationKey = (location: string) => location.normalize('NFKC').replace(/\s+/g, '');
 /** The same code at the same location twice cannot be told apart from a repeated report, so it is never added up silently. */
+/**
+ * Merges the rows of separately printed stock sheets (`reports`, each with its print day). A code at one location printed
+ * by more than one report is the same shelf line: it counts once, from the latest report, or the first imported of equal
+ * days. Only same-day reports that disagree on its quantity keep both lines, for the duplicate review to settle.
+ * Rows inside one report, and lines that are not six-digit codes, are never merged here.
+ */
+export function mergeStockReports(reports: { rows: StockRow[]; printed?: Day }[]): { rows: StockRow[]; overlap: number } {
+  const order = reports.map((report, i) => ({ ...report, i })).sort((a, b) => (a.printed && b.printed ? serial(b.printed) - serial(a.printed) : 0) || a.i - b.i);
+  const kept = new Map<string, { report: number; printed?: Day; qty: string }>(); const dropped = new Set<StockRow>();
+  for (const report of order) {
+    for (const row of active(report.rows)) {
+      if (!SIX.test(row.sku)) continue;
+      const key = row.sku + '\u0000' + locationKey(row.location); const first = kept.get(key);
+      if (!first) { kept.set(key, { report: report.i, printed: report.printed, qty: row.qty }); continue; }
+      if (first.report === report.i) continue;
+      const sameDay = first.printed && report.printed ? serial(first.printed) === serial(report.printed) : !first.printed && !report.printed;
+      if (!sameDay || cmp(parseDecimal(first.qty) ?? ZERO, parseDecimal(row.qty) ?? ZERO) === 0) dropped.add(row);
+    }
+  }
+  return { rows: reports.flatMap(report => report.rows.filter(row => !dropped.has(row))), overlap: dropped.size };
+}
 export function stockDuplicates(rows: StockRow[]): StockRow[][] {
   const lines = new Map<string, StockRow[]>();
   for (const row of active(rows)) { if (!SIX.test(row.sku)) continue; const key = row.sku + '\u0000' + locationKey(row.location); const list = lines.get(key); if (list) list.push(row); else lines.set(key, [row]); }

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,COLD_FACTOR,CONTROLLED_FACTOR,controlled,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -193,6 +193,21 @@ test('stock: locations add up per code, the first name is kept; same code + loca
   const rows=[stock('000001',5,'A1','第一名稱'),stock('000001',-2,'B1','第二名稱'),stock('000002',3,'A1'),stock('000002',3,'A 1')];
   const items=aggregateStock(rows);assert.equal(formatFrac(items.get('000001')!.qty),'3');assert.equal(items.get('000001')!.name,'第一名稱');
   assert.deepEqual(stockDuplicates(rows).map(list=>list.map(r=>r.location)),[['A1','A 1']]);
+});
+test('separately printed stock sheets: grouped by their page facts, a report split over files stays one; overlaps merge from the later print',()=>{
+  const pg=(file:number,reportPage:number,reportTotal:number,meta:string)=>({key:`${file}-${reportPage}`,file,filePage:reportPage,reportPage,reportTotal,signature:`${meta}${reportPage}`,meta});
+  const reports=assembleReports([pg(0,1,3,'main'),pg(2,1,1,'supplement'),pg(1,2,3,'main'),pg(1,3,3,'main')]);
+  assert.deepEqual(reports.map(r=>[r.pages.map(p=>p.reportPage),r.missing]),[[[1,2,3],[]],[[1],[]]]);
+  const a=[stock('000001',5,'A1'),stock('000002',3,'A2'),stock('000002',3,'A2')];
+  const b=[stock('000001',6,'A 1'),stock('000002',3,'A2'),stock('000003',1,'B1')];
+  const later=mergeStockReports([{rows:a,printed:{y:2026,m:10,d:11}},{rows:b,printed:{y:2026,m:10,d:12}}]);
+  assert.deepEqual(later.rows.map(r=>[r.sku,r.qty]),[['000001','6'],['000002','3'],['000003','1']],'the later sheet holds every overlapping line');
+  assert.equal(later.overlap,3,'000001 (location spaced differently) and both copies of 000002');
+  const single=mergeStockReports([{rows:a,printed:{y:2026,m:10,d:11}}]);
+  assert.equal(single.rows.length,3,'one report keeps its own repeated line for the duplicate review');
+  const sameDay=mergeStockReports([{rows:a.slice(0,2),printed:{y:2026,m:10,d:12}},{rows:b,printed:{y:2026,m:10,d:12}}]);
+  assert.deepEqual(sameDay.rows.map(r=>[r.sku,r.qty]),[['000001','5'],['000002','3'],['000001','6'],['000003','1']],'same day, different quantity: both kept');
+  assert.equal(stockDuplicates(sameDay.rows).length,1,'and sent to the duplicate review');
 });
 test('dead stock (≠ 0, incl. negative, by location with blanks last) and empty slots (= 0, with a location) only for codes outside the usage report',()=>{
   const rows=[stock('000001',3,'B2'),stock('000002',0,'A1'),stock('000003',-1,''),stock('000004',2,'A10'),stock('000005',4,'A9'),stock('000006',0,''),stock('000007',0,'A2')];
