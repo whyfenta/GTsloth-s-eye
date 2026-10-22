@@ -1,5 +1,7 @@
-import * as pdfjs from 'pdfjs-dist';
-import pdfWorkerURL from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+// The legacy build: pdf.js 5.6's default build calls Map#getOrInsertComputed, missing before Chrome/Edge 145, Safari and Firefox of 2025,
+// so every PDF failed to open there. The legacy build carries the polyfills, in the worker too.
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfWorkerURL from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { asset, LIMITS } from './model';
 import type { TextItem, TextPage } from './textlayer';
 import { rotateCanvas } from './geometry';

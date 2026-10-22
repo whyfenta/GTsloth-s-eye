@@ -85,7 +85,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   if (notReady) reasons.safety = reasons.dead = reasons.empty = notReady;
   else {
     reasons.dead = long ? '' : `統計期間 ${months ? formatFrac(months) : '?'} 個月，須大於 2.5 個月才能判斷未使用`;
-    reasons.empty = !long ? reasons.dead : empty.length ? '' : '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項';
+    reasons.empty = !long ? reasons.dead : empty.length ? '' : '庫存簡表沒有庫存為 0、有儲位且未出現在調劑統計內的品項';
   }
   const available = { safety: !reasons.safety, dead: !reasons.dead, empty: !reasons.empty };
   const period = first?.period ? `${formatDay(first.period.start)}～${formatDay(first.period.end)}` : undefined;
@@ -136,6 +136,6 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
     empty: '庫存簡表中沒有「庫存量不為 0 且統計期間內未調劑」的品項。' };
   return { title: LIST_TITLE.empty, rows, meta,
     columns: [{ label: '六碼', width: 22 }, { label: '清理後名稱', width: 118 }, { label: '儲位', width: 50 }],
-    warning: warn, note: '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序（空白儲位在後）。判斷範圍以匯入的庫存簡表為準。',
-    empty: '庫存簡表沒有庫存為 0 且未出現在調劑統計內的品項。' };
+    warning: warn, note: '空位：庫存簡表中庫存量為 0、且統計期間內未出現在醫品調劑數量統計表的品項，依儲位排序；儲位空白者本不佔位，不列入。判斷範圍以匯入的庫存簡表為準。',
+    empty: '庫存簡表沒有庫存為 0、有儲位且未出現在調劑統計內的品項。' };
 }
