@@ -239,13 +239,14 @@ function renderSources() {
   const printedOf = (f: ParsedPage['facts'], kind: ReportKind) => { const old = stale(kind); const day = f.printed;
     return (day ? `${day.y}/${day.m}/${day.d}` : '未印') + (old && day && formatDay(old.printed) === formatDay(day) ? `・<b class="mg-bad">距今 ${old.days} 天，結果可能失真</b>` : ''); };
   const pagesOf = (set: Derived['stock']) => `${set.pages.length} / ${Math.max(...set.totals)} 頁${set.missing.length ? `・<b class="mg-bad">缺第 ${set.missing.join('、')} 頁</b>` : '・齊全'}${set.duplicates.length ? `・重複匯入 ${set.duplicates.length} 頁已只計一次` : ''}`;
+  const clock = (seconds?: number) => seconds === undefined ? '' : ` ${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
   const facts = (kind: ReportKind) => { const set = kind === 'usage' ? data!.usage : data!.stock; const page = set.pages[0]; const rows = kind === 'usage' ? data!.usageRows : data!.stockRows;
     if (!page) return `<div class="mg-source"><h3>${KIND_LABEL[kind]}</h3><p class="issue-text">尚未取得可用頁面</p></div>`;
     const f = page.facts;
     return `<div class="mg-source"><h3>${KIND_LABEL[kind]}</h3><dl>
       <dt>門市</dt><dd>${escape(f.store.label)}${f.warehouse ? `（庫別 ${escape(f.warehouse)}）` : ''}</dd>
       ${kind === 'usage' ? `<dt>統計期間</dt><dd>${escape(data!.period ?? '')}${data!.months ? `・${formatFrac(data!.months)} 個月` : ''}</dd><dt>給付方式</dt><dd>${escape(f.payment ?? '')}</dd>` : ''}
-      ${kind === 'inventory' && data!.stockReports.length > 1 ? data!.stockReports.map((report, i) => `<dt>第 ${i + 1} 份報表</dt><dd>${printedOf(report.pages[0].facts, kind)}・${pagesOf(report)}</dd>`).join('') + (data!.stockOverlap ? `<dt>合併</dt><dd>重疊 ${data!.stockOverlap} 列（同六碼同儲位）只計一次</dd>` : '')
+      ${kind === 'inventory' && data!.stockReports.length > 1 ? data!.stockReports.map((report, i) => `<dt>第 ${i + 1} 份報表</dt><dd>${printedOf(report.pages[0].facts, kind)}${clock(report.pages[0].facts.printedTime)}・${pagesOf(report)}</dd>`).join('') + (data!.stockOverlap ? `<dt>合併</dt><dd>重疊 ${data!.stockOverlap} 列（同六碼同儲位）只計一次</dd>` : '')
         : `<dt>列印日期</dt><dd>${printedOf(f, kind)}</dd><dt>頁面</dt><dd>${pagesOf(kind === 'usage' ? set : data!.stockReports[0])}</dd>`}
       <dt>明細</dt><dd>${rows.length} 列${rows.filter(r => r.excluded).length ? `（排除 ${rows.filter(r => r.excluded).length} 列）` : ''}${kind === 'usage' ? `・${data!.summary.items.length} 個六碼` : `・零庫存 ${data!.zeroRows} 列`}</dd></dl></div>`; };
   const storeAsk = data.storeMatch === 'unsure' ? `<label class="checkbox-label mg-confirm"><input id="store-confirm" type="checkbox" ${decisions.storeConfirmed ? 'checked' : ''}>我已對照原始報表，確認「${escape(data.usage.pages[0]?.facts.store.label ?? '')}」與「${escape(data.stock.pages[0]?.facts.store.label ?? '')}」是同一門市</label>` : '';

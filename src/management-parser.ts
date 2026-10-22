@@ -3,12 +3,12 @@
 import { autoExclusion, managementName, parseDay, storeId, type Day, type ReportPage, type StockRow, type StoreId, type UsageRow } from './management-model';
 import { extractTextPage, textLayer, type TextLayer, type TextPage } from './textlayer';
 import type { Span } from './parser';
-import { printedDay } from './report-date';
+import { printedDay, printedTime } from './report-date';
 
 export type ReportKind = 'usage' | 'inventory';
 export const KIND_LABEL: Record<ReportKind, string> = { usage: '醫品調劑數量統計表', inventory: '庫存簡表' };
 /** Facts printed on every page that must agree across all pages of one report. */
-export type PageFacts = { store: StoreId; reportPage: number; reportTotal: number; printed?: Day; period?: { start: Day; end: Day }; payment?: string; warehouse?: string };
+export type PageFacts = { store: StoreId; reportPage: number; reportTotal: number; printed?: Day; printedTime?: number; period?: { start: Day; end: Day }; payment?: string; warehouse?: string };
 export type ParsedPage = ReportPage & { kind: ReportKind; facts: PageFacts; rotation: number; usage: UsageRow[]; stock: StockRow[] };
 export type PageResult = { ok: true; page: ParsedPage } | { ok: false; kind?: ReportKind; reason: string };
 const compact = (text: string) => text.normalize('NFKC').replace(/\s+/g, '');
@@ -111,7 +111,7 @@ export function parseStockPage(text: TextPage, layer: TextLayer, file: number, f
     return { id: `s${file}-${filePage}-${i}`, origin: { file, filePage, reportPage, top: Math.min(...box.map(b => b.y)), bottom: Math.max(...box.map(b => b.y + b.height)) },
       sku: row.sku, rawName: row.rawName, name: cleaned.name, location: row.location, qty: row.bookQty, notes, reviewed: notes.length === 0, excluded: autoExclusion(row.sku) };
   });
-  const facts: PageFacts = { store: storeId(title), reportPage, reportTotal, printed, warehouse };
+  const facts: PageFacts = { store: storeId(title), reportPage, reportTotal, printed, printedTime: printedTime(full), warehouse };
   const meta = JSON.stringify([facts.store.label, reportTotal, printed && [printed.y, printed.m, printed.d]]);
   const signature = JSON.stringify(stock.map(r => [r.sku, r.rawName, r.location, r.qty]));
   return { ok: true, page: { key: `s${file}-${filePage}`, kind: 'inventory', file, filePage, reportPage, reportTotal, signature, meta, facts, rotation: layer.rotation, usage: [], stock } };

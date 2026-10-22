@@ -57,7 +57,7 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const stores = [...new Set(stockReports.map(set => set.pages[0].facts.store.label))];
   if (stores.length > 1) blockers.push(`各份庫存簡表不是同一門市（${stores.join('、')}），不能合併`);
   const usageRows = usage.pages.flatMap(page => page.usage);
-  const merged = mergeStockReports(stockReports.map(set => ({ rows: set.pages.flatMap(page => page.stock), printed: set.pages[0].facts.printed })));
+  const merged = mergeStockReports(stockReports.map(set => ({ rows: set.pages.flatMap(page => page.stock), printed: set.pages[0].facts.printed, time: set.pages[0].facts.printedTime })));
   const stockRows = merged.rows;
   // The oldest stock sheet decides the print-date warnings: its quantities are the least current.
   const first = usage.pages[0]?.facts; const firstStock = stockReports.map(set => set.pages[0].facts).sort((a, b) => a.printed && b.printed ? (dayBefore(a.printed, b.printed) ? -1 : dayBefore(b.printed, a.printed) ? 1 : 0) : 0)[0];

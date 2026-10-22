@@ -208,6 +208,10 @@ test('separately printed stock sheets: grouped by their page facts, a report spl
   const sameDay=mergeStockReports([{rows:a.slice(0,2),printed:{y:2026,m:10,d:12}},{rows:b,printed:{y:2026,m:10,d:12}}]);
   assert.deepEqual(sameDay.rows.map(r=>[r.sku,r.qty]),[['000001','5'],['000002','3'],['000001','6'],['000003','1']],'same day, different quantity: both kept');
   assert.equal(stockDuplicates(sameDay.rows).length,1,'and sent to the duplicate review');
+  const day={y:2026,m:10,d:22};
+  const byTime=mergeStockReports([{rows:a.slice(0,2),printed:day,time:19*3600},{rows:b,printed:day,time:15*3600}]);
+  assert.deepEqual(byTime.rows.map(r=>[r.sku,r.qty]),[['000001','5'],['000002','3'],['000003','1']],'same day: the later print time wins');
+  assert.equal(byTime.overlap,2);
 });
 test('dead stock (≠ 0, incl. negative, by location with blanks last) and empty slots (= 0, with a location) only for codes outside the usage report',()=>{
   const rows=[stock('000001',3,'B2'),stock('000002',0,'A1'),stock('000003',-1,''),stock('000004',2,'A10'),stock('000005',4,'A9'),stock('000006',0,''),stock('000007',0,'A2')];

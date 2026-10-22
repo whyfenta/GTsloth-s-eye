@@ -197,22 +197,26 @@ export function aggregateStock(rows: StockRow[]): Map<string, StockItem> {
 const locationKey = (location: string) => location.normalize('NFKC').replace(/\s+/g, '');
 /** The same code at the same location twice cannot be told apart from a repeated report, so it is never added up silently. */
 /**
- * Merges the rows of separately printed stock sheets (`reports`, each with its print day). A code at one location printed
- * by more than one report is the same shelf line: it counts once, from the latest report, or the first imported of equal
- * days. Only same-day reports that disagree on its quantity keep both lines, for the duplicate review to settle.
+ * Merges the rows of separately printed stock sheets (`reports`, each with its print day and, when printed, time). A code
+ * at one location printed by more than one report is the same shelf line: it counts once, from the latest print, or the
+ * first imported of equal prints. Only reports printed at the same time (or the same day with a time missing) that
+ * disagree on its quantity keep both lines, for the duplicate review to settle.
  * Rows inside one report, and lines that are not six-digit codes, are never merged here.
  */
-export function mergeStockReports(reports: { rows: StockRow[]; printed?: Day }[]): { rows: StockRow[]; overlap: number } {
-  const order = reports.map((report, i) => ({ ...report, i })).sort((a, b) => (a.printed && b.printed ? serial(b.printed) - serial(a.printed) : 0) || a.i - b.i);
-  const kept = new Map<string, { report: number; printed?: Day; qty: string }>(); const dropped = new Set<StockRow>();
+export function mergeStockReports(reports: { rows: StockRow[]; printed?: Day; time?: number }[]): { rows: StockRow[]; overlap: number } {
+  type Print = { printed?: Day; time?: number };
+  // Seconds between two prints, 0 when either is unknown or the order cannot be told (a time missing on the same day).
+  const later = (a: Print, b: Print) => !a.printed || !b.printed ? 0 : serial(a.printed) !== serial(b.printed) ? (serial(a.printed) - serial(b.printed)) * 86_400
+    : a.time !== undefined && b.time !== undefined ? a.time - b.time : 0;
+  const order = reports.map((report, i) => ({ ...report, i })).sort((a, b) => later(b, a) || a.i - b.i);
+  const kept = new Map<string, { report: number; print: Print; qty: string }>(); const dropped = new Set<StockRow>();
   for (const report of order) {
     for (const row of active(report.rows)) {
       if (!SIX.test(row.sku)) continue;
       const key = row.sku + '\u0000' + locationKey(row.location); const first = kept.get(key);
-      if (!first) { kept.set(key, { report: report.i, printed: report.printed, qty: row.qty }); continue; }
+      if (!first) { kept.set(key, { report: report.i, print: report, qty: row.qty }); continue; }
       if (first.report === report.i) continue;
-      const sameDay = first.printed && report.printed ? serial(first.printed) === serial(report.printed) : !first.printed && !report.printed;
-      if (!sameDay || cmp(parseDecimal(first.qty) ?? ZERO, parseDecimal(row.qty) ?? ZERO) === 0) dropped.add(row);
+      if (later(first.print, report) !== 0 || cmp(parseDecimal(first.qty) ?? ZERO, parseDecimal(row.qty) ?? ZERO) === 0) dropped.add(row);
     }
   }
   return { rows: reports.flatMap(report => report.rows.filter(row => !dropped.has(row))), overlap: dropped.size };
