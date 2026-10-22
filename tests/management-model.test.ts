@@ -20,7 +20,7 @@ test('calendar months: the attached period is exactly 4; partial months use the 
   assert.equal(statMonths(day('20261015'),day('20261014')),null);
   assert.equal(parseDay('20260230'),null);
 });
-test('dead stock duration threshold is strictly above 2.5 months',()=>{
+test('dead stock and empty-slot duration threshold is strictly above 2.5 months',()=>{
   assert.equal(months('20260401','20260615'),'2.5');assert.equal(longPeriod(statMonths(day('20260401'),day('20260615'))!),false);
   assert.equal(longPeriod(statMonths(day('20260401'),day('20260616'))!),true);
   assert.equal(longPeriod(statMonths(day('20260616'),day('20260830'))!),false,'2 + 15/31 months');

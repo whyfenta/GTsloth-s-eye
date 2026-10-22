@@ -49,7 +49,7 @@ app.innerHTML = `
         <input id="input-${kind}" type="file" accept="application/pdf" ${kind === 'inventory' ? 'multiple' : ''} hidden>
         <div id="drop-${kind}" data-kind="${kind}" class="drop-zone mg-drop" role="button" tabindex="0" aria-label="選擇或拖放${KIND_LABEL[kind]} PDF"><div class="upload-icon">${icon('upload')}</div><h3>把${KIND_LABEL[kind]}拖到這裡</h3><p>或點選，從裝置選擇 PDF${kind === 'inventory' ? '（可多選）' : ''}</p><span class="file-types">系統列印的 PDF</span></div>
         <ol id="files-${kind}" class="file-list" aria-label="${KIND_LABEL[kind]}檔案" hidden></ol>
-        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥清單；空位清單依庫存為零且未調劑的品項判斷。'}</p></div>
+        <div class="import-note"><span>${kind === 'inventory' ? '如何取得庫存簡表？' : '如何取得調劑數量統計表？'}</span><p>${kind === 'inventory' ? '在樺穎的 IM1C1 設定簡表範圍後「列印至 PDF」。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。' : '依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥與空位清單；空位另須庫存為零且期間內未調劑。'}</p></div>
       </section>`).join('')}
     </div>
     <section class="card mg-start"><div id="start-row" class="start-row"><span id="queue-summary" aria-live="polite"></span><button id="clear-all" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始解析</span>${icon('arrow')}</button></div>
@@ -180,11 +180,15 @@ function scrollToCard(id: 'sources' | 'review' | 'lists') {
     });
   });
 }
-/** Move to the next card that needs a decision after parsing. */
+/** Move to the next card that needs a decision after parsing or review. */
 function scrollToNextAction() {
   if(!data)return;
   const target=data.blockers.length||(data.storeMatch==='unsure'&&!decisions.storeConfirmed)?'sources':reviewItems().some(item=>!reviewOk(item))?'review':'lists';
   scrollToCard(target);
+}
+/** Confirmation and exclusion can finish the review without another parse. */
+function advanceWhenReviewComplete() {
+  if (parsed && !reviewItems().some(item => !reviewOk(item))) scrollToNextAction();
 }
 /** Files of different stores stop at once; titles that cannot be matched automatically are put to the user. */
 async function checkFirstPages(): Promise<string | undefined> {
@@ -309,7 +313,7 @@ function renderLists() {
   const descriptions: Record<ListKind, string> = {
     safety: '依調劑頻率與備貨策略，估算建議安全量及待採量。',
     dead: '找出統計期間未調劑、仍有庫存的品項。',
-    empty: '找出統計期間未調劑、庫存為零的儲位。',
+    empty: '統計期間須大於 2.5 個月，找出期間內未調劑、庫存為零的儲位。',
   };
   const s = data.safety;
   const block = (kind: ListKind) => {
@@ -355,13 +359,13 @@ function edit(id: string, field: string, value: string) {
 async function exclude(id: string) {
   const row = findRow(id); if (!row) return;
   const reason = await dialog('排除這一列', `<p>${escape(row.sku)}・${escape(row.rawName)}<br>排除後不計入品項數 N 與任何清單，紀錄會保留並可恢復。請寫下理由（例如：重複匯入的來源、非藥品列）。</p>`, '取消', '排除', true);
-  if (!reason) return; row.excluded = `使用者排除：${reason}`; changed();
+  if (!reason) return; row.excluded = `使用者排除：${reason}`; changed(); advanceWhenReviewComplete();
 }
 function restore(id: string) { const row = findRow(id); if (!row || !SIX.test(row.sku)) return; row.excluded = undefined; row.reviewed = false; attention.add(id); changed(); }
 function confirmRow(id: string, checked: boolean) {
   const row = findRow(id); if (!row) return;
   const item: ReviewItem = 'unit' in row ? { kind: 'usage', row } : { kind: 'stock', row: row as StockRow };
-  row.reviewed = checked && !rowProblems(item).errors.length; changed();
+  row.reviewed = checked && !rowProblems(item).errors.length; changed(); if(checked)advanceWhenReviewComplete();
 }
 async function showTrace(id: string) {
   const row = findRow(id); if (!row) return; const page = pages.find(p => p.file === row.origin.file && p.filePage === row.origin.filePage); const entry = entries[row.origin.file]; if (!page || !entry) return;
@@ -442,7 +446,7 @@ document.addEventListener('change', event => {
     selected[kind] = target.checked; invalidate(); render(false);
     document.querySelector<HTMLInputElement>(`[data-select="${kind}"]`)?.focus({ preventScroll: true }); return;
   }
-  if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; return changed(); }
+  if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; changed(); if(target.checked)scrollToNextAction(); return; }
   if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; return changed(); }
 });
 document.addEventListener('keydown', event => { const target = event.target as HTMLInputElement; if (event.key === 'Enter' && !event.isComposing && target.dataset?.row) { event.preventDefault(); target.blur(); } });
@@ -451,7 +455,7 @@ document.addEventListener('click', event => {
   const d = target.dataset;
   if (d.trace) void showTrace(d.trace); else if (d.exclude) void exclude(d.exclude); else if (d.restore) restore(d.restore);
   else if (d.reviewPage !== undefined) { reviewPage = Number(d.reviewPage); render(false); }
-  else if (target.id === 'confirm-shown') { const items = reviewItems().slice(reviewPage * PER_PAGE, (reviewPage + 1) * PER_PAGE); for (const item of items) if (!rowProblems(item).errors.length) item.row.reviewed = true; changed(); }
+  else if (target.id === 'confirm-shown') { const items = reviewItems().slice(reviewPage * PER_PAGE, (reviewPage + 1) * PER_PAGE); for (const item of items) if (!rowProblems(item).errors.length) item.row.reviewed = true; changed(); advanceWhenReviewComplete(); }
   else if (target.id === 'clear-results') { void clearAll(); }
   else if (target.id === 'generate') void generate();
   else if (d.download) { try { save(d.download as ListKind); } catch (error) { showError(error instanceof Error ? error.message : 'PDF 已失效。'); render(); } }

@@ -127,17 +127,20 @@ test('stock printed before the period end is a note, not a refusal; usage codes 
   assert.equal(result.available.empty,false);
   assert.equal(result.available.dead,true,'no manual scope acknowledgement is needed');
 });
-test('dead stock requires more than 2.5 months; empty slots require actual unused zero-stock rows regardless of duration or payment',()=>{
+test('dead stock and empty slots require more than 2.5 months; empty slots also require unused zero-stock rows',()=>{
   const stock=parsed(stockPage(),'inventory',1,1);
   stock.stock.find(r=>r.sku==='000083')!.qty='0';
   const usage=(end:string)=>parsed(page([...usageHead(1,1,'健保','營業點：0026 26測試店',`統計期間：20260401 至 ${end}`),...line(120,'000206','C-A','粒','1','1')]),'usage',0,1);
   const boundary=derive([usage('20260615'),stock],[],decisions);
   assert.equal(formatFrac(boundary.months!),'2.5');assert.equal(boundary.available.dead,false);assert.match(boundary.reasons.dead,/大於 2.5/);
-  assert.equal(boundary.available.empty,true);assert.deepEqual(listRows('empty',boundary).map(r=>r[0]),['000083']);
+  assert.equal(boundary.available.empty,false);assert.equal(boundary.reasons.empty,boundary.reasons.dead);assert.equal(boundary.available.safety,true);assert.deepEqual(listRows('empty',boundary).map(r=>r[0]),['000083']);
   const longer=derive([usage('20260616'),stock],[],decisions);
   assert.equal(longer.available.dead,true);assert.equal(longer.available.empty,true);
   const short=derive([usage('20260430'),stock],[],decisions);
-  assert.equal(short.available.dead,false);assert.equal(short.available.empty,true,'one month is enough when an unused zero-stock row exists');
+  assert.equal(short.available.dead,false);assert.equal(short.available.empty,false,'one month is too short even when an unused zero-stock row exists');assert.match(short.reasons.empty,/大於 2.5/);
+  const twoMonths=derive([usage('20260531'),stock],[],decisions);
+  assert.equal(formatFrac(twoMonths.months!),'2');assert.equal(twoMonths.available.empty,false);assert.equal(twoMonths.available.dead,false);assert.equal(twoMonths.available.safety,true);
+  assert.match(twoMonths.reasons.empty,/統計期間 2 個月，須大於 2.5/);
   const usedOnly=structuredClone(stock);usedOnly.stock.find(r=>r.sku==='000083')!.qty='368';usedOnly.stock.find(r=>r.sku==='000206')!.qty='0';
   const noSlots=derive([usage('20260616'),usedOnly],[],decisions);
   assert.equal(noSlots.zeroRows,1);assert.equal(noSlots.available.dead,true);assert.equal(noSlots.available.empty,false,'zero stock already present in usage is not an empty slot');
