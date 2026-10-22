@@ -311,9 +311,9 @@ function renderLists() {
     <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
     </fieldset><p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
-    safety: '依調劑頻率與備貨策略，估算建議安全量及待採量。',
-    dead: '找出統計期間未調劑、仍有庫存的品項。',
-    empty: '統計期間須大於 2.5 個月，找出期間內未調劑、庫存為零的儲位。',
+    safety: '預防常用藥物臨時缺貨, 建議您的安全及採購量',
+    dead: '找出停滯並應釋放回倉的醫療資源',
+    empty: '清理無效儲位, 減少盤點干擾',
   };
   const s = data.safety;
   const block = (kind: ListKind) => {
