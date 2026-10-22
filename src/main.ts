@@ -31,7 +31,7 @@ const busy = () => job?.running || generating || retrying || adding;
 app.innerHTML = `
   <header class="topbar"><a class="brand" href="${import.meta.env.BASE_URL}" aria-label="樹懶的盤點，返回樹懶的工作主目錄">${icon('box')}<span>樹懶的盤點<span class="brand-sub">← 返回主目錄</span></span></a><a class="inventory-home" href="${import.meta.env.BASE_URL}">← 主目錄</a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
   <main>
-    <section class="intro"><div><div class="eyebrow">INVENTORY, MADE CLEAR</div><h1>庫存簡表直接轉盤點表，告別手動維護。</h1><p>按儲位輸出，藥師能方便校正儲位，高效預盤及調帳。<br>按六編碼輸出，方便盤點小組作業及覆盤核對。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>SCAN · CHECK · COUNT</b></div></section>
+    <section class="intro"><div><div class="eyebrow">INVENTORY, MADE CLEAR</div><h1>Chill, see.<br class="mobile-break"> 告別手動維護。</h1><p>庫存簡表直接轉換，想漏點都漏不了。<br>按儲位輸出，藥師能方便校正儲位，高效預盤及調帳。<br>按六編碼輸出，方便盤點小組作業及覆盤核對。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>SCAN · CHECK · COUNT</b></div></section>
     <nav class="steps" aria-label="處理步驟"><div data-step="1" class="active"><span>01</span>匯入與辨識</div><div data-step="2"><span>02</span>校對資料</div><div data-step="3"><span>03</span>下載盤點表</div></nav>
     <div class="workspace">
       <section class="upload-card card"><div class="section-heading"><h2>匯入庫存表</h2><span class="small-label">可加入多份檔案</span></div>
