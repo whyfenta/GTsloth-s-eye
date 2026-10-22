@@ -3,7 +3,7 @@ import './management.css';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, PARTNER_LIMIT, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, COLD_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
@@ -42,7 +42,7 @@ const busy = () => adding || parsing || generating;
 app.innerHTML = `
   <header class="topbar"><a class="brand" href="${import.meta.env.BASE_URL}" aria-label="樹懶的管理，返回樹懶的工作主目錄">${icon('chart')}<span>樹懶的管理<span class="brand-sub">← 返回主目錄</span></span></a><a class="inventory-home" href="${import.meta.env.BASE_URL}">← 主目錄</a><span class="local-badge"><i></i>檔案留在你的裝置</span></header>
   <main>
-    <section class="intro"><div><div class="eyebrow">STOCK LEVELS, MADE CLEAR</div><h1>從調劑量，<br class="mobile-break">看出該備多少。</h1><p>匯入庫存簡表與醫品調劑數量統計表，以六碼合併計算，<br>產生安全量、呆藥與空位三份 A4 清單。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>COUNT · RANK · PLAN</b></div></section>
+    <section class="intro"><div><div class="eyebrow">STOCK LEVELS, MADE CLEAR</div><h1>越資深，<br class="mobile-break">越極簡。</h1><p>客人因為短欠而流失？欠貨區塞滿？還是廠商突襲般的斷貨讓你手忙腳亂？<br>看看你的客人都吃什麼主菜，進行 80-20 重點準備。聰明，才有資格懶。</p></div><div class="paper-mark"><span>A4</span><i></i><i></i><i></i><b>COUNT · RANK · PLAN</b></div></section>
     <nav class="steps" aria-label="處理步驟"><div data-step="1" class="active"><span>01</span>匯入報表</div><div data-step="2"><span>02</span>核對來源</div><div data-step="3"><span>03</span>產生清單</div></nav>
     <div class="workspace mg-inputs">
       ${KINDS.map(kind => `<section class="card"><div class="section-heading"><h2>${KIND_LABEL[kind]}</h2><span class="small-label">${kind === 'inventory' ? '可加入多份、分次補頁' : '一次匯入一份'}</span></div>
@@ -82,7 +82,7 @@ function renderInputs() {
   for (const kind of KINDS) {
     const list = entries.map((entry, index) => ({ entry, index })).filter(item => item.entry.kind === kind);
     el(`files-${kind}`).hidden = !list.length;
-    el(`files-${kind}`).innerHTML = list.map(({ entry, index }) => `<li class="file-details"><span class="file-index">${index + 1}</span>${icon('file')}<div><strong>${escape(entry.source.file.name)}</strong><span>${entry.source.pages} 頁 · ${(entry.source.file.size / 1024 / 1024).toFixed(1)} MB · SHA-256 ${entry.hash.slice(0, 12)}…</span></div><button type="button" class="text-button file-remove" data-remove="${index}" aria-label="移除 ${escape(entry.source.file.name)}">移除</button></li>`).join('');
+    el(`files-${kind}`).innerHTML = list.map(({ entry, index }) => `<li class="file-details"><span class="file-index">${index + 1}</span>${icon('file')}<div><strong>${escape(entry.source.file.name)}</strong><span>${entry.source.pages} 頁・${(entry.source.file.size / 1024 / 1024).toFixed(1)} MB・SHA-256 ${entry.hash.slice(0, 12)}…</span></div><button type="button" class="text-button file-remove" data-remove="${index}" aria-label="移除 ${escape(entry.source.file.name)}">移除</button></li>`).join('');
     el(`drop-${kind}`).classList.toggle('disabled', busy());
   }
   const counts = KINDS.map(kind => entries.filter(entry => entry.kind === kind).length);
@@ -195,7 +195,7 @@ async function checkFirstPages(): Promise<string | undefined> {
   const firsts = pages.filter(page => page.filePage === 1);
   const base = firsts.find(page => page.kind === 'usage') ?? firsts[0]; if (!base) return undefined;
   const list = firsts.map(page => ({ page, match: matchStores(base.facts.store, page.facts.store) }));
-  const names = `<ul class="store-list">${list.map(({ page }) => `<li><span>第 ${page.file + 1} 份 · ${escape(fileName(page.file))}</span><strong>${escape(page.facts.store.label)}</strong></li>`).join('')}</ul>`;
+  const names = `<ul class="store-list">${list.map(({ page }) => `<li><span>第 ${page.file + 1} 份・${escape(fileName(page.file))}</span><strong>${escape(page.facts.store.label)}</strong></li>`).join('')}</ul>`;
   if (list.some(item => item.match === 'different')) return `各檔案的門市不同，已停止解析：${list.map(({ page }) => `「${fileName(page.file)}」${page.facts.store.label}`).join('、')}。請移除不屬於同一門市的檔案。`;
   if (list.every(item => item.match === 'same')) return undefined;
   const same = await ask('確認是同一門市', `<p>兩種報表的門市寫法不同，無法由門市編號與店名自動確認一致。請對照原始報表後決定。</p>${names}`, '不是，停止解析', '是同一門市，繼續');
@@ -249,10 +249,7 @@ function renderSources() {
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">SOURCE CHECK</span><h2>來源核對</h2></div><span class="small-label">${data.storeMatch === 'same' ? '門市編號與店名一致' : ''}</span></div>
     <div class="mg-sources">${facts('inventory')}${facts('usage')}</div>
     ${data.blockers.length ? `<div class="error-box">${data.blockers.map(escape).join('\n')}</div>` : ''}${storeAsk}
-    ${data.warnings.length ? `<div class="mg-warning${data.stale.length ? ' mg-stale-warning' : ''}">${data.warnings.map(escape).join('\n')}</div>` : ''}
-    ${data.partner ? `<div class="mg-warning">判定此門市有合作診所供應部分貨源：依一般規則進入安全量清單的品項中，有 ${data.partner.missing} 個六碼在庫存簡表沒有紀錄或各儲位庫存合計為 0（超過 ${PARTNER_LIMIT} 個）。本店無庫存，或庫存不足 ${formatFrac(PARTNER_COVERS[decisions.partnerCover ?? 'standard'])} 個月用量（含負庫存）的六碼，視為主要由合作診所供應，不由本店監控安全量；安全量清單略過這些品項並由後一位遞補，品項數 N 不變。</div>
-    <label class="checkbox-label mg-confirm"><input id="partner-wide" type="checkbox" ${decisions.partnerCover === 'wide' ? 'checked' : ''} ${busy() ? 'disabled' : ''}>放寬合作診所遮罩：庫存不足 ${formatFrac(PARTNER_COVERS.wide)} 個月用量（約 6 天）即視為合作診所供應，讓更多品項向前遞補（預設 ${formatFrac(PARTNER_COVERS.standard)} 個月，約 3 天）</label>
-    ${decisions.partnerCover === 'wide' ? `<div class="mg-warning">已放寬遮罩：本店自己庫存偏低、確實需要採購的品項，也可能因不足 ${formatFrac(PARTNER_COVERS.wide)} 個月而被略過，不會出現在安全量清單。請另行留意這些品項的採購需求。</div>` : ''}` : ''}`;
+    ${data.warnings.length ? `<div class="mg-warning${data.stale.length ? ' mg-stale-warning' : ''}">${data.warnings.map(escape).join('\n')}</div>` : ''}`;
 }
 type ReviewItem = { kind: 'usage'; row: UsageRow } | { kind: 'stock'; row: StockRow };
 function reviewItems(): ReviewItem[] {
@@ -305,15 +302,19 @@ function renderLists() {
         <span id="strategy-detail-${key}" class="mg-strategy-detail"><span><b>主要優勢</b>${option.advantage}</span><span><b>主要需求</b>${option.need}</span></span>
       </span></label>`;
   }).join('');
+  // Only a store judged to have a partner clinic gets this card; the basic mask is already on, widening it is optional.
+  const partnerOptions = data.partner ? `<div class="mg-partner"><div class="mg-warning">判定此門市有合作診所，已啟用基本遮罩：本店無庫存，或庫存不足 ${formatFrac(PARTNER_COVERS.standard)} 個月用量（含負）的六碼，視為主要由合作診所供應；安全量清單將略過這些品項並由後一位遞補。</div>
+    <label class="checkbox-label mg-confirm"><input id="partner-wide" type="checkbox" ${decisions.partnerCover === 'wide' ? 'checked' : ''} ${busy() ? 'disabled' : ''}>放寬合作診所遮罩：庫存不足 ${formatFrac(PARTNER_COVERS.wide)} 個月用量（約 6 天）即視為合作診所供應，讓更多品項向前遞補（預設 ${formatFrac(PARTNER_COVERS.standard)} 個月，約 3 天）</label>
+    ${decisions.partnerCover === 'wide' ? `<div class="mg-warning">已放寬遮罩：本店自己庫存偏低、確實需要採購的品項，也可能因不足 ${formatFrac(PARTNER_COVERS.wide)} 個月而被略過，不會出現在安全量清單。請另行留意這些品項的採購需求。</div>` : ''}</div>` : '';
   const strategyOptions = `<div id="safety-options" class="mg-list-options"><fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>安全量策略</legend>
     <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為平衡派。</p>
     <div class="mg-strategy-grid">${strategyCards}</div>
     <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。品名保有「缺貨」前綴的品項，係數再 +1；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
-    </fieldset><p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
+    </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
-    safety: '預防常用藥物臨時缺貨, 建議您的安全及採購量',
+    safety: '預防常用藥物臨時缺貨，建議您的安全及採購量',
     dead: '找出停滯並應釋放回倉的醫療資源',
-    empty: '清理無效儲位, 減少盤點干擾',
+    empty: '清理無效儲位，減少盤點干擾',
   };
   const s = data.safety;
   const block = (kind: ListKind) => {
@@ -329,13 +330,13 @@ function renderLists() {
     return `<article class="mg-list ${available ? chosen ? 'mg-selected' : '' : 'mg-disabled'} ${kind === 'safety' && chosen ? 'mg-list-expanded' : ''}" aria-labelledby="list-title-${kind}">
       <label class="mg-list-choice"><input type="checkbox" data-select="${kind}" ${chosen ? 'checked' : ''} ${available && !busy() ? '' : 'disabled'} aria-describedby="list-description-${kind} list-state-${kind}" ${kind === 'safety' && chosen ? 'aria-controls="safety-options"' : ''}>
         <span class="mg-list-copy"><strong id="list-title-${kind}">${LIST_TITLE[kind]}</strong><span id="list-description-${kind}" class="mg-list-description">${descriptions[kind]}</span></span><span class="mg-list-state">${available ? chosen ? '已選擇' : '可選擇' : '無法產生'}</span></label>
-      <p id="list-state-${kind}" class="mg-list-meta">${available ? `${rows.length} 筆${kind === 'safety' && chosen ? ` · ${SAFETY_STRATEGIES[strategy].name} · 係數 ${safetyStrategyRange(strategy)}` : kind === 'dead' && data!.selfPay.length ? `（另附自費品 ${data!.selfPay.length} 筆）` : ''}` : escape(data!.reasons[kind])}</p>
+      <p id="list-state-${kind}" class="mg-list-meta">${available ? `${rows.length} 筆${kind === 'safety' && chosen ? `・${SAFETY_STRATEGIES[strategy].name}・係數 ${safetyStrategyRange(strategy)}` : kind === 'dead' && data!.selfPay.length ? `（另附自費品 ${data!.selfPay.length} 筆）` : ''}` : escape(data!.reasons[kind])}</p>
       ${kind === 'safety' && chosen ? strategyOptions : ''}${preview}
       ${kind === 'dead' && chosen && data!.selfPay.length ? `<p class="preview-note">PDF 另以灰字在清單末附上 ${data!.selfPay.length} 筆偵測為自費品的品項（名稱前綴含「自費」、庫存不為 0），不計入呆藥筆數，請過目。</p>` : ''}
       ${output && chosen ? `<div class="mg-output"><button class="button secondary" data-preview="${kind}">預覽 PDF</button><button class="button primary" data-download="${kind}">${icon('file')}下載</button><small>${output.pages} 頁・版本 ${output.version}</small></div>` : ''}</article>`;
   };
   const anySelected = LISTS.some(kind => selected[kind] && data!.available[kind]);
-  section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式 · 可各自勾選</span></div>
+  section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">READY TO PLAN</span><h2>產生清單</h2></div><span class="small-label">A4 直式・可各自勾選</span></div>
     <div class="stats"><div><strong>${data.months ? formatFrac(data.months) : '—'}</strong><span>統計月數</span></div><div><strong>${s?.n ?? 0}</strong><span>品項數 N</span></div><div><strong>${s?.limit ?? 0}</strong><span>前 10%</span></div><div><strong>${s?.eligible ?? 0}</strong><span>A &gt; 8</span></div><div><strong>${s?.k ?? 0}</strong><span>安全量筆數 K</span></div></div>
     ${data.stale.length ? `<div class="mg-warning mg-stale-warning">${data.stale.map(item => `${KIND_LABEL[item.kind]}列印於 ${formatDay(item.printed)}，距今已 ${item.days} 天`).join('；')}。以下清單與 PDF 的輸出結果可能失真；PDF 第一頁會附上警語。建議重新列印最新報表後再匯入。</div>` : ''}
     <p class="preview-note">勾選要產生的清單；選擇安全量清單後，可在卡片內設定備貨策略。</p>
@@ -369,7 +370,7 @@ function confirmRow(id: string, checked: boolean) {
 }
 async function showTrace(id: string) {
   const row = findRow(id); if (!row) return; const page = pages.find(p => p.file === row.origin.file && p.filePage === row.origin.filePage); const entry = entries[row.origin.file]; if (!page || !entry) return;
-  el('trace-title').textContent = `${row.sku || '（無代號）'} · ${where(row.origin)}`; el('trace-content').innerHTML = '<p class="loading-text">正在載入原圖…</p>'; el<HTMLDialogElement>('trace-dialog').showModal();
+  el('trace-title').textContent = `${row.sku || '（無代號）'}・${where(row.origin)}`; el('trace-content').innerHTML = '<p class="loading-text">正在載入原圖…</p>'; el<HTMLDialogElement>('trace-dialog').showModal();
   try {
     const original = await entry.source.render(row.origin.filePage, 200); const upright = rotateCanvas(original, page.rotation);
     const top = Math.max(0, row.origin.top - .012); const bottom = Math.min(1, row.origin.bottom + .012);
@@ -447,7 +448,7 @@ document.addEventListener('change', event => {
     document.querySelector<HTMLInputElement>(`[data-select="${kind}"]`)?.focus({ preventScroll: true }); return;
   }
   if (target.id === 'store-confirm') { decisions.storeConfirmed = target.checked; changed(); if(target.checked)scrollToNextAction(); return; }
-  if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; return changed(); }
+  if (target.id === 'partner-wide') { decisions.partnerCover = target.checked ? 'wide' : 'standard'; changed(); el<HTMLInputElement>('partner-wide')?.focus({ preventScroll: true }); return; }
 });
 document.addEventListener('keydown', event => { const target = event.target as HTMLInputElement; if (event.key === 'Enter' && !event.isComposing && target.dataset?.row) { event.preventDefault(); target.blur(); } });
 document.addEventListener('click', event => {
