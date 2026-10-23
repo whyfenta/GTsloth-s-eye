@@ -32,3 +32,5 @@
 .mg-feedback-note{margin-top:8px;font-size:11px;line-height:1.7}
 
 .mg-stale-warning{font-size:16px;font-weight:700}
+
+.usage-guide-figure img{width:1321px}@container(min-width:760px){.usage-import-guide .inventory-guide-content{grid-template-columns:minmax(0,1fr)}}
