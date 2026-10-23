@@ -1,6 +1,7 @@
 import './style.css';
 import './management.css';
 import { inventoryImportGuide } from './inventory-import-guide';
+import { usageImportGuide } from './usage-import-guide';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
@@ -50,7 +51,7 @@ app.innerHTML = `
         <input id="input-${kind}" type="file" accept="application/pdf" ${kind === 'inventory' ? 'multiple' : ''} hidden>
         <div id="drop-${kind}" data-kind="${kind}" class="drop-zone mg-drop" role="button" tabindex="0" aria-label="選擇或拖放${KIND_LABEL[kind]} PDF"><div class="upload-icon">${icon('upload')}</div><h3>把${KIND_LABEL[kind]}拖到這裡</h3><p>或點選，從裝置選擇 PDF${kind === 'inventory' ? '（可多選）' : ''}</p><span class="file-types">系統列印的 PDF</span></div>
         <ol id="files-${kind}" class="file-list" aria-label="${KIND_LABEL[kind]}檔案" hidden></ol>
-        ${kind === 'inventory' ? `${inventoryImportGuide({ supportsOCR: false })}<div class="import-note"><span>管理清單的匯入提醒</span><p>主檔之外另印的補件簡表可一起匯入，同六碼同儲位重疊的列只計一次，以較晚列印的為準。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。</p></div>` : '<div class="import-note"><span>如何取得調劑數量統計表？</span><p>依統計期間列印醫品調劑數量統計表至 PDF，給付方式選「全部」。統計期間須大於 2.5 個月，才能產生呆藥與空位清單；空位另須庫存為零、儲位不空白，且期間內未調劑。</p></div>'}
+        ${kind === 'inventory' ? `${inventoryImportGuide({ supportsOCR: false })}<div class="import-note"><span>管理清單的匯入提醒</span><p>主檔之外另印的補件簡表可一起匯入，同六碼同儲位重疊的列只計一次，以較晚列印的為準。要產生呆藥與空位清單時，範圍須涵蓋要評估的全部儲位，否則空位清單會不完整；條件不必排除零庫存品項。</p></div>` : usageImportGuide}
       </section>`).join('')}
     </div>
     <section class="card mg-start"><div id="start-row" class="start-row"><span id="queue-summary" aria-live="polite"></span><button id="clear-all" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始解析</span>${icon('arrow')}</button></div>
