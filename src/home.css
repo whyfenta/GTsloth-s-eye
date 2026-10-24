@@ -5,5 +5,7 @@
 @media(max-width:360px){.home-shell{width:calc(100% - 24px)}.header-note{font-size:9px}.welcome-art{display:none}h3{font-size:14px}.tool-status{font-size:8px}.tool-card{padding-left:10px;padding-right:10px}}
 @media(prefers-reduced-motion:reduce){.tool-active{transition:none}.tool-active:hover{transform:none}}
 .card-copy{line-height:1}.tool-number{display:block}h3{line-height:1.4}
+.card-quick-date{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:6px}.card-quick-date span{font-size:12px;color:#dfebce;white-space:nowrap}.card-quick-date time{font-size:36px;line-height:1;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:1px}
+@media(max-width:700px){.card-quick-date{gap:4px;flex-wrap:wrap}.card-quick-date span{font-size:10px}.card-quick-date time{font-size:30px}}
 @media(max-width:700px){h1{font-size:27px}h1 span{display:block}.welcome-art{width:92px}.tool-number{line-height:1.4}}
 @media(max-width:700px) and (max-height:760px){.home-header{height:52px}.welcome{min-height:90px;padding-bottom:8px}h1{font-size:24px;line-height:1.25}.welcome-description{margin-top:6px}.eyebrow{margin-bottom:5px}.tool-grid{gap:8px}.tool-card{min-height:108px;padding:8px 11px}.tool-icon{width:24px;height:24px}.tool-status{font-size:8px}.card-copy{padding:5px 0}.card-copy p{display:none}h3{font-size:14px;line-height:1.4;margin:3px 0}.card-bottom{padding-top:5px}.directory-heading{margin:2px 0 10px}.home-footer{min-height:28px}}
