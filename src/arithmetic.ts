@@ -67,6 +67,8 @@ function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
     label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${visit === count ? '下次回診區間' : '下次領藥區間'}${compressed ? `僅有${span}天` : ''}`;
     dates.textContent = rangeText(value.next);
   } else {
+    // A late pickup that leaves no further window is as urgent as a compressed one.
+    box.classList.toggle('compressed', value.state === 'late');
     label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : '本次為最後一次 · 最早回診日';
     dates.textContent = fullDate(value.returnDate!);
   }
@@ -113,7 +115,9 @@ function render(input: AutoInput) {
       heading.scope = 'row';
       heading.textContent = label;
       row.append(heading);
-      row.insertCell().textContent = dates;
+      const cell = row.insertCell();
+      cell.textContent = dates;
+      if (label.startsWith('處方失效日')) cell.className = 'expiry-date';
     }
     result.append(table);
   } catch (error) {
