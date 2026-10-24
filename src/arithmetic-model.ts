@@ -67,17 +67,12 @@ export interface Scenario { count: number; visit: number; inferred: boolean; not
 export function inferVisit(date: string, days: number, count: number, today: string): { visit: number; note?: string } {
   const elapsed = dayNumber(today) - dayNumber(date);
   if (elapsed <= 0) return { visit: 1 };
-  // Windows never overlap: visit k ends on day days*(k-1)-1, visit k+1 starts on day days*k-10.
+  // Each window's first day is the first allowed day: today is inside a window, late for the last visit, or early.
   for (let visit = 1; visit < count; visit++) {
-    const end = visit === 1 ? 0 : days * (visit - 1) - 1, nextStart = days * visit - 10;
+    const nextStart = days * visit - 10;
     if (elapsed >= nextStart && elapsed <= days * visit - 1) return { visit: visit + 1 };
-    if (elapsed < nextStart) {
-      // Between two windows, pick the nearer one; ties count as a late current visit.
-      const late = elapsed - end <= nextStart - elapsed;
-      return late
-        ? { visit, note: `今日介於第 ${visit}、${visit + 1} 次區間之間，較接近第 ${visit} 次，判斷為第 ${visit} 次延遲；若實際為第 ${visit + 1} 次提前，請手動選擇。` }
-        : { visit: visit + 1, note: `今日介於第 ${visit}、${visit + 1} 次區間之間，較接近第 ${visit + 1} 次，判斷為第 ${visit + 1} 次提前；若實際為第 ${visit} 次延遲，請手動選擇。` };
-    }
+    // Before the next window opens, the usual case is a prescription handed in early for pre-processing.
+    if (elapsed < nextStart) return { visit: visit + 1, note: `今日尚未到第 ${visit + 1} 次領藥區間，判斷為病患提前交付處方預處理；若實際為第 ${visit} 次延遲領藥，請手動選擇第 ${visit} 次。` };
   }
   return { visit: count };
 }
