@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { addDays, calculate, dayNumber, rocDate, taiwanToday } from '../src/arithmetic-model';
+import { addDays, autoCalculate, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday } from '../src/arithmetic-model';
 import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
@@ -61,3 +61,35 @@ for (const size of [1, 2, 3, 5]) {
   assert.equal(parsePrescription(text).drugCount, size);
 }
 console.log('arithmetic date boundaries, Taiwan rollover, and prescription QR contract passed');
+
+// QR codes omit refill count and visit number; infer them from today.
+const auto = (today: string, extra: { count?: number; visit?: number } = {}) => autoCalculate({ date: '2026-01-01', days: 30, ...extra }, today);
+let scenarios = auto('2026-01-01');
+assert.deepEqual(scenarios.map(s => s.visit), [1, 1]);
+assert.ok(sameOutcome(scenarios[0], scenarios[1]));
+assert.deepEqual(scenarios[1].result.next, { start: '2026-01-21', end: '2026-01-30' });
+scenarios = auto('2026-01-25'); // Visit 2 window: count decides next refill vs return.
+assert.deepEqual(scenarios.map(s => [s.count, s.visit, s.result.state]), [[2, 2, 'normal'], [3, 2, 'normal']]);
+assert.equal(scenarios[0].result.returnDate, '2026-02-20');
+assert.deepEqual(scenarios[1].result.next, { start: '2026-02-20', end: '2026-03-01' });
+assert.ok(!sameOutcome(scenarios[0], scenarios[1]));
+scenarios = auto('2026-01-03'); // Near visit 1: late first fill.
+assert.equal(scenarios[0].visit, 1);
+assert.equal(scenarios[0].result.state, 'late');
+assert.match(scenarios[0].note!, /第 1 次延遲/);
+assert.equal(auto('2026-01-18')[0].visit, 2); // Nearer visit 2: early.
+assert.equal(auto('2026-01-18')[0].result.state, 'early');
+assert.equal(auto('2026-01-11')[0].visit, 1); // Tie counts as late visit 1.
+scenarios = auto('2026-02-25'); // Visit 3 window only exists for count 3.
+assert.deepEqual(scenarios.map(s => [s.visit, s.result.state]), [[2, 'late'], [3, 'normal']]);
+assert.equal(scenarios[1].result.returnDate, '2026-03-22');
+scenarios = auto('2026-03-10');
+assert.equal(scenarios[0].result.state, 'invalid'); // Count 2 expired on 2026-03-02.
+assert.equal(scenarios[1].visit, 3);
+assert.deepEqual(auto('2026-01-25', { count: 3 }).map(s => s.visit), [2]);
+assert.deepEqual(auto('2026-01-25', { visit: 3 }).map(s => s.count), [3]);
+assert.equal(auto('2026-01-25', { count: 2, visit: 3 })[0].result.state, 'invalid');
+assert.ok(auto('2025-12-31').every(s => s.result.state === 'invalid'));
+assert.equal(inferVisit('2026-01-01', 28, 3, '2026-01-31').visit, 2); // Late visit 2 for 28-day prescriptions.
+assert.equal(inferVisit('2026-01-01', 28, 3, '2026-02-10').visit, 3); // Nearer visit 3: early.
+console.log('arithmetic visit inference passed');
