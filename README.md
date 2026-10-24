@@ -125,6 +125,8 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 程式結構、已重現問題與簡化順序見 [2026-10-21 程式 review](docs/code-review-2026-10-21.md)。
 
+健保用藥品項精簡檔（比對商品代號與健保藥品代號用的參考資料，網站程式不讀取）見 [docs/reference/nhi-drug-codes.md](docs/reference/nhi-drug-codes.md)。
+
 ## GitHub Pages 自動發布
 
 `.github/workflows/pages.yml` 在 main 的「Build and test」push 執行成功後，對同一 commit 重跑 source audit、測試、以 `--base=/GTsloth-s-eye/` 建置及 dist audit，再部署到 GitHub Pages；也可在 Actions 頁手動執行（僅限 main）。發布使用 GitHub 內建的 `GITHUB_TOKEN` 與 OIDC。
