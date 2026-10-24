@@ -1,6 +1,7 @@
 import './arithmetic.css';
 import { autoCalculate, rangeDays, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
-import { parsePrescription, type PrescriptionQR } from './prescription-qr';
+import { parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
+import { addPrescription, syncLatest } from './slip-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -157,7 +158,11 @@ function finishScan(moveFocus = true) {
   count.value = '';
   visit.value = '';
   emptyResult();
-  try { applyQR(parsePrescription(value.replace(/[\r\n]+$/, '')), moveFocus); }
+  try {
+    const data = parsePrescriptionSlip(value.replace(/[\r\n]+$/, ''));
+    applyQR(data, moveFocus);
+    addPrescription(data);
+  }
   catch (error) {
     status.textContent = `${(error as Error).message} 請重新掃碼，或選擇日期。`;
     if (moveFocus) date.focus();
@@ -244,6 +249,10 @@ form.addEventListener('submit', event => {
   submit();
 });
 form.addEventListener('input', emptyResult);
+for (const select of [count, visit]) select.addEventListener('change', () => {
+  try { syncLatest(normalizeDate(date.value), Number(days.value), Number(count.value) || undefined, Number(visit.value) || undefined); }
+  catch { /* No valid date yet: nothing scanned to follow. */ }
+});
 // Cancel before blur so a partial scan cannot move the reset button mid-click.
 form.querySelector<HTMLButtonElement>('button[type=reset]')!.addEventListener('pointerdown', clearScan);
 form.addEventListener('reset', () => {
