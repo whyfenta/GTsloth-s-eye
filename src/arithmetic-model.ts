@@ -27,6 +27,10 @@ export function rocDate(value: string): string {
 export function rocText(value: string): string {
   return `${Number(value.slice(0, 4)) - 1911}/${value.slice(5, 7)}/${value.slice(8, 10)}`;
 }
+/** Inclusive day count of a range. */
+export function rangeDays(range: DateRange): number {
+  return dayNumber(range.end) - dayNumber(range.start) + 1;
+}
 export interface PrescriptionInput { date: string; days: number; count: number; visit: number }
 export interface DateRange { start: string; end: string }
 export interface Calculation {

@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { autoCalculate, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
+import { autoCalculate, rangeDays, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
 import { parsePrescription, type PrescriptionQR } from './prescription-qr';
 
 declare const __APP_VERSION__: string;
@@ -55,7 +55,11 @@ function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
     label.textContent = '本次可領藥區間';
     dates.textContent = rangeText(value.schedule[visit - 1]);
   } else if (value.next) {
-    label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${visit === count ? '下次回診區間' : '下次領藥區間'}`;
+    // A late recalculation clamped by expiry leaves fewer days than a normal 10-day window.
+    const span = rangeDays(value.next);
+    const compressed = value.state === 'late' && span < 10;
+    box.classList.toggle('compressed', compressed);
+    label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${visit === count ? '下次回診區間' : '下次領藥區間'}${compressed ? `僅有${span}天` : ''}`;
     dates.textContent = rangeText(value.next);
   } else {
     label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : '本次為最後一次 · 最早回診日';

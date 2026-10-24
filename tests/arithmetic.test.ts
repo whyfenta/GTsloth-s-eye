@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { addDays, autoCalculate, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday } from '../src/arithmetic-model';
+import { addDays, autoCalculate, rangeDays, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday } from '../src/arithmetic-model';
 import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
@@ -93,4 +93,9 @@ assert.equal(auto('2026-01-25', { count: 2, visit: 3 })[0].result.state, 'invali
 assert.ok(auto('2025-12-31').every(s => s.result.state === 'invalid'));
 assert.equal(inferVisit('2026-01-01', 28, 3, '2026-01-31').visit, 3); // Early visit 3 for 28-day prescriptions.
 assert.equal(inferVisit('2026-01-01', 28, 2, '2026-01-31').visit, 2); // No visit 3: late visit 2.
+// Late visit 2 clamped by expiry: only 5 days remain (2026-11-11 ~ 2026-11-15).
+const clamped = calculate({ date: '2026-08-23', days: 28, count: 3, visit: 2 }, '2026-10-24').next!;
+assert.deepEqual(clamped, { start: '2026-11-11', end: '2026-11-15' });
+assert.equal(rangeDays(clamped), 5);
+assert.equal(rangeDays(calculate(input, '2026-01-01').next!), 10);
 console.log('arithmetic visit inference passed');
