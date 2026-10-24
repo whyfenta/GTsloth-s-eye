@@ -32,6 +32,8 @@ assert.deepEqual(calculate({ ...input, visit: 2 }, '2026-03-10').next, { start: 
 assert.equal(calculate({ ...input, visit: 3 }, '2026-03-12').returnDate, '2026-04-01');
 assert.equal(calculate(input, '2026-04-01').state, 'late'); // Source sheet includes expiry day.
 assert.equal(calculate(input, '2026-04-02').state, 'invalid');
+assert.equal(calculate(input, '2026-04-02').message, '處方已於115/04/01失效，請回診。');
+assert.equal(calculate({ date: '2026-08-19', days: 28, count: 2, visit: 2 }, '2026-10-24').message, '處方已於115/10/14失效，請回診。');
 assert.equal(calculate(input, '2025-12-31').state, 'invalid');
 assert.equal(calculate({ ...input, count: 2, visit: 3 }, '2026-01-01').state, 'invalid');
 

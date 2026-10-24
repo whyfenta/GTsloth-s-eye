@@ -23,6 +23,10 @@ export function rocDate(value: string): string {
   dayNumber(date);
   return date;
 }
+/** ROC year/month/day, e.g. 2026-10-14 → 115/10/14. */
+export function rocText(value: string): string {
+  return `${Number(value.slice(0, 4)) - 1911}/${value.slice(5, 7)}/${value.slice(8, 10)}`;
+}
 export interface PrescriptionInput { date: string; days: number; count: number; visit: number }
 export interface DateRange { start: string; end: string }
 export interface Calculation {
@@ -47,7 +51,7 @@ export function calculate(input: PrescriptionInput, today = taiwanToday()): Calc
   const base = { schedule, expiry, earliestReturn };
   if (current < origin) return { ...base, state: 'invalid', message: '處方日期尚未到，請核對日期。' };
   if (visit > count) return { ...base, state: 'invalid', message: '本次領藥次數超過處方可調劑次數。' };
-  if (today > expiry) return { ...base, state: 'invalid', message: '處方已失效，請回診。' };
+  if (today > expiry) return { ...base, state: 'invalid', message: `處方已於${rocText(expiry)}失效，請回診。` };
   const range = schedule[visit - 1];
   if (today < range.start) return { ...base, state: 'early', message: '尚未到領藥區間，請預包。' };
   if (today > range.end) {
