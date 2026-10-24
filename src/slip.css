@@ -1,0 +1,19 @@
+/* The pickup slip is laid out off screen (so fields can be measured) and is the only thing printed while body.print-slip is set. */
+.slip-sheet{position:absolute;left:-1000mm;top:0;width:210mm;height:296mm;overflow:hidden;visibility:hidden;background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.slip-sheet>svg,.slip-copy,.slip-copy>img,.slip-copy>svg{position:absolute;left:0;top:0;width:210mm}
+.slip-copy,.slip-copy>img,.slip-copy>svg{height:135.7mm}
+.slip-text{position:absolute;line-height:1.32;white-space:nowrap;overflow:hidden;font-family:'Microsoft JhengHei','Microsoft YaHei','PingFang TC','Noto Sans TC',sans-serif;font-weight:400;color:#000}
+.slip-num{font-family:Arial,'Helvetica Neue',Helvetica,sans-serif}
+.slip-blue{color:#000080}
+.slip-box{display:flex;align-items:center}
+.slip-wrap{white-space:normal;line-height:1.15;overflow-wrap:anywhere}
+.slip-top{align-items:flex-start}
+.slip-title{line-height:1;letter-spacing:.23em;text-indent:.23em}
+/* Only the arithmetic page loads this file, so the page box is set for the slip: A4 with no margins, like 會員中台. */
+@page{size:A4;margin:0}
+@media print{
+  body:not(.print-slip) .slip-sheet{display:none}
+  body.print-slip{background:#fff}
+  body.print-slip>:not(.slip-sheet){display:none!important}
+  body.print-slip .slip-sheet{position:relative;left:0;visibility:visible}
+}

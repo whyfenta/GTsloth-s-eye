@@ -1,0 +1,9 @@
+政府資料開放授權條款－第1版（Open Government Data License, version 1.0）
+https://data.gov.tw/license
+
+public/assets/nhi/institutions.json 取自政府資料開放平臺「健保特約醫療院所名冊」
+https://data.gov.tw/dataset/168341（資源 A21030000I-D2100G-001）
+
+顯名聲明：此資料係由衛生福利部中央健康保險署提供，依政府資料開放授權條款（Open Government Data License）進行公眾釋出，使用者於遵守本條款各項規定之前提下，得利用之。
+
+本專案僅擷取「醫事機構種類 A」（醫院、診所）的醫事機構代碼與名稱，供樹懶的算數列印領藥憑單時帶入醫院名稱。完整條款請見上方網址。

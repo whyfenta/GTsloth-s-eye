@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { addDays, autoCalculate, rangeDays, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday } from '../src/arithmetic-model';
-import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes } from '../src/prescription-qr';
+import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionSlip } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
 assert.equal(taiwanToday(new Date('2026-10-23T15:59:59Z')), '2026-10-23');
@@ -58,6 +58,16 @@ assert.throws(() => parsePrescription(sample.replace('測試', '\uFFFD')));
 assert.throws(() => parsePrescription(sample.replace(';PO;', ';;')));
 assert.throws(() => parsePrescription(sample.replace(';.5;', ';0;')));
 assert.throws(() => parsePrescription(sample.replace(';28;', ';90;')));
+// The slip parser keeps who and where; the date parser above still returns no identifying field.
+const slipFields = [...fields];
+slipFields[2] = 'a123456789';
+let slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
+assert.deepEqual(slipQR, { date: '2026-01-01', days: 28, drugCount: 1, encoding: '文字輸入', institution: '0000000000', name: '測試', idNumber: 'A123456789', birth: '2010-01-01', drugs: [{ code: 'TESTCODE01', total: '14' }] });
+slipFields[2] = '12345';
+slipFields[5] = '';
+slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
+assert.deepEqual([slipQR.idNumber, slipQR.birth], ['', '']);
+assert.throws(() => parsePrescriptionSlip(sample.replace(';PO;', ';;')));
 for (const size of [1, 2, 3, 5]) {
   const text = [...fields.slice(0, 14), ...Array.from({ length: size }, () => fields.slice(14)).flat()].join(';') + ';';
   assert.equal(parsePrescription(text).drugCount, size);

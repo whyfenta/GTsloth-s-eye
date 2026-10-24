@@ -1330,6 +1330,28 @@
       "sourceSha256": "864727d210d54f2537bbe23b3a839436c3992af72de9322af5270897246bd44f",
       "conversion": "fontTools 4.60.1 instantiateVariableFont wght=400",
       "license": "SIL Open Font License 1.1"
+    },
+    {
+      "path": "forms/rx-slip.jpg",
+      "bytes": 724343,
+      "sha256": "4bc914c661549bd8ab07b4e47adf2b171546102a010ef8b8208344b1df5eb194",
+      "source": "會員中台「列印憑單」A4 範本內嵌的空白表格底圖（pdfimages -j 取出，未修改）"
+    },
+    {
+      "path": "nhi/institutions.json",
+      "bytes": 885264,
+      "sha256": "8b3c4c4e89b66014b3aaf2980321b2a14e36bede322c740f147acfde6e6c1751",
+      "source": "https://data.gov.tw/dataset/168341 A21030000I-D2100G-001.csv",
+      "sourceSha256": "7cf015b49c4ab66bc2212fe1d8b0bbabf190d9e375374908c8434167ab6a3866",
+      "dataDate": "2026-10-24",
+      "conversion": "scripts/slip-assets.ts：醫事機構種類 A 的代碼與名稱",
+      "license": "政府資料開放授權條款第1版"
+    },
+    {
+      "path": "licenses/OGDL-Taiwan-1.0.txt",
+      "bytes": 716,
+      "sha256": "ecf7f727bc8bfc63a3451b87d666afb948a5ebd76aabbd0545b16cf42b8e6f3a",
+      "source": "https://data.gov.tw/license"
     }
   ]
 }
