@@ -12,7 +12,7 @@ await fs.mkdir(pdfDir, { recursive: true }); await fs.mkdir(validationDir, { rec
 const before = await fs.readFile(input); const sourceSHA256 = createHash('sha256').update(before).digest('hex');
 const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
 const images = new Set([pdfjs.OPS.paintImageXObject, pdfjs.OPS.paintInlineImageXObject, pdfjs.OPS.paintImageMaskXObject]);
-const document = await pdfjs.getDocument({ data: new Uint8Array(before), isEvalSupported: false, verbosity: 0 }).promise;
+const document = await pdfjs.getDocument({ data: new Uint8Array(before), verbosity: 0 }).promise;
 let previous: Parameters<typeof extractTextPage>[2]; const rows = [];
 for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {
   const pdfPage = await document.getPage(pageNumber); const viewport = pdfPage.getViewport({ scale: 300 / 72 });

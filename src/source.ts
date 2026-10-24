@@ -48,7 +48,7 @@ export class DocumentSource implements PageSource {
     const png = signature[0] === 137 && signature[1] === 80 && signature[2] === 78 && signature[3] === 71;
     const jpg = signature[0] === 255 && signature[1] === 216 && signature[2] === 255;
     if (pdf) {
-      const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false,
+      const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()),
         cMapUrl: asset('pdfjs/cmaps/'), cMapPacked: true, standardFontDataUrl: asset('pdfjs/standard_fonts/') });
       try { source.pdf = await task.promise; source.pages = source.pdf.numPages; }
       catch { await task.destroy(); throw new Error('無法開啟 PDF。請確認檔案完整且未加密。'); }
@@ -164,5 +164,5 @@ export class DocumentSource implements PageSource {
       return { items, viewport: viewport.transform, width: Math.ceil(viewport.width), height: Math.ceil(viewport.height), hasImages: operators.fnArray.some(fn => imageOperators.has(fn)) };
     } finally { page.cleanup(); }
   }
-  async dispose(): Promise<void> { await this.pdf?.destroy(); this.pdf = undefined; this.image = undefined; }
+  async dispose(): Promise<void> { await this.pdf?.loadingTask.destroy(); this.pdf = undefined; this.image = undefined; }
 }

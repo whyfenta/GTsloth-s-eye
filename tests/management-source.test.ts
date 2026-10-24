@@ -11,7 +11,7 @@ const HASH={usage:'5fcf152365bb160fab59c048bf749deee0c4b45bec275e2db107badd58c07
 async function readPages(file:string){
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const images=new Set([pdfjs.OPS.paintImageXObject,pdfjs.OPS.paintInlineImageXObject,pdfjs.OPS.paintImageMaskXObject,pdfjs.OPS.paintImageXObjectRepeat,pdfjs.OPS.paintInlineImageXObjectGroup,pdfjs.OPS.paintImageMaskXObjectGroup,pdfjs.OPS.paintImageMaskXObjectRepeat]);
-  const doc=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(file)),isEvalSupported:false,verbosity:0}).promise;const pages:TextPage[]=[];
+  const doc=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(file)),verbosity:0}).promise;const pages:TextPage[]=[];
   for(let n=1;n<=doc.numPages;n++){const page=await doc.getPage(n);const vp=page.getViewport({scale:300/72});const ops=await page.getOperatorList();const content=await page.getTextContent();
     pages.push({viewport:vp.transform,width:Math.ceil(vp.width),height:Math.ceil(vp.height),hasImages:ops.fnArray.some(f=>images.has(f)),items:content.items.flatMap((i:any)=>'str' in i?[{str:i.str,transform:i.transform,width:i.width}]:[])});}
   return pages;
