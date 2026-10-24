@@ -7,7 +7,7 @@ const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
 import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
-import { derive, LIST_TITLE, listRows, listSpec, type Decisions, type Derived, type ListKind } from './management-report';
+import { derive, LIST_TITLE, listRows, listSpec, SAFETY_ALERT_NOTE, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
 import { FEEDBACK_ENDPOINT } from './feedback-config';
 import { DocumentSource } from './source';
@@ -283,7 +283,7 @@ function renderReview() {
   const body = shown.map(item => {
     const { errors, notes } = rowProblems(item); const r = item.row; const status = reviewOk(item) ? '<span class="status-pill green">已確認</span>' : '<span class="status-pill amber">待確認</span>';
     const fields = item.kind === 'usage'
-      ? `<td>${input(r.id, 'sku', r.sku, '醫品編號', 'sku-input')}</td><td><span class="mg-name">${escape(r.rawName) || '（空白）'}</span><span class="source-label">調劑表・${where(r.origin)}</span></td><td class="mg-cols">${input(r.id, 'unit', (r as UsageRow).unit, '單位')}${input(r.id, 'count', (r as UsageRow).count, '次數', 'qty-input')}${input(r.id, 'quantity', (r as UsageRow).quantity, '數量', 'qty-input')}</td>`
+      ? `<td>${input(r.id, 'sku', r.sku, '醫品編號', 'sku-input')}</td><td><span class="mg-name">${escape(r.rawName) || '（空白）'}</span><span class="source-label">調劑表・${where(r.origin)}</span></td><td class="mg-cols">${input(r.id, 'unit', (r as UsageRow).unit, '單位')}${input(r.id, 'count', (r as UsageRow).count, '次數', 'qty-input')}${input(r.id, 'quantity', (r as UsageRow).quantity, '數量', 'qty-input')}${input(r.id, 'price', (r as UsageRow).price, '健保價', 'qty-input')}</td>`
       : `<td>${input(r.id, 'sku', r.sku, '商品代號', 'sku-input')}</td><td>${input(r.id, 'name', (r as StockRow).name, '清理後名稱')}<span class="source-label">庫存簡表・${where(r.origin)}・原名稱 ${escape(r.rawName)}</span></td><td class="mg-cols">${input(r.id, 'location', (r as StockRow).location, '儲位')}${input(r.id, 'qty', (r as StockRow).qty, '庫存量', 'qty-input')}</td>`;
     return `<tr class="${errors.length ? 'flagged strong' : reviewOk(item) ? '' : 'flagged'}"><td class="mg-row-confirm"><label class="checkbox-label"><input type="checkbox" data-confirm="${r.id}" ${r.reviewed ? 'checked' : ''} ${errors.length ? 'disabled' : ''}>確認</label></td>${fields}<td>${status}${[...errors, ...notes].length ? `<span class="issue-text">${escape([...errors, ...notes].join('；'))}</span>` : ''}</td>
       <td class="mg-actions"><button class="text-button" data-trace="${r.id}">原圖</button><button class="text-button" data-exclude="${r.id}">排除</button></td></tr>`;
@@ -291,7 +291,7 @@ function renderReview() {
   section.innerHTML = `<div class="section-heading"><div><span class="eyebrow">CHECK BEFORE CALCULATING</span><h2>校對資料</h2></div><button id="clear-results" class="button quiet">清除這次資料</button></div>
     <div class="stats"><div><strong>${data.stockRows.length}</strong><span>庫存列</span></div><div><strong>${data.usageRows.length}</strong><span>調劑明細</span></div><div><strong>${open}</strong><span>待確認</span></div><div><strong>${excluded.length}</strong><span>排除紀錄</span></div><div><strong>${data.missing.length}</strong><span>庫存缺碼</span></div></div>
     <p class="preview-note">兩份報表都直接讀 PDF 文字，不經 OCR。下列只顯示需要確認的列；有錯誤的列須修正或附理由排除，不能直接勾選放行。修改任何欄位都會重新計算，已產生的 PDF 隨即失效。</p>
-    <div class="table-scroll"><table class="review-table mg-table mg-review-table"><thead><tr><th class="mg-row-confirm" scope="col">確認</th><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="6" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
+    <div class="table-scroll"><table class="review-table mg-table mg-review-table"><thead><tr><th class="mg-row-confirm" scope="col">確認</th><th>六碼</th><th>名稱與來源</th><th>單位／次數／數量／健保價・儲位／庫存量</th><th>狀態</th><th>操作</th></tr></thead><tbody>${body || '<tr><td colspan="6" class="empty-table">沒有需要校對的列。</td></tr>'}</tbody></table></div>
     ${items.length > PER_PAGE ? `<div class="mg-pager"><button class="button secondary" data-review-page="${reviewPage - 1}" ${reviewPage ? '' : 'disabled'}>上一頁</button><span>${reviewPage + 1} / ${pagesTotal}</span><button class="button secondary" data-review-page="${reviewPage + 1}" ${reviewPage + 1 < pagesTotal ? '' : 'disabled'}>下一頁</button><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>` : shown.length ? '<div class="mg-pager"><button class="text-button" id="confirm-shown">確認本頁沒有錯誤的列</button></div>' : ''}
     ${excluded.length ? `<details class="mg-details" ${excluded.some(row => !autoExclusion(row.sku)) ? 'open' : ''}><summary>排除紀錄 ${excluded.length} 列（不計入品項數 N 與任何清單）</summary><table class="review-table mg-table"><thead><tr><th>代號</th><th>名稱與來源</th><th>排除理由</th><th>操作</th></tr></thead><tbody>${excluded.map(row => `<tr><td>${input(row.id, 'sku', row.sku, '代號', 'sku-input')}</td><td><span class="mg-name">${escape(row.rawName)}</span><span class="source-label">${'unit' in row ? '調劑表' : '庫存簡表'}・${where(row.origin)}</span></td><td><span class="issue-text">${escape(row.excluded!)}</span></td><td class="mg-actions"><button class="text-button" data-trace="${row.id}">原圖</button><button class="text-button" data-restore="${row.id}" ${SIX.test(row.sku) ? '' : 'disabled title="代號須先改為六碼"'}>恢復此列</button></td></tr>`).join('')}</tbody></table></details>` : ''}`;
 }
@@ -331,7 +331,7 @@ function renderLists() {
     if (spec) {
       const alerts = spec.alerts ?? [];
       const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
-      preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}</details>`;
+      preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}${kind === 'safety' ? `<p class="preview-note">${escape(SAFETY_ALERT_NOTE)}</p>` : ''}</details>`;
     }
     return `<article class="mg-list ${available ? chosen ? 'mg-selected' : '' : 'mg-disabled'} ${kind === 'safety' && chosen ? 'mg-list-expanded' : ''}" aria-labelledby="list-title-${kind}">
       <label class="mg-list-choice"><input type="checkbox" data-select="${kind}" ${chosen ? 'checked' : ''} ${available && !busy() ? '' : 'disabled'} aria-describedby="list-description-${kind} list-state-${kind}" ${kind === 'safety' && chosen ? 'aria-controls="safety-options"' : ''}>
@@ -347,7 +347,7 @@ function renderLists() {
     ${data.stale.length ? `<div class="mg-warning mg-stale-warning">${data.stale.map(item => `${KIND_LABEL[item.kind]}列印於 ${formatDay(item.printed)}，距今已 ${item.days} 天`).join('；')}。以下清單與 PDF 的輸出結果可能失真；PDF 第一頁會附上警語。建議重新列印最新報表後再匯入。</div>` : ''}
     <p class="preview-note">勾選要產生的清單；選擇安全量清單後，可在卡片內設定備貨策略。</p>
     <div class="mg-list-grid">${LISTS.map(block).join('')}</div>
-    <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '按「產生勾選的 PDF」輸出清單。資料、策略或勾選變更後，舊的 PDF 會失效。' : LISTS.some(kind => data!.available[kind]) ? '請先勾選要產生的清單。' : '目前資料不足以產生清單，請依卡片提示補齊資料或確認。'}</p>${FEEDBACK_ENDPOINT ? `<p class="preview-note mg-feedback-note">產生 PDF 時，會一併送出這次的校對修改紀錄供開發者改進判讀規則：名稱修正、提示後未修改即確認的列、排除理由、所選策略與門市編號。<b>不送出報表檔案、店名、統計期間，也不送出任何次數、數量、庫存量的數值。</b>${feedbackStatus ? `<br>${escape(feedbackStatus)}` : ''}</p>` : ''}</div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
+    <div class="export-bottom"><div><p id="export-hint">${generating ? '正在產生 PDF，請稍候。' : !data.ready ? escape(data.reasons.safety) : anySelected ? '按「產生勾選的 PDF」輸出清單。資料、策略或勾選變更後，舊的 PDF 會失效。' : LISTS.some(kind => data!.available[kind]) ? '請先勾選要產生的清單。' : '目前資料不足以產生清單，請依卡片提示補齊資料或確認。'}</p>${FEEDBACK_ENDPOINT ? `<p class="preview-note mg-feedback-note">產生 PDF 時，會一併送出這次的校對修改紀錄供開發者改進判讀規則：名稱修正、提示後未修改即確認的列、排除理由、所選策略與門市編號。<b>不送出報表檔案、店名、統計期間，也不送出任何次數、數量、健保價、庫存量的數值。</b>${feedbackStatus ? `<br>${escape(feedbackStatus)}` : ''}</p>` : ''}</div><div class="export-actions"><button id="generate" class="button primary" ${!anySelected || generating ? 'disabled' : ''}>${icon('file')}產生勾選的 PDF</button></div></div>`;
 }
 const context = () => ({ files: { usage: entries.filter(e => e.kind === 'usage').map(e => e.source.file.name), inventory: entries.filter(e => e.kind === 'inventory').map(e => e.source.file.name) }, version: generation, appVersion,
   time: new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date()) });
@@ -359,7 +359,7 @@ function edit(id: string, field: string, value: string) {
   const row = findRow(id); if (!row) return;
   const text = value.normalize('NFKC').trim();
   if (field === 'sku') row.sku = text;
-  else if ('unit' in row && (field === 'unit' || field === 'count' || field === 'quantity')) row[field] = text;
+  else if ('unit' in row && (field === 'unit' || field === 'count' || field === 'quantity' || field === 'price')) row[field] = text;
   else if (!('unit' in row) && (field === 'name' || field === 'location' || field === 'qty')) (row as StockRow)[field] = value.trim();
   row.reviewed = false; attention.add(id); changed();
 }
@@ -382,7 +382,7 @@ async function showTrace(id: string) {
     const top = Math.max(0, row.origin.top - .012); const bottom = Math.min(1, row.origin.bottom + .012);
     const strip = cropCanvas(upright, { x: 0, y: top * upright.height, width: upright.width, height: (bottom - top) * upright.height });
     const url = strip.toDataURL('image/png'); for (const canvas of new Set([original, upright, strip])) canvas.width = canvas.height = 1;
-    const values = 'unit' in row ? `醫品編號 ${row.sku}・單位 ${row.unit || '（空白）'}・次數 ${row.count || '（空白）'}・數量 ${row.quantity || '（空白）'}` : `商品代號 ${row.sku}・儲位 ${(row as StockRow).location || '（空白）'}・庫存量 ${formatQuantity((row as StockRow).qty)}`;
+    const values = 'unit' in row ? `醫品編號 ${row.sku}・單位 ${row.unit || '（空白）'}・次數 ${row.count || '（空白）'}・數量 ${row.quantity || '（空白）'}・健保價 ${row.price || '（空白）'}` : `商品代號 ${row.sku}・儲位 ${(row as StockRow).location || '（空白）'}・庫存量 ${formatQuantity((row as StockRow).qty)}`;
     el('trace-content').innerHTML = `<div class="trace-image"><img alt="這一列的原始報表影像" src="${url}"></div><p class="preview-note">${escape(fileName(row.origin.file))}・原名稱：${escape(row.rawName)}<br>${escape(values)}</p>`;
   } catch (error) { el('trace-content').textContent = error instanceof Error ? error.message : '無法載入原圖。'; }
 }

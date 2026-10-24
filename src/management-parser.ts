@@ -38,7 +38,7 @@ const USAGE_LABELS = ['醫品編號', '醫品名稱', '單位', '次數', '數�
 
 /**
  * 醫品調劑數量統計表. The text runs are stored out of the printed order, so columns come from coordinates:
- * code and name by where a run starts, the right-aligned numbers by where they end. 健保價 is never read as a value.
+ * code and name by where a run starts, the right-aligned numbers by where they end. 健保價 is kept as printed, per unit.
  */
 export function parseUsagePage(layer: TextLayer, file: number, filePage: number): PageResult {
   const lines = layer.reading.lines; const all = compact(layer.reading.text); const { height } = layer;
@@ -79,16 +79,17 @@ export function parseUsagePage(layer: TextLayer, file: number, filePage: number)
       continue;
     }
     const notes: string[] = [];
-    for (const [key, label] of [['code', '醫品編號'], ['unit', '單位'], ['count', '次數'], ['quantity', '數量']] as const) if (cells[key].length > 1) notes.push(`${label}欄有多個值（${cells[key].join('、')}），請核對原圖`);
+    for (const [key, label] of [['code', '醫品編號'], ['unit', '單位'], ['count', '次數'], ['quantity', '數量'], ['price', '健保價']] as const) if (cells[key].length > 1) notes.push(`${label}欄有多個值（${cells[key].join('、')}），請核對原圖`);
     if (cells.price.some(text => !numeric.test(text))) notes.push('健保價欄有非數字文字，請核對原圖');
+    if (!cells.price.length) notes.push('缺少健保價，待採金額無法估算，請核對原圖');
     const sku = cells.code.join(' ');
     usage.push({ id: `u${file}-${filePage}-${usage.length}`, origin: { file, filePage, reportPage, top: Math.max(0, top / height - .002), bottom: Math.min(1, bottom / height + .002) },
-      sku, rawName: cells.name.join(''), unit: cells.unit.join(' '), count: cells.count.join(' '), quantity: cells.quantity.join(' '), notes, reviewed: notes.length === 0, excluded: autoExclusion(sku) });
+      sku, rawName: cells.name.join(''), unit: cells.unit.join(' '), count: cells.count.join(' '), quantity: cells.quantity.join(' '), price: cells.price.join(' '), notes, reviewed: notes.length === 0, excluded: autoExclusion(sku) });
   }
   if (!usage.length && reportPage !== reportTotal) return { ok: false, kind: 'usage', reason: '表頭下沒有任何明細列' };
   const facts: PageFacts = { store: storeId(store![2], store![1]), reportPage, reportTotal, printed: printedDay(above), period: { start: start!, end: end! }, payment };
   const meta = JSON.stringify([facts.store.label, facts.store.number, period![1], period![2], payment, reportTotal]);
-  const signature = JSON.stringify(usage.map(r => [r.sku, r.rawName, r.unit, r.count, r.quantity]));
+  const signature = JSON.stringify(usage.map(r => [r.sku, r.rawName, r.unit, r.count, r.quantity, r.price]));
   return { ok: true, page: { key: `u${file}-${filePage}`, kind: 'usage', file, filePage, reportPage, reportTotal, signature, meta, facts, rotation: layer.rotation, usage, stock: [] } };
 }
 

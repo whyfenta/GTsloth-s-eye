@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive,listAlerts,listRows,listSpec,NO_STOCK} from '../src/management-report';
+import {derive,listAlerts,listRows,listSpec,NO_STOCK,SAFETY_ALERT_NOTE} from '../src/management-report';
 import {formatFrac} from '../src/management-model';
 import type {TextItem,TextPage} from '../src/textlayer';
 import {readFileSync} from 'node:fs';
@@ -21,10 +21,10 @@ const usageHead=(n=1,total=2,payment='全部',store='營業點：0026 26測試�
 const line=(y:number,code:string,name:string,unit:string,count:string,quantity:string,price='2'):Cell[]=>[[code,10,y],[name,80,y],...(unit?[[unit,400,y] as Cell]:[]),...(count?[[count,462,y,'r'] as Cell]:[]),...(quantity?[[quantity,512,y,'r'] as Cell]:[]),[price,572,y,'r']];
 const usagePage=(n=1,total=2,extra:Cell[]=[])=>page([...usageHead(n,total),...line(120,'000206','C-30粒/盒EZETROL怡妥錠10MG','粒','67','1767','6.2'),...line(140,'000206','C-30粒/盒EZETROL怡妥錠10MG','粒','98','2520','6.7'),...line(160,'000009','C-FLIXOTIDE','瓶','2','2','472'),...extra]);
 
-test('usage columns come from coordinates: count and quantity are not swapped, 健保價 is never read',()=>{
+test('usage columns come from coordinates: count and quantity are not swapped, 健保價 is kept per line',()=>{
   const result=parsePage(usagePage(),'usage',0,1);assert.ok(result.ok,!result.ok?result.reason:'');
   const p=(result as {page:ParsedPage}).page;
-  assert.deepEqual(p.usage.map(r=>[r.sku,r.rawName,r.unit,r.count,r.quantity]),[['000206','C-30粒/盒EZETROL怡妥錠10MG','粒','67','1767'],['000206','C-30粒/盒EZETROL怡妥錠10MG','粒','98','2520'],['000009','C-FLIXOTIDE','瓶','2','2']]);
+  assert.deepEqual(p.usage.map(r=>[r.sku,r.rawName,r.unit,r.count,r.quantity,r.price]),[['000206','C-30粒/盒EZETROL怡妥錠10MG','粒','67','1767','6.2'],['000206','C-30粒/盒EZETROL怡妥錠10MG','粒','98','2520','6.7'],['000009','C-FLIXOTIDE','瓶','2','2','472']]);
   assert.deepEqual([p.reportPage,p.reportTotal,p.facts.payment,p.facts.store.number,p.facts.store.core],[1,2,'全部',26,'測試店']);
   assert.deepEqual(p.facts.period,{start:{y:2026,m:6,d:16},end:{y:2026,m:10,d:15}});
   assert.ok(p.usage.every(r=>r.reviewed&&!r.notes.length));
@@ -33,6 +33,11 @@ test('a long count or quantity still lands in its own column; R001 without unit 
   const p=(parsePage(usagePage(1,2,[...line(180,'000010','C-長數字','粒','12345','1234567','1'),...line(200,'R001','因處方簽遺失或損毀，提前回診之領藥','','1','1','0')]),'usage',0,1) as {page:ParsedPage}).page;
   const long=p.usage.find(r=>r.sku==='000010')!;assert.deepEqual([long.count,long.quantity],['12345','1234567']);
   const r001=p.usage.find(r=>r.sku==='R001')!;assert.equal(r001.unit,'');assert.match(r001.excluded!,/R001/);
+});
+test('a line without 健保價, or with two, is noted for review; a blank price is no error',()=>{
+  const p=(parsePage(usagePage(1,2,[['000011',10,180],['C-無價',80,180],['粒',400,180],['5',462,180,'r'],['50',512,180,'r'],...line(200,'000012','C-兩價','粒','1','1','3'),['4',592,200,'r']]),'usage',0,1) as {page:ParsedPage}).page;
+  const none=p.usage.find(r=>r.sku==='000011')!;assert.deepEqual([none.price,none.reviewed,none.notes],['',false,['缺少健保價，待採金額無法估算，請核對原圖']]);
+  const two=p.usage.find(r=>r.sku==='000012')!;assert.equal(two.reviewed,false);assert.match(two.notes.join(),/健保價欄有多個值（3、4）/);
 });
 test('a line with numbers but no code stays as a review row instead of disappearing',()=>{
   const p=(parsePage(usagePage(1,2,[['C-無代號',80,180],['粒',400,180],['5',462,180,'r'],['50',512,180,'r']]),'usage',0,1) as {page:ParsedPage}).page;
@@ -68,7 +73,7 @@ const parsed=(text:TextPage,kind:'usage'|'inventory',file:number,filePage:number
 const decisions={storeConfirmed:false};
 test('strategy selection reaches derived rows and the printed PDF, while list membership and slot lists stay stable',async()=>{
   const usage=parsed(page([...usageHead(1,1),...line(120,'000206','C-EZETROL怡妥錠10MG','粒','165','4287'),
-    ...line(140,'000083','C-B','粒','120','1200'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
+    ...line(140,'000083','C-B','粒','120','1200','1.2'),...line(160,'000009','C-C','粒','80','800'),...line(180,'000010','C-D','粒','40','400'),
     ...Array.from({length:36},(_,i)=>line(200+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
   const stock=parsed(stockPage(),'inventory',1,1);const pages=[usage,stock];
   const printDay={y:2026,m:10,d:16};
@@ -78,10 +83,11 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
   assert.equal(baseline.available.safety,true,'missing stock-sheet codes never require acknowledgement');
   const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
   // 000083 keeps 缺貨 on the stock sheet: one more month of use (300) on every strategy's coefficient.
-  for(const [strategy,name,range,values,toOrder] of [
-    ['hamster','倉鼠派','3.5～1.2',['3,754','1,350','470','120'],['1,764','982','—','—']],
-    ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—']],
-    ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—']],
+  // 待採量 × 健保價 (000206 at 2, 000083 at 1.2): 3,528 and 1,178.4 / 1,384 and 818.4 / 0 and 350.4; red above 1,000.
+  for(const [strategy,name,range,values,toOrder,large] of [
+    ['hamster','倉鼠派','3.5～1.2',['3,754','1,350','470','120'],['1,764','982','—','—'],[true,true,false,false]],
+    ['balanced','平衡派','2.5～0.8',['2,682','1,050','330','80'],['692','682','—','—'],[true,false,false,false]],
+    ['antelope','羚羊派','1.2～0.6',['1,287','660','180','60'],['0','292','—','—'],[false,false,false,false]],
   ] as const){
     const result=derive(pages,[],{...decisions,safetyStrategy:strategy},printDay);
     assert.equal(result.available.safety,true);assert.equal(result.safety!.strategy,strategy);
@@ -89,12 +95,15 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     assert.deepEqual(listRows('safety',result).map(row=>row.slice(0,5)),listRows('safety',baseline).map(row=>row.slice(0,5)));
     assert.deepEqual(listRows('safety',result).map(row=>row[5]),values,'建議安全量');
     // 000206: 1,990 > 4 × 1,072.5 is false; 000083: 368 ≤ 4 × 300; 000009/000010 have no stock line.
-    assert.deepEqual(listAlerts('safety',result).map(row=>row.indexOf(true)),[-1,-1,-1,-1]);
+    assert.deepEqual(listAlerts('safety',result).map(row=>row[2]),[false,false,false,false]);
+    assert.deepEqual(listAlerts('safety',result).map(row=>row[6]),large,'待採量 is red when worth more than 1,000 at 健保價');
+    assert.deepEqual(listAlerts('safety',result).map(row=>row.filter(Boolean).length),large.map(Number),'no other cell is marked');
     assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
     assert.equal(spec.title,`安全量調整及採購建議清單 · ${name}（係數 ${range}）`);
-    assert.equal(spec.note,'紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。','the footer repeats no formula');
+    assert.equal(spec.note,SAFETY_ALERT_NOTE,'the footer repeats no formula');
+    assert.equal(SAFETY_ALERT_NOTE,'紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > 1,000 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。');
     assert.deepEqual(spec.columns.map(c=>c.label),['六編碼','品名','現有庫存量','調劑頻率(/月)','均月銷','建議安全量','待採量']);
     const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
     for(const text of [name,range,'待採量',...values,...toOrder.filter(v=>v!=='—')])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
