@@ -1,7 +1,7 @@
 import './arithmetic.css';
 import { autoCalculate, rangeDays, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
-import { parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
-import { addPrescription, syncLatest } from './slip-ui';
+import { parsePrescription, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
+import { addPrescription } from './slip-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -13,6 +13,10 @@ const visit = element<HTMLSelectElement>('visit');
 const result = element('result');
 const status = element('qr-status');
 const datePicker = element<HTMLInputElement>('date-picker');
+const grid = element('calculator-grid');
+/** 試算 accepts a typed date; 憑單 needs every QR field, so it takes scans only and shows the slip instead of the result. */
+let mode: 'calc' | 'slip' = 'calc';
+let calcDate = '';
 let scanBuffer = '';
 let scanTimer: ReturnType<typeof setTimeout> | undefined;
 let today = taiwanToday();
@@ -123,7 +127,7 @@ function render(input: AutoInput) {
 function clearScan() {
   clearTimeout(scanTimer);
   scanBuffer = '';
-  date.placeholder = '掃碼或選擇日期';
+  date.placeholder = mode === 'slip' ? '掃描處方 QR' : '掃碼或選擇日期';
 }
 function normalizeDate(value: string): string {
   const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(value.trim());
@@ -152,17 +156,21 @@ function finishScan(moveFocus = true) {
   if (!value) return;
   // The keyboard scanner provides text, never raw bytes. Reject corrupted text.
   // Remove only CR/LF scanner suffixes, preserving prescription spaces and fields.
+  const text = value.replace(/[\r\n]+$/, '');
+  if (mode === 'slip') {
+    date.value = '';
+    try { status.textContent = addPrescription(parsePrescriptionSlip(text)); }
+    catch (error) { status.textContent = `${(error as Error).message} 請重新掃碼。`; }
+    if (moveFocus) date.focus();
+    return;
+  }
   date.value = '';
   datePicker.value = '';
   days.value = '';
   count.value = '';
   visit.value = '';
   emptyResult();
-  try {
-    const data = parsePrescriptionSlip(value.replace(/[\r\n]+$/, ''));
-    applyQR(data, moveFocus);
-    addPrescription(data);
-  }
+  try { applyQR(parsePrescription(text), moveFocus); }
   catch (error) {
     status.textContent = `${(error as Error).message} 請重新掃碼，或選擇日期。`;
     if (moveFocus) date.focus();
@@ -214,13 +222,14 @@ date.addEventListener('keydown', event => {
     finishScan();
   } else if (event.key === 'Enter') {
     event.preventDefault();
+    if (mode === 'slip') { status.textContent = '憑單需要掃描處方 QR；只有日期時請切換到「試算」。'; return; }
     validateManualDate();
     if (date.reportValidity()) days.focus();
   }
 });
 date.addEventListener('blur', () => {
   if (scanBuffer) finishScan(false);
-  else validateManualDate();
+  else if (mode === 'calc') validateManualDate();
 });
 datePicker.addEventListener('click', event => {
   if (typeof datePicker.showPicker === 'function') {
@@ -248,10 +257,17 @@ form.addEventListener('submit', event => {
   if (scanBuffer) { finishScan(); return; }
   submit();
 });
-form.addEventListener('input', emptyResult);
-for (const select of [count, visit]) select.addEventListener('change', () => {
-  try { syncLatest(normalizeDate(date.value), Number(days.value), Number(count.value) || undefined, Number(visit.value) || undefined); }
-  catch { /* No valid date yet: nothing scanned to follow. */ }
+// Scans in 憑單 mode pass through the shared entry field; they must not clear the 試算 result.
+form.addEventListener('input', () => { if (mode === 'calc') emptyResult(); });
+for (const radio of document.querySelectorAll<HTMLInputElement>('input[name=mode]')) radio.addEventListener('change', () => {
+  mode = radio.value === 'slip' ? 'slip' : 'calc';
+  grid.dataset.mode = mode;
+  clearScan();
+  status.textContent = '';
+  // Each mode keeps its own state; the shared entry field is empty for scanning in 憑單 mode.
+  if (mode === 'slip') { calcDate = date.value; date.value = ''; date.setCustomValidity(''); }
+  else date.value = calcDate;
+  date.focus();
 });
 // Cancel before blur so a partial scan cannot move the reset button mid-click.
 form.querySelector<HTMLButtonElement>('button[type=reset]')!.addEventListener('pointerdown', clearScan);

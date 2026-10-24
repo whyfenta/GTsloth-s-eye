@@ -23,9 +23,10 @@ export function prescriptionAhead(entry: SlipEntry, today: string): Ahead {
   const notes = note ? [note] : [];
   if (result.state === 'invalid') return { visit, result, windows: [], validUntil: addDays(result.expiry, -1), notes };
   const schedule = result.schedule.map((range, index) => ({ range, visit: index + 1 }));
-  // Handed in early: this visit is still ahead. Late: only the corrected next window is known until it is collected.
+  // Handed in early: this visit is still ahead. Late: only the corrected next window is known until it is collected;
+  // after the last visit that window is the return visit, which the slip does not print (such slips are for owed drugs).
   const windows = result.state === 'early' ? schedule.slice(visit - 1)
-    : result.state === 'late' ? (result.next ? [{ range: result.next, visit: visit + 1 }] : [])
+    : result.state === 'late' ? (result.next && visit < count ? [{ range: result.next, visit: visit + 1 }] : [])
     : schedule.slice(visit);
   if (!windows.length) notes.push('已無下次領藥，下次請回診。');
   else if (result.state === 'late' && visit + 1 < count) notes.push(`第 ${visit + 2} 次區間須待第 ${visit + 1} 次領藥後再算。`);
