@@ -1,11 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,LOW_COVER,WIDE_COVER,overstock,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,largeOrder,LOW_COVER,WIDE_COVER,overstock,toOrder,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
 const origin={file:0,filePage:1,reportPage:1,top:0,bottom:0};
 let id=0;
-const use=(sku:string,count:string|number,quantity:string|number,unit='粒',extra:Partial<UsageRow>={}):UsageRow=>({id:`u${id++}`,origin,sku,rawName:`品項${sku}`,unit,count:String(count),quantity:String(quantity),notes:[],reviewed:true,excluded:autoExclusion(sku),...extra});
+const use=(sku:string,count:string|number,quantity:string|number,unit='粒',extra:Partial<UsageRow>={}):UsageRow=>({id:`u${id++}`,origin,sku,rawName:`品項${sku}`,unit,count:String(count),quantity:String(quantity),price:'2',notes:[],reviewed:true,excluded:autoExclusion(sku),...extra});
 const stock=(sku:string,qty:string|number,location='',name=`庫存${sku}`):StockRow=>({id:`s${id++}`,origin,sku,rawName:name,name,location,qty:String(qty),notes:[],reviewed:true});
 
 test('calendar months: the attached period is exactly 4; partial months use the anchor month length, not 30 days',()=>{
@@ -128,6 +128,22 @@ test('stock above 4 months of use is overstock; exactly 4 months is not',()=>{
   const result=safetyList(items,frac(1n),aggregateStock([stock('000001',400),stock('000002','400.5'),stock('000003',-5)]));
   assert.deepEqual(result.all.map(r=>overstock(r)),[false,true,false,false],'400 is not above 400; no stock line is never marked');
 });
+test('待採量 × 健保價 above 1,000 is a large order; exactly 1,000, a (管3)/(管4) drug, no price or no stock line is not',()=>{
+  const base=Array.from({length:54},(_,i)=>use(String(300000+i),1,1));
+  // A = 10 a month, B = 10, the same rank for all: safety ceil(100 × 3.5) = 350, so stock 150 leaves 200 to order.
+  const two=(sku:string,a:string,b:string)=>[use(sku,5,50,'粒',{price:a}),use(sku,5,50,'粒',{price:b})];
+  const items=aggregateUsage([...base,use('000001',10,100,'粒',{price:'5'}),...two('000002','6','5.01'),...two('000003','4.99','9'),use('000004',10,100,'粒',{price:'9'}),use('000005',10,100,'粒',{price:''}),use('000006',10,100,'粒',{price:'30'})]).items;
+  assert.deepEqual(items.filter(i=>/^00000[123]$/.test(i.sku)).map(i=>formatFrac(i.price!)),['5','5.01','4.99'],'a code printed at two prices takes the lower');
+  assert.equal(items.find(i=>i.sku==='000005')!.price,undefined);
+  const stocked=aggregateStock(['000001','000002','000003','000005'].map(sku=>stock(sku,150)).concat(stock('000004',150,'','品四(管4)')));
+  const result=safetyList(items,frac(1n),stocked,false,'hamster');
+  assert.deepEqual(result.rows.map(r=>r.sku),['000001','000002','000003','000004','000005','000006']);
+  assert.deepEqual(result.rows.map(r=>{const o=toOrder(r);return o&&formatFrac(o);}),['200','200','200','270','200',undefined],'the controlled drug takes 3.5 × 1.2 = 4.2 months');
+  assert.deepEqual(result.rows.map(r=>largeOrder(r)),[false,true,false,false,false,false],'1,000 is not above 1,000; 998 is not; 2,430 for (管4) is never marked; no price; no stock line');
+  const ctrl3=safetyList(items,frac(1n),aggregateStock([stock('000002',150,'','品二(管3)')]),false,'hamster').rows.find(r=>r.sku==='000002')!;
+  assert.equal(largeOrder(ctrl3),false,'(管3) is never marked either');
+  assert.deepEqual(safetyList(items,frac(1n),aggregateStock([stock('000002',400)]),false,'hamster').rows.filter(r=>r.sku==='000002').map(r=>[formatFrac(toOrder(r)!),largeOrder(r)]),[['0',false]],'nothing to order');
+});
 test('exact arithmetic: an integer safety value is not pushed up by float error; B rounds half up',()=>{
   // 3 months, 50 times, 4950 units: A = 50/3, B = 99, A × B × 3.5 = 5775 exactly; floats give 5775.000000000001.
   const a=50/3;assert.equal(Math.ceil(a*99*3.5),5776,'the float formula really is off here');
@@ -180,6 +196,10 @@ test('usage rows: invalid values are review items, never zero; non-six-digit cod
   assert.deepEqual(usageErrors(use('000001','1.5','2')),['次數必須是整數']);
   assert.deepEqual(usageErrors(use('000001','','2','')),['缺少次數','缺少單位']);
   assert.deepEqual(usageErrors(use('','1','2')),['缺少醫品編號']);
+  assert.deepEqual(usageErrors(use('000001','1','2','粒',{price:''})),[],'a blank 健保價 blocks nothing; it only leaves the order unmarked');
+  assert.deepEqual(usageErrors(use('000001','1','2','粒',{price:'1O'})),['健保價格式不正確（不確定時可清空）']);
+  assert.deepEqual(usageErrors(use('000001','1','2','粒',{price:'-3'})),['健保價為負數']);
+  assert.deepEqual(usageErrors(use('000001','1','2','粒',{price:'1,240.5'})),[]);
   const rows=[use('R001',1,1,''),use('000001',0,0),use('000002',1,1),use('',3,3)];
   assert.match(rows[0].excluded!,/R001/);assert.equal(rows[3].excluded,undefined,'a row without any code stays for review');
   const summary=aggregateUsage(rows);assert.deepEqual(summary.items.map(i=>i.sku),['000001','000002']);assert.equal(summary.invalid.length,1);

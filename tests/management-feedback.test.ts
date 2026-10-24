@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {feedbackKey,feedbackRecord,FEEDBACK_FORMAT,sendFeedback,worthSending} from '../src/management-feedback';
 import type {StockRow,UsageRow} from '../src/management-model';
 const origin={file:0,filePage:1,reportPage:1,top:0,bottom:0};
-const use=(id:string,extra:Partial<UsageRow>={}):UsageRow=>({id,origin,sku:'000001',rawName:'C-測試錠',unit:'粒',count:'10',quantity:'100',notes:[],reviewed:true,...extra});
+const use=(id:string,extra:Partial<UsageRow>={}):UsageRow=>({id,origin,sku:'000001',rawName:'C-測試錠',unit:'粒',count:'10',quantity:'100',price:'2',notes:[],reviewed:true,...extra});
 const stock=(id:string,extra:Partial<StockRow>={}):StockRow=>({id,origin,sku:'000002',rawName:'冷藏 C-測試筆',name:'冷藏 測試筆',location:'A1',qty:'40',notes:[],reviewed:true,...extra});
 const run=(before:(UsageRow|StockRow)[],after:{usage:UsageRow[];stock:StockRow[]})=>feedbackRecord({originals:new Map(before.map(r=>[r.id,{...r}])),usageRows:after.usage,stockRows:after.stock,
   safetyStrategy:'balanced',partnerClinic:true,partnerCover:'wide',app:'1.1.3',sent:'2026-10-19T00:00:00Z',store:26});

@@ -1,14 +1,14 @@
 // 樹懶的管理: the review record sent to the feedback sheet when lists are generated, so recurring corrections can become
 // rules and tests. It keeps what shows where the parser or a warning was wrong, never the store's quantities: a changed
-// count, quantity or stock figure is recorded by field name only. The report files themselves are never sent.
+// count, quantity, 健保價 or stock figure is recorded by field name only. The report files themselves are never sent.
 import type { PartnerCover, SafetyStrategy, StockRow, UsageRow } from './management-model';
 
 export const FEEDBACK_FORMAT = 'gtsloth-management-review';
 type Report = 'usage' | 'inventory';
 type Row = UsageRow | StockRow;
 /** Fields whose values are the store's own figures: only the fact that they changed is sent. */
-const FIGURES = new Set(['count', 'quantity', 'qty']);
-const FIELDS = { usage: ['sku', 'unit', 'count', 'quantity'], inventory: ['sku', 'name', 'location', 'qty'] } as const;
+const FIGURES = new Set(['count', 'quantity', 'price', 'qty']);
+const FIELDS = { usage: ['sku', 'unit', 'count', 'quantity', 'price'], inventory: ['sku', 'name', 'location', 'qty'] } as const;
 const USER_EXCLUSION = '使用者排除：';
 
 export type FeedbackRecord = {

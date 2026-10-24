@@ -1,7 +1,7 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, sub, today, unheldOnList, usageCodes, usageErrors, ZERO,
-  type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
+import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, largeOrder, LARGE_ORDER, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, today, toOrder, unheldOnList, usageCodes, usageErrors,
+  type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
 
@@ -109,10 +109,6 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
 
 export const NO_STOCK = '簡表無此碼';
 const show = (value: Frac) => formatFrac(value);
-/** Safety minus stock on hand, 0 when the stock already covers it; unknown when the stock sheet has no line for the code. */
-export function toOrder(row: SafetyRow): Frac | undefined {
-  if (!row.stock) return undefined; const need = sub(frac(row.safety), row.stock); return cmp(need, ZERO) > 0 ? need : ZERO;
-}
 export function listRows(kind: ListKind, data: Derived): string[][] {
   if (kind === 'safety') return (data.safety?.rows ?? []).map(row => { const order = toOrder(row); return [row.sku, row.name, row.stock ? show(row.stock) : NO_STOCK, show(row.a), show(row.ab), show(frac(row.safety)), order ? show(order) : '—']; });
   return kind === 'dead' ? data.dead.map(deadCells) : data.empty.map(row => [row.sku, row.name, row.location]);
@@ -121,11 +117,16 @@ const slotCells = (row: SlotRow) => [row.sku, row.name + (row.negative ? '\n【�
 const deadCells = (row: SlotRow) => [...slotCells(row), disposition(row)];
 /** The self-pay lines printed after the dead stock, cells as on the dead-stock list; their handling is left to a person. */
 export const selfPayRows = (data: Derived) => data.selfPay.map(row => [...slotCells(row), SELF_PAY_DISPOSITION]);
-/** Cells printed in red heavy type: on the safety list, stock above 4 months of use (OVERSTOCK_MONTHS). */
+/**
+ * Cells printed in red heavy type, on the safety list only: stock above 4 months of use (OVERSTOCK_MONTHS), and 待採量
+ * worth more than LARGE_ORDER at 健保價, which never applies to a (管3)/(管4) controlled drug.
+ */
 export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
   if (kind !== 'safety') return listRows(kind, data).map(cells => cells.map(() => false));
-  return (data.safety?.rows ?? []).map(row => [false, false, overstock(row), false, false, false, false]);
+  return (data.safety?.rows ?? []).map(row => [false, false, overstock(row), false, false, false, largeOrder(row)]);
 }
+/** The footer line explaining the red cells of the safety list. */
+export const SAFETY_ALERT_NOTE = `紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > ${formatFrac(LARGE_ORDER)} 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。`;
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;
@@ -141,7 +142,7 @@ export function listSpec(kind: ListKind, data: Derived, context: SpecContext): L
   if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
     columns: [{ label: '六編碼', width: 18 }, { label: '品名', width: 68 }, { label: '現有庫存量', width: 22, align: 'right' }, { label: '調劑頻率(/月)', width: 24, align: 'right' }, { label: '均月銷', width: 18, align: 'right' }, { label: '建議安全量', width: 20, align: 'right' }, { label: '待採量', width: 20, align: 'right' }],
     // Formulas are on the web page; the footer keeps only what the reader needs beside the red cells and any risk.
-    warning: warn, note: '紅色粗體為現有庫存量 > 4 倍均月銷：醫院換藥致用量銳減時易逾期耗損。' + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
+    warning: warn, note: SAFETY_ALERT_NOTE + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 84 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 24, align: 'right' }, { label: '建議處置', width: 22 }],

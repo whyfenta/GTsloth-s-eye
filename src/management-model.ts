@@ -136,6 +136,8 @@ export const assemblyComplete = (a: Assembly<ReportPage>) => a.pages.length > 0 
 /** Where a row was printed: file index, page inside the file, report page number and its band on the upright page (0..1). */
 export type Origin = { file: number; filePage: number; reportPage: number; top: number; bottom: number };
 export type UsageRow = { id: string; origin: Origin; sku: string; rawName: string; unit: string; count: string; quantity: string;
+  /** 健保價 per unit as printed; it only marks large orders on the safety list, so a blank price blocks nothing. */
+  price: string;
   /** Parser notes, such as two values in one column. */
   notes: string[]; reviewed: boolean; excluded?: string };
 export type StockRow = { id: string; origin: Origin; sku: string; rawName: string; name: string; location: string; qty: string;
@@ -149,6 +151,7 @@ export function usageErrors(row: UsageRow): string[] {
   if (c === null) errors.push(row.count ? '次數格式不正確' : '缺少次數');
   else if (c.n < 0n) errors.push('次數為負數'); else if (!count(row.count)) errors.push('次數必須是整數');
   if (q === null) errors.push(row.quantity ? '數量格式不正確' : '缺少數量'); else if (q.n < 0n) errors.push('數量為負數');
+  if (row.price.trim()) { const p = parseDecimal(row.price); if (p === null) errors.push('健保價格式不正確（不確定時可清空）'); else if (p.n < 0n) errors.push('健保價為負數'); }
   if (!row.unit.trim()) errors.push('缺少單位');
   if (!row.rawName.trim()) errors.push('缺少醫品名稱');
   return errors;
@@ -166,7 +169,8 @@ export function autoExclusion(sku: string): string | undefined {
 }
 export const active = <R extends { excluded?: string }>(rows: R[]) => rows.filter(row => !row.excluded);
 
-export type UsageItem = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; rows: UsageRow[] };
+/** price: the lowest 健保價 printed for the code (a price change in the period prints a line per price); none when no line has one. */
+export type UsageItem = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; price?: Frac; rows: UsageRow[] };
 export type UsageSummary = { items: UsageItem[]; unitConflicts: { sku: string; units: string[]; rows: UsageRow[] }[]; invalid: UsageRow[] };
 /** Same-code lines are added up, counts and quantities separately. Units that differ for one code block the total. */
 export function aggregateUsage(rows: UsageRow[]): UsageSummary {
@@ -176,8 +180,10 @@ export function aggregateUsage(rows: UsageRow[]): UsageSummary {
   for (const [sku, list] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
     const units = [...new Set(list.map(row => row.unit.normalize('NFKC').trim()))];
     if (units.length > 1) unitConflicts.push({ sku, units, rows: list });
+    const prices = list.flatMap(row => { const p = row.price.trim() ? parseDecimal(row.price) : null; return p ? [p] : []; });
     // The report may cut a name short; it is only printed when the stock sheet has no line for the code.
-    items.push({ sku, name: managementName(list[0].rawName).name || list[0].rawName, unit: units[0], count: list.reduce((sum, row) => add(sum, parseDecimal(row.count)!), ZERO), quantity: list.reduce((sum, row) => add(sum, parseDecimal(row.quantity)!), ZERO), rows: list });
+    items.push({ sku, name: managementName(list[0].rawName).name || list[0].rawName, unit: units[0], count: list.reduce((sum, row) => add(sum, parseDecimal(row.count)!), ZERO), quantity: list.reduce((sum, row) => add(sum, parseDecimal(row.quantity)!), ZERO),
+      price: prices.reduce<Frac | undefined>((low, p) => !low || cmp(p, low) < 0 ? p : low, undefined), rows: list });
   }
   return { items, unitConflicts, invalid };
 }
@@ -274,7 +280,7 @@ export function coefficient(i: number, k: number, strategy: SafetyStrategy = DEF
   return cmp(p, TOP) >= 0 ? maximum : add(minimum, mul(div(p, TOP), sub(maximum, minimum)));
 }
 /** One code's use; `all` holds every code with a count, the list only the selected ones. */
-export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
+export type UsageRate = { sku: string; name: string; unit: string; count: Frac; quantity: Frac; price?: Frac; a: Frac; b: bigint; ab: Frac; stock?: Frac; stockName?: string };
 export type SafetyRow = UsageRate & { coefficient: Frac; controlled: boolean; shortage: boolean; cold: boolean; safety: bigint };
 export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
   /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under `cover` months of it, and how many later codes moved up. */
@@ -292,7 +298,7 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   for (const item of items) {
     if (item.count.n === 0n) continue; // no division by a zero count; such an item can never have A > 8
     const a = div(item.count, months); const b = roundHalfUp(div(item.quantity, item.count)); const inStock = stock.get(item.sku);
-    all.push({ sku: item.sku, name: inStock?.name ?? item.name, unit: item.unit, count: item.count, quantity: item.quantity, a, b, ab: mul(a, frac(b)), stock: inStock?.qty, stockName: inStock?.name });
+    all.push({ sku: item.sku, name: inStock?.name ?? item.name, unit: item.unit, count: item.count, quantity: item.quantity, price: item.price, a, b, ab: mul(a, frac(b)), stock: inStock?.qty, stockName: inStock?.name });
   }
   all.sort((x, y) => cmp(y.a, x.a) || x.sku.localeCompare(y.sku));
   const qualifying = all.filter(row => cmp(row.a, THRESHOLD) > 0); const n = items.length; const limit = Math.floor(n / 10);
@@ -337,6 +343,18 @@ export const PARTNER_LIMIT = 10;
  */
 export const OVERSTOCK_MONTHS = frac(4n);
 export const overstock = (row: UsageRate) => row.stock !== undefined && cmp(row.stock, mul(row.ab, OVERSTOCK_MONTHS)) > 0;
+/** 待採量: safety minus stock on hand, 0 when the stock already covers it; unknown when the stock sheet has no line for the code. */
+export function toOrder(row: SafetyRow): Frac | undefined {
+  if (!row.stock) return undefined; const need = sub(frac(row.safety), row.stock); return cmp(need, ZERO) > 0 ? need : ZERO;
+}
+/**
+ * An order worth more than LARGE_ORDER yuan at 健保價 (待採量 × 健保價) is marked on the list: ordering it first reaches the
+ * supplier's free-shipping amount sooner. A (管3)/(管4) controlled drug can only be requested, never bought separately, so it is never marked.
+ */
+export const LARGE_ORDER = frac(1000n);
+export function largeOrder(row: SafetyRow): boolean {
+  const order = toOrder(row); return !row.controlled && order !== undefined && row.price !== undefined && cmp(mul(order, row.price), LARGE_ORDER) > 0;
+}
 export const unheldOnList = (result: SafetyResult) => result.rows.filter(row => !held(row)).length;
 export const partnerSupplied = (missing: number) => missing > PARTNER_LIMIT;
 
