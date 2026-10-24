@@ -23,9 +23,9 @@
             </div>
             <p id="date-help" class="hint">點此欄位直接掃碼，或按右側日曆選擇日期。</p>
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
-            <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count" required><option value="">請選擇</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
-            <label for="visit">本次第幾次領藥</label><select id="visit" required><option value="">請選擇</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select>
-            <p class="hint">QR 的就醫日期會先帶入處方日期，請核對；可調劑次數與本次次數須人工選擇。本次領藥日以今天計算。</p>
+            <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
+            <label for="visit">本次第幾次領藥</label><select id="visit"><option value="">依今日自動判斷</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select>
+            <p class="hint">掃 QR 會帶入處方日期與給藥日份，並依今天日期自動判斷本次為第幾次：在區間內、延遲領藥，或提前交付預處理（顯示實際可來領藥的區間）；QR 不含可調劑次數，若 2、3 次結果不同會分別列出。實際次數已知時可手動選擇覆蓋。</p>
             <div class="form-actions"><button type="submit" class="primary">試算領藥日期</button><button type="reset">清除重填</button></div>
           </form>
         </section>

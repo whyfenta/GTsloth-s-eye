@@ -60,3 +60,33 @@ export function calculate(input: PrescriptionInput, today = taiwanToday()): Calc
   return { ...base, state: 'normal', message: '本次在原定領藥日期內，可領藥。',
     ...(visit < count ? { next: schedule[visit] } : { returnDate: earliestReturn }) };
 }
+
+/** QR codes omit the refill count and visit number; blank selections are inferred from today. */
+export interface AutoInput { date: string; days: number; count?: number; visit?: number }
+export interface Scenario { count: number; visit: number; inferred: boolean; note?: string; result: Calculation }
+export function inferVisit(date: string, days: number, count: number, today: string): { visit: number; note?: string } {
+  const elapsed = dayNumber(today) - dayNumber(date);
+  if (elapsed <= 0) return { visit: 1 };
+  // Each window's first day is the first allowed day: today is inside a window, late for the last visit, or early.
+  for (let visit = 1; visit < count; visit++) {
+    const nextStart = days * visit - 10;
+    if (elapsed >= nextStart && elapsed <= days * visit - 1) return { visit: visit + 1 };
+    // Before the next window opens, the usual case is a prescription handed in early for pre-processing.
+    if (elapsed < nextStart) return { visit: visit + 1, note: `今日尚未到第 ${visit + 1} 次領藥區間，判斷為病患提前交付處方預處理；若實際為第 ${visit} 次延遲領藥，請手動選擇第 ${visit} 次。` };
+  }
+  return { visit: count };
+}
+export function autoCalculate(input: AutoInput, today = taiwanToday()): Scenario[] {
+  const counts = input.count ? [input.count] : [2, 3];
+  const scenarios = counts.filter(count => !input.visit || input.visit <= count).map(count => {
+    const { visit, note } = input.visit ? { visit: input.visit, note: undefined } : inferVisit(input.date, input.days, count, today);
+    return { count, visit, inferred: !input.visit, note, result: calculate({ date: input.date, days: input.days, count, visit }, today) };
+  });
+  // A chosen visit beyond every candidate count still reports the source sheet's invalid message.
+  return scenarios.length ? scenarios : [{ count: input.count ?? 2, visit: input.visit!, inferred: false, result: calculate({ ...input, count: input.count ?? 2, visit: input.visit! }, today) }];
+}
+export function sameOutcome(a: Scenario, b: Scenario): boolean {
+  const range = (r?: DateRange) => r ? `${r.start}~${r.end}` : '';
+  return a.visit === b.visit && (a.visit === a.count) === (b.visit === b.count) && a.note === b.note && a.result.state === b.result.state && a.result.message === b.result.message
+    && range(a.result.next) === range(b.result.next) && a.result.returnDate === b.result.returnDate;
+}

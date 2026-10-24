@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { calculate, taiwanToday, dayNumber, type PrescriptionInput, type DateRange } from './arithmetic-model';
+import { autoCalculate, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
 import { parsePrescription, type PrescriptionQR } from './prescription-qr';
 
 declare const __APP_VERSION__: string;
@@ -15,7 +15,7 @@ const datePicker = element<HTMLInputElement>('date-picker');
 let scanBuffer = '';
 let scanTimer: ReturnType<typeof setTimeout> | undefined;
 let today = taiwanToday();
-let lastInput: PrescriptionInput | undefined;
+let lastInput: AutoInput | undefined;
 element('version').textContent = __APP_VERSION__;
 
 const fullDate = (value: string) => value.replaceAll('-', '/');
@@ -40,41 +40,64 @@ setInterval(refreshDate, 15_000);
 document.addEventListener('visibilitychange', refreshDate);
 window.addEventListener('pageshow', refreshDate);
 
-function render(input: PrescriptionInput) {
+function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
+  const { result: value, visit, count } = scenario;
+  const state = document.createElement('p');
+  state.className = 'result-status';
+  state.dataset.state = value.state;
+  state.textContent = prefix + value.message;
+  if (value.state === 'invalid') return [state];
+  const box = document.createElement('div');
+  box.className = 'recommended';
+  const label = document.createElement('p');
+  const dates = document.createElement('strong');
+  if (value.state === 'early') {
+    label.textContent = '本次可領藥區間';
+    dates.textContent = rangeText(value.schedule[visit - 1]);
+  } else if (value.next) {
+    label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${visit === count ? '下次回診區間' : '下次領藥區間'}`;
+    dates.textContent = rangeText(value.next);
+  } else {
+    label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : '本次為最後一次 · 最早回診日';
+    dates.textContent = fullDate(value.returnDate!);
+  }
+  box.append(label, dates);
+  return [state, box];
+}
+function render(input: AutoInput) {
   result.replaceChildren();
   try {
-    const value = calculate(input, today);
+    const scenarios = autoCalculate(input, today);
     lastInput = input;
-    const state = document.createElement('p');
-    state.className = 'result-status';
-    state.dataset.state = value.state;
-    state.textContent = value.message;
-    result.append(state);
-    if (value.state === 'invalid') return;
-    const recommendation = document.createElement('div');
-    recommendation.className = 'recommended';
-    const label = document.createElement('p');
-    const dates = document.createElement('strong');
-    if (value.state === 'early') {
-      label.textContent = '本次可領藥區間';
-      dates.textContent = rangeText(value.schedule[input.visit - 1]);
-    } else if (value.next) {
-      label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${input.visit === input.count ? '下次回診區間' : '下次領藥區間'}`;
-      dates.textContent = rangeText(value.next);
-    } else {
-      label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : '本次為最後一次 · 最早回診日';
-      dates.textContent = fullDate(value.returnDate!);
+    const merged = scenarios.length === 2 && sameOutcome(scenarios[0], scenarios[1]);
+    const shown = merged ? [scenarios[1]] : scenarios;
+    for (const scenario of shown) {
+      if (scenario.inferred) {
+        const inferred = document.createElement('p');
+        inferred.className = 'inferred';
+        inferred.textContent = `依今日判斷：第 ${scenario.visit} 次領藥${merged ? '（可調劑 2 或 3 次結果相同）' : ''}`;
+        result.append(inferred);
+      }
+      const countPrefix = !input.count && !merged ? `若可調劑 ${scenario.count} 次：` : '';
+      result.append(...recommendation(scenario, countPrefix));
+      if (scenario.note) {
+        const note = document.createElement('p');
+        note.className = 'hint';
+        note.textContent = scenario.note;
+        result.append(note);
+      }
     }
-    recommendation.append(label, dates);
-    result.append(recommendation);
+    if (shown.every(s => s.result.state === 'invalid')) return;
+    const longest = scenarios.at(-1)!.result;
     const table = document.createElement('table');
     table.className = 'schedule';
     const caption = table.createCaption();
     caption.textContent = '原定時程';
     const body = table.createTBody();
+    const suffix = (s: Scenario) => scenarios.length > 1 ? `（可調劑 ${s.count} 次）` : '';
     for (const [label, dates] of [
-      ...value.schedule.map((range, i) => [`第 ${i + 1} 次領藥`, rangeText(range)]),
-      ['最早回診日', fullDate(value.earliestReturn)], ['處方失效日', fullDate(value.expiry)],
+      ...longest.schedule.map((range, i) => [`第 ${i + 1} 次領藥`, rangeText(range)]),
+      ...scenarios.flatMap(s => [[`最早回診日${suffix(s)}`, fullDate(s.result.earliestReturn)], [`處方失效日${suffix(s)}`, fullDate(s.result.expiry)]]),
     ]) {
       const row = body.insertRow();
       const heading = document.createElement('th');
@@ -113,8 +136,10 @@ function applyQR(data: PrescriptionQR, moveFocus = true) {
   count.value = '';
   visit.value = '';
   emptyResult();
-  status.textContent = `已帶入 ${fullDate(data.date)}、${data.days} 天。請核對日期，並選擇可調劑次數與本次次數。`;
-  if (moveFocus) count.focus();
+  status.textContent = `已帶入 ${fullDate(data.date)}、${data.days} 天，並依今日判斷本次次數。請核對日期；如需指定可調劑次數或本次次數，請手動選擇。`;
+  submit(false);
+  // Stay on the entry field so the next prescription can be scanned right away.
+  if (moveFocus) date.focus();
 }
 function finishScan(moveFocus = true) {
   const value = scanBuffer;
@@ -201,14 +226,18 @@ datePicker.addEventListener('change', () => {
   status.textContent = '';
   emptyResult();
 });
+function submit(report = true) {
+  refreshDate();
+  validateManualDate();
+  if (!(report ? form.reportValidity() : form.checkValidity())) return;
+  // Blank count or visit means "infer from today" (QR codes carry neither).
+  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined, visit: Number(visit.value) || undefined });
+  if (matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 form.addEventListener('submit', event => {
   event.preventDefault();
   if (scanBuffer) { finishScan(); return; }
-  refreshDate();
-  validateManualDate();
-  if (!form.reportValidity()) return;
-  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value), visit: Number(visit.value) });
-  if (matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  submit();
 });
 form.addEventListener('input', emptyResult);
 // Cancel before blur so a partial scan cannot move the reset button mid-click.
