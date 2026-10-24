@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#234d43" />
+  <meta name="description" content="樹懶的算數，掃描處方 QR 或手動輸入，試算連處領藥與回診日期。" />
+  <title>樹懶的算數 · 連處領藥試算</title>
+</head>
+<body>
+  <div class="calculator-shell">
+    <header class="calculator-header"><a class="calculator-brand" href="../" aria-label="樹懶的算數，返回樹懶的工作主目錄"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><span>樹懶的算數<span class="calculator-brand-sub">← 返回主目錄</span></span></a><a class="calculator-home" href="../">← 主目錄</a></header>
+    <main>
+      <section class="calculator-intro"><div><p class="eyebrow">PRESCRIPTION DATES, MADE CLEAR</p><h1>下次領藥，幫你算好。</h1><p>掃碼或選擇處方日期，查看領藥區間與回診建議。</p></div></section>
+      <div class="calculator-grid">
+        <section class="panel" aria-labelledby="input-title">
+          <h2 id="input-title">輸入處方資料</h2>
+          <form id="prescription-form" autocomplete="off">
+            <label for="prescription-date">處方日期</label>
+            <div class="date-entry">
+              <input id="prescription-date" type="text" placeholder="掃碼或選擇日期" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
+              <span class="calendar-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><input id="date-picker" type="date" aria-label="選擇處方日期" /></span>
+            </div>
+            <p id="date-help" class="hint">點此欄位直接掃碼，或按右側日曆選擇日期。</p>
+            <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
+            <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count" required><option value="">請選擇</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
+            <label for="visit">本次第幾次領藥</label><select id="visit" required><option value="">請選擇</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select>
+            <p class="hint">QR 的就醫日期會先帶入處方日期，請核對；可調劑次數與本次次數須人工選擇。本次領藥日以今天計算。</p>
+            <div class="form-actions"><button type="submit" class="primary">試算領藥日期</button><button type="reset">清除重填</button></div>
+          </form>
+        </section>
+        <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好左側資料，就能查看本次狀態與下次日期。</p></div></section>
+      </div>
+      <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，並受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不判斷藥品身分，也不記錄實際調劑。</p></aside>
+    <footer class="calculator-footer"><span>樹懶的算數 · 把下次日期算清楚。 <span id="version"></span></span><span>瀏覽器內試算 · 不上傳 · 不記錄實際調劑</span></footer>
+    </main>
+  </div>
+  <script type="module" src="/src/arithmetic.ts"></script>
+</body>
+</html>
