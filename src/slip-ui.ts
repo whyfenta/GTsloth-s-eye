@@ -9,6 +9,8 @@ interface Drug { code: string; total: string; missing: boolean; name: string; qu
 interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const panel = element('slip-panel');
+const body = element('slip-body');
+const empty = element('slip-empty');
 const list = element<HTMLOListElement>('slip-items');
 const preview = element('slip-plan');
 const others = element('slip-others');
@@ -57,7 +59,9 @@ function describe(item: Item) {
     const ahead = prescriptionAhead(item, taiwanToday());
     item.state.dataset.state = ahead.result.state;
     const next = ahead.windows.map(window => `第 ${window.visit} 次 ${monthDay(window.range.start)}～${monthDay(window.range.end)}`).join('、');
-    item.state.textContent = `${item.visit ? '' : '依今日判斷'}第 ${ahead.visit} 次：${ahead.result.message}${next ? `接下來：${next}。` : ''}`;
+    // A late last visit's corrected window is the return visit, which the slip leaves out.
+    const message = ahead.result.state === 'late' && !next ? '本次領藥延遲。' : ahead.result.message;
+    item.state.textContent = `${item.visit ? '' : '依今日判斷'}第 ${ahead.visit} 次：${message}${next ? `接下來：${next}。` : ahead.result.state === 'invalid' ? '' : '已無下次領藥，下次請回診。'}`;
   } catch (error) { item.state.textContent = (error as Error).message; }
 }
 function missingItems(): MissingItem[] {
@@ -74,7 +78,8 @@ function slipData() {
 /** The preview shows what will print, or the first reason it cannot. */
 function update() {
   items.forEach((item, index) => { item.heading.textContent = `第 ${index + 1} 張 · ${item.name || '（無姓名）'}`; describe(item); });
-  panel.hidden = !items.length;
+  body.hidden = !items.length;
+  empty.hidden = !!items.length;
   preview.replaceChildren();
   if (!items.length) return;
   try {
@@ -99,7 +104,7 @@ function drugRow(drug: Drug): HTMLElement {
   detail.hidden = true;
   detail.append(
     textInput(drug.name, '品名', value => { drug.name = value.trim(); }),
-    textInput(drug.quantity, '數量', value => { drug.quantity = value.trim(); }),
+    textInput(drug.quantity, '缺藥數量', value => { drug.quantity = value.trim(); }),
     textInput(drug.note, '備註', value => { drug.note = value.trim(); }));
   box.addEventListener('change', () => { drug.missing = box.checked; detail.hidden = !box.checked; });
   const label = make('label', 'slip-check');
@@ -163,35 +168,28 @@ export function clearSlip() {
   others.replaceChildren(otherRow());
   for (const input of [phone, note]) input.value = '';
   sms.checked = call.checked = false;
-  preview.replaceChildren();
   status.textContent = '';
-  panel.hidden = true; // 承辦人員 stays for the next patient; it is not patient data.
+  update(); // 承辦人員 stays for the next patient; it is not patient data.
 }
-export function addPrescription(qr: SlipQR) {
-  if (printed) { clearSlip(); status.textContent = '上一張憑單已列印，已開始新的憑單。'; }
-  else status.textContent = '';
+/** Adds a scanned prescription and returns the message for the scan field. */
+export function addPrescription(qr: SlipQR): string {
+  const restarted = printed;
+  if (printed) clearSlip();
+  status.textContent = '';
   const key = [qr.institution, qr.idNumber, qr.name, qr.date, qr.days, ...qr.drugs.map(drug => drug.code)].join('|');
   const existing = items.findIndex(item => item.key === key);
-  if (existing >= 0) { status.textContent = `這張處方已在憑單第 ${existing + 1} 張，不重複加入。`; return; }
+  if (existing >= 0) return `這張處方已在憑單第 ${existing + 1} 張，不重複加入。`;
+  // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
   const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
-    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: drug.total, note: '' })),
+    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '' })),
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note') };
   fillItem(item);
   items.push(item);
   list.append(item.element);
-  if (!qr.idNumber) status.textContent = `第 ${items.length} 張讀不到身分證字號，門市存查聯將不印此人的身分證。`;
   lookup(item);
   update();
-}
-/** The calculator's count and visit selectors also apply to the prescription just scanned. */
-export function syncLatest(date: string, days: number, count?: number, visit?: number) {
-  const item = items.at(-1);
-  if (!item || item.date !== date || item.days !== days) return;
-  item.count = count; item.visit = visit;
-  const [countSelect, visitSelect] = item.element.querySelectorAll('select');
-  countSelect.value = count ? String(count) : '';
-  visitSelect.value = visit ? String(visit) : '';
-  update();
+  return `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}，請在憑單選擇可調劑次數。`
+    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。');
 }
 
 panel.addEventListener('input', update);

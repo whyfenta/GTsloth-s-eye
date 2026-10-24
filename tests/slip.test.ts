@@ -43,6 +43,12 @@ assert.throws(() => planSlip([entry(), entry({ date: '2026-10-05' })], '2026-10-
 plan = planSlip([entry({ count: 2 })], '2026-10-15');
 assert.deepEqual([plan.second, plan.third], [undefined, undefined]);
 assert.match(plan.notes[0], /已無下次領藥/);
+// A late last visit only has a return window (the calculator's corrected 下次回診區間): never a pickup row.
+for (const [extra, today] of [[{ count: 2 }, '2026-10-24'], [{ visit: 3 }, '2026-11-20']] as const) {
+  plan = planSlip([entry(extra)], today);
+  assert.deepEqual([plan.second, plan.third], [undefined, undefined]);
+  assert.match(plan.notes[0], /已無下次領藥/);
+}
 plan = planSlip([entry({ count: 2 }), entry()], '2026-10-15');
 assert.deepEqual(plan.third, { start: '2026-11-09', end: '2026-11-18', prescriptions: 1 });
 assert.throws(() => planSlip([entry({ count: undefined })], '2026-10-15'), /第 1 張請選擇可調劑次數/);
