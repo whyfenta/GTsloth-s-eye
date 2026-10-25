@@ -1,7 +1,8 @@
 import { csvRows } from './csv';
 
 // 商品代號對照檔 sku-nhi-map.csv, kept in a separate private repository. Reading it is shared by the scripts that keep it
-// (scripts/sku-map.ts) and the pickup slip, which loads a copy the user picks. Format: docs/reference/sku-nhi-map.md.
+// (scripts/sku-map.ts) and the one that publishes its 健保碼 → 六碼 part for the pickup slip (scripts/slip-assets.ts).
+// Format: docs/reference/sku-nhi-map.md.
 export const MAP_COLUMNS = ['六碼', '健保藥品代號', '對接品名', '判定', '判定日期', '來源'] as const;
 export const VERDICTS = ['自動明確', '人工確認', '無健保碼'] as const;
 export type Verdict = typeof VERDICTS[number];

@@ -163,9 +163,15 @@ function finishScan(moveFocus = true) {
   const text = value.replace(/[\r\n]+$/, '');
   if (mode === 'slip') {
     date.value = '';
-    try { status.textContent = addPrescription(parsePrescriptionSlip(text)); }
+    let next: HTMLElement | undefined;
+    try {
+      const added = addPrescription(parsePrescriptionSlip(text));
+      status.textContent = added.message;
+      next = added.focus;
+    }
     catch (error) { status.textContent = `${(error as Error).message} 請重新掃碼。`; }
-    if (moveFocus) date.focus();
+    // An added prescription goes on to its refill count; a rejected or repeated scan stays here for the next try.
+    if (moveFocus) (next ?? date).focus();
     return;
   }
   date.value = '';

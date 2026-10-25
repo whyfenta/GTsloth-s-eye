@@ -1,15 +1,17 @@
-import { taiwanToday } from './arithmetic-model';
-import { decodeCsv } from './csv';
+import { addDays, taiwanToday, type DateRange } from './arithmetic-model';
 import { loadRoster, ROSTER_SOURCE, unknownInstitution } from './institutions';
 import type { SlipQR } from './prescription-qr';
-import { buildSlip, prescriptionAhead, productIndex, MISSING_ROWS, type MissingItem, type Product, type SlipEntry, type Trip } from './slip-model';
+import { loadProducts } from './products';
+import { buildSlip, planSlip, prescriptionAhead, MISSING_ROWS, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
-import { readMap } from './sku-map';
 
 // Every scanned prescription joins the slip; identifying fields live only in these objects and the inputs below.
-// products: the 六碼 the loaded map gives the 健保碼; product: the one on the slip, chosen when there are several.
+// products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
-interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement; drugList: HTMLFieldSetElement }
+interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+  drugList: HTMLFieldSetElement; counts: HTMLInputElement[]; visits: HTMLInputElement[] }
+type Row = 'second' | 'third';
+interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const panel = element('slip-panel');
 const body = element('slip-body');
@@ -24,17 +26,22 @@ const staff = element<HTMLInputElement>('slip-staff');
 const sms = element<HTMLInputElement>('slip-sms');
 const call = element<HTMLInputElement>('slip-call');
 const note = element<HTMLTextAreaElement>('slip-note');
-const mapFile = element<HTMLInputElement>('slip-map-file');
-const mapStatus = element('slip-map-status');
+const tripBox = element('slip-trips');
+const scanField = element<HTMLInputElement>('prescription-date');
 let items: Item[] = [];
-/** sku-nhi-map.csv is private, so the site never ships it: the user picks a copy, which stays in page memory only. */
+/** 健保碼 → 六碼, loaded on the first scan. */
 let catalog: Map<string, Product[]> | undefined;
+/** The calculated trips, and dates agreed with the patient in their place; base is the window they replaced. */
+let plan: SlipPlan | undefined;
+let agreed: Partial<Record<Row, { base: Trip; range: DateRange }>> = {};
+/** A scanner may end a code with two Enters; the second must not confirm the default refill count. */
+let scannedAt = 0;
 /** After printing, the next scan starts a new slip so two patients are never merged by accident. */
 let printed = false;
 
 const fullDate = (value: string) => value.replaceAll('-', '/');
 const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}`;
-const tripText = (value: Trip) => `${monthDay(value.start)}～${monthDay(value.end)} x${value.prescriptions}`;
+const sameTrip = (a: Trip, b: Trip) => a.start === b.start && a.end === b.end && a.prescriptions === b.prescriptions;
 function make<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -52,14 +59,42 @@ function textInput(value: string, placeholder = '', onInput?: (value: string) =>
   if (onInput) input.addEventListener('input', () => onInput(input.value));
   return input;
 }
-function choice(options: [string, string][], onChange: (value: number | undefined) => void): HTMLSelectElement {
-  const select = make('select');
-  for (const [value, text] of options) select.add(new Option(text, value));
-  select.addEventListener('change', () => onChange(Number(select.value) || undefined));
-  return select;
+let serial = 0;
+/** One row of radio buttons: the arrow keys move the choice (the browser's own radio behaviour), Enter confirms it. */
+function segmented(caption: string, options: [number, string][], onChange: (value: number) => void, onEnter: () => void) {
+  const group = make('div', 'slip-choice');
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', caption);
+  const name = `slip-choice-${++serial}`;
+  const radios = options.map(([value, text]) => {
+    const radio = make('input');
+    radio.type = 'radio'; radio.name = name; radio.value = String(value);
+    // 'input' runs before the panel re-renders on the same event; on 'change' the re-render would undo the choice.
+    radio.addEventListener('input', () => { if (radio.checked) onChange(value); });
+    radio.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); onEnter(); } });
+    const option = make('label');
+    option.append(radio, make('span', '', text));
+    group.append(option);
+    return radio;
+  });
+  const field = make('div', 'slip-field');
+  field.append(make('span', 'slip-field-label', caption), group);
+  return { field, radios };
 }
+const focusChoice = (radios: HTMLInputElement[]) => (radios.find(radio => radio.checked && !radio.disabled) ?? radios[0]).focus();
 
 function describe(item: Item) {
+  // Until a visit is picked the row shows the one inferred from today; a prescription of two has no third visit.
+  if (item.count === 2 && item.visit === 3) item.visit = undefined;
+  let inferred: number | undefined;
+  try { inferred = prescriptionAhead({ ...item, visit: undefined }, taiwanToday()).visit; } catch { /* Shown below. */ }
+  item.counts.forEach(radio => { radio.checked = Number(radio.value) === item.count; });
+  item.visits.forEach((radio, index) => {
+    const visit = index + 1;
+    radio.disabled = visit > (item.count ?? 3);
+    radio.checked = visit === (item.visit ?? inferred);
+    radio.nextElementSibling!.replaceChildren(`第 ${visit} 次`, ...visit === inferred ? [make('small', '', '推算')] : []);
+  });
   item.state.dataset.state = '';
   if (!item.count) { item.state.textContent = '請選擇可調劑次數；QR 不含此資料。'; return; }
   try {
@@ -84,7 +119,74 @@ function missingItems(): MissingItem[] {
   return [...fromQR, ...typed];
 }
 function slipData() {
-  return buildSlip(items, { phone: phone.value.trim(), sms: sms.checked, call: call.checked, note: note.value.trim(), staff: staff.value.trim(), missing: missingItems() }, taiwanToday());
+  return buildSlip(items, { phone: phone.value.trim(), sms: sms.checked, call: call.checked, note: note.value.trim(), staff: staff.value.trim(), missing: missingItems(),
+    trips: { second: agreed.second?.range, third: agreed.third?.range } }, taiwanToday());
+}
+
+function setAgreed(row: Row, side: keyof DateRange, value: string) {
+  const computed = plan?.[row];
+  if (!computed || !value) return; // A date being typed is empty until it is complete.
+  const range = { ...(agreed[row]?.range ?? { start: computed.start, end: computed.end }), [side]: value };
+  if (range.start === computed.start && range.end === computed.end) delete agreed[row];
+  else agreed[row] = { base: computed, range };
+}
+/** Up / → move the date a day later, down / ← a day earlier; Enter goes to the next date, then to the phone number. */
+function dateInput(row: Row, side: keyof DateRange, label: string): HTMLInputElement {
+  const input = make('input');
+  input.type = 'date';
+  input.setAttribute('aria-label', label);
+  input.addEventListener('input', () => setAgreed(row, side, input.value));
+  input.addEventListener('keydown', event => {
+    const step = ({ ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 } as Record<string, number>)[event.key];
+    if (step && input.value) {
+      event.preventDefault();
+      const next = addDays(input.value, step);
+      if (next < input.min || next > input.max) return;
+      input.value = next;
+      setAgreed(row, side, next);
+      update();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const fields = tripRows.filter(trip => !trip.element.hidden).flatMap(trip => [trip.start, trip.end]);
+      (fields[fields.indexOf(input) + 1] ?? phone).focus();
+    }
+  });
+  return input;
+}
+const tripRows: TripRow[] = ([['second', '第二次'], ['third', '第三次']] as const).map(([row, label]) => {
+  const element = make('div', 'slip-trip');
+  const start = dateInput(row, 'start', `${label}預計領藥日起日`), end = dateInput(row, 'end', `${label}預計領藥日訖日`);
+  const reset = make('button', '', '還原計算值');
+  reset.type = 'button';
+  reset.addEventListener('click', () => { delete agreed[row]; update(); });
+  const count = make('span', 'slip-trip-count'), hint = make('span', 'hint');
+  element.append(make('span', 'slip-trip-label', label), start, make('span', '', '～'), end, count, reset, hint);
+  tripBox.append(element);
+  return { row, element, start, end, count, reset, hint };
+});
+/** Dates agreed for a window that has since been recalculated (another scan, a changed count) no longer apply. */
+function showTrips() {
+  const today = taiwanToday();
+  for (const { row, element, start, end, count, reset, hint } of tripRows) {
+    const computed = plan?.[row];
+    const kept = agreed[row];
+    if (kept && !(computed && sameTrip(kept.base, computed))) {
+      delete agreed[row];
+      status.textContent = '處方內容改變，預計領藥日已改回新的計算值。';
+    }
+    element.hidden = !computed;
+    if (!plan || !computed) continue;
+    const range = agreed[row]?.range ?? computed;
+    for (const [input, value] of [[start, range.start], [end, range.end]] as const) {
+      input.min = computed.start < today ? computed.start : today;
+      input.max = plan.validUntil;
+      if (input.value !== value && !(document.activeElement === input && !input.value)) input.value = value;
+    }
+    count.textContent = `x${computed.prescriptions}`;
+    reset.hidden = !agreed[row];
+    hint.textContent = agreed[row] ? `計算值 ${monthDay(computed.start)}～${monthDay(computed.end)}` : '';
+  }
+  tripBox.hidden = tripRows.every(trip => trip.element.hidden);
 }
 /** The preview shows what will print, or the first reason it cannot. */
 function update() {
@@ -92,12 +194,12 @@ function update() {
   body.hidden = !items.length;
   empty.hidden = !!items.length;
   preview.replaceChildren();
+  try { plan = items.length ? planSlip(items, taiwanToday()) : undefined; } catch { plan = undefined; } // The preview below says why.
+  showTrips();
   if (!items.length) return;
   try {
     const data = slipData();
     const lines = [
-      data.second ? `第二次預計領藥日 ${tripText(data.second)}` : '',
-      data.third ? `第三次預計領藥日 ${tripText(data.third)}` : '',
       !data.second && !data.third ? '沒有下次領藥區間，預計領藥日留白。' : '',
       `領藥最終有效時間 ${fullDate(data.validUntil)}`,
       data.names.includes('、') ? `合併病人：${data.names}` : '',
@@ -166,11 +268,14 @@ function fillItem(item: Item) {
   const fields = make('div', 'slip-item-fields');
   const hospital = textInput(item.hospital, '查詢醫院名冊中…', value => { item.hospital = value; });
   hospital.dataset.role = 'hospital';
+  // Scan → refill count (2 by default) → visit (inferred by default) → back to the scan field for the next prescription.
+  const count = segmented('可調劑次數', [[2, '2 次'], [3, '3 次']], value => { item.count = value; },
+    () => { if (performance.now() - scannedAt > 300) focusChoice(item.visits); });
+  const visit = segmented('本次第幾次', [[1, '第 1 次'], [2, '第 2 次'], [3, '第 3 次']], value => { item.visit = value; }, () => scanField.focus());
+  item.counts = count.radios; item.visits = visit.radios;
   fields.append(
     labelled('姓名', textInput(item.name, '', value => { item.name = value.trim(); })),
-    labelled('醫院名稱', hospital),
-    labelled('可調劑次數', choice([['', '請選擇'], ['2', '2 次'], ['3', '3 次']], value => { item.count = value; })),
-    labelled('本次第幾次', choice([['', '依今日判斷'], ['1', '第 1 次'], ['2', '第 2 次'], ['3', '第 3 次']], value => { item.visit = value; })));
+    labelled('醫院名稱', hospital), count.field, visit.field);
   listDrugs(item);
   li.append(head, fields, item.hospitalNote, item.state, item.drugList);
 }
@@ -209,50 +314,42 @@ export function clearSlip() {
   printed = false;
   list.replaceChildren();
   others.replaceChildren(otherRow());
+  agreed = {};
   for (const input of [phone, note]) input.value = '';
   sms.checked = call.checked = false;
   status.textContent = '';
   update(); // 承辦人員 stays for the next patient; it is not patient data.
 }
-/** Adds a scanned prescription and returns the message for the scan field. */
-export function addPrescription(qr: SlipQR): string {
+/** Adds a scanned prescription; returns the message for the scan field and, when added, the control to type into next. */
+export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElement } {
   const restarted = printed;
   if (printed) clearSlip();
   status.textContent = '';
   const key = [qr.institution, qr.idNumber, qr.name, qr.date, qr.days, ...qr.drugs.map(drug => drug.code)].join('|');
   const existing = items.findIndex(item => item.key === key);
-  if (existing >= 0) return `這張處方已在憑單第 ${existing + 1} 張，不重複加入。`;
+  if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
-  const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
+  const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
     drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })),
-    element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'), drugList: make('fieldset', 'slip-drugs') };
+    element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
+    drugList: make('fieldset', 'slip-drugs'), counts: [], visits: [] };
   item.drugs.forEach(identify);
   fillItem(item);
   items.push(item);
   list.append(item.element);
   lookup(item);
+  if (!catalog) loadProducts().then(loaded => {
+    if (catalog) return;
+    catalog = loaded.index;
+    for (const other of items) { other.drugs.forEach(identify); listDrugs(other); }
+    update();
+  }).catch((error: Error) => { status.textContent = error.message; });
   update();
-  return `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}，請在憑單選擇可調劑次數。`
-    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。');
+  scannedAt = performance.now();
+  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 2 次、本次第幾次依日期推算：以方向鍵選擇，Enter 確認後回到掃碼欄。`
+    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), focus: item.counts.find(radio => radio.checked) };
 }
 
-element('slip-map-load').addEventListener('click', () => mapFile.click());
-mapFile.addEventListener('change', async () => {
-  const file = mapFile.files?.[0];
-  if (!file) return;
-  try {
-    const map = readMap(decodeCsv(new Uint8Array(await file.arrayBuffer())));
-    catalog = productIndex(map.values());
-    const skus = [...catalog.values()].reduce((sum, products) => sum + products.length, 0);
-    mapStatus.textContent = `已載入 ${file.name}：${catalog.size.toLocaleString()} 個健保碼對到 ${skus.toLocaleString()} 個六碼，對得到的藥品以六碼＋品名顯示與列印。對照檔只留在本頁記憶體，關閉頁面即清除。`;
-    for (const item of items) { item.drugs.forEach(identify); listDrugs(item); }
-    update();
-  } catch (error) {
-    // A wrong file can have thousands of problems; the first few say enough.
-    const reason = (error as Error).message.split('\n').slice(0, 4).map(line => line.trim()).join(' ');
-    mapStatus.textContent = `無法載入 ${file.name}：${reason}${catalog ? ' 仍使用先前載入的對照檔。' : ''}`;
-  } finally { mapFile.value = ''; } // Picking the same file again reloads it.
-});
 panel.addEventListener('input', update);
 panel.addEventListener('change', update);
 element('slip-clear').addEventListener('click', clearSlip);

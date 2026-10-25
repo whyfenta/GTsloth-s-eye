@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { buildSlip, planSlip, prescriptionAhead, productIndex, type SlipEntry, type SlipForm } from '../src/slip-model';
 import { readMap, type MapEntry } from '../src/sku-map';
 import { csvRows, rosterNames } from '../scripts/roster';
@@ -71,6 +72,20 @@ const item = { code: 'TESTCODE01', name: '', quantity: '28', note: '' };
 assert.throws(() => buildSlip([entry()], { ...form, missing: Array(5).fill(item) }, '2026-10-15'), /最多 4 列/);
 console.log('pickup slip trips, shared windows, rows and people passed');
 
+// Dates agreed with the patient replace a calculated window (third 11/09～11/18, 有效 12/16) and are noted on screen.
+const agreedSlip = (third: { start: string; end: string }) => buildSlip([entry()], { ...form, trips: { third } }, '2026-10-15');
+slip = agreedSlip({ start: '2026-11-12', end: '2026-11-14' });
+assert.deepEqual(slip.third, { start: '2026-11-12', end: '2026-11-14', prescriptions: 1 });
+assert.deepEqual(slip.notes, ['第三次預計領藥日依約定改為 11/12～11/14（計算區間 11/9～11/18）。']);
+assert.match(agreedSlip({ start: '2026-11-20', end: '2026-11-22' }).notes[0], /超出計算區間，請確認符合領藥規定/);
+assert.deepEqual(agreedSlip({ start: '2026-11-09', end: '2026-11-18' }).notes, [], 'the calculated window itself is not an agreement');
+assert.throws(() => agreedSlip({ start: '2026-11-14', end: '2026-11-12' }), /第三次預計領藥日的起日不能晚於訖日/);
+assert.throws(() => agreedSlip({ start: '2026-12-10', end: '2026-12-17' }), /不能晚於領藥最終有效時間 2026\/12\/16/);
+assert.throws(() => agreedSlip({ start: '2026-10-14', end: '2026-11-12' }), /不能早於今天/);
+slip = buildSlip([entry()], { ...form, trips: { second: { start: '2026-11-01', end: '2026-11-02' } } }, '2026-10-15');
+assert.equal(slip.second, undefined, 'a row the plan does not have stays blank');
+console.log('pickup slip agreed dates passed');
+
 // 尚差藥品 from the map (synthetic 六碼): one 健保碼 can have several packs, listed by 六碼; the name drops the package spec
 // so it fits the slip, full keeps it to tell the packs apart; 無健保碼 rows map from nothing.
 const mapped = (sku: string, code: string, key: string): MapEntry => ({ sku, code, key, verdict: code ? '自動明確' : '無健保碼', date: '2026-10-25', source: '測試' });
@@ -84,6 +99,13 @@ const sheet = '六碼,健保藥品代號,對接品名,判定,判定日期,來源
 assert.deepEqual(productIndex(readMap(sheet + '9001,ac47341100,"100粒/盒(10粒/排)MELSTATIN美脂利錠20MG",自動明確,2026/10/25,測試\n').values()).get('AC47341100'),
   [{ sku: '009001', name: 'MELSTATIN美脂利錠20MG', full: '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG' }]);
 assert.throws(() => readMap('醫事機構代碼,醫事機構名稱\n'), /對照檔欄位應為/);
+// The published lookup holds 健保碼 → [六碼, 對接品名] only: no 判定, dates or 來源 (store names) from the private map.
+const published = JSON.parse(readFileSync('public/assets/nhi/products.json', 'utf8')) as { count: number; products: Record<string, [string, string][]> };
+const rows = Object.entries(published.products);
+assert.ok(rows.length > 1000 && rows.every(([code, list]) => /^[A-Z0-9]{10}$/.test(code) && list.length > 0
+  && list.every(row => row.length === 2 && /^\d{6}$/.test(row[0]) && row[1].trim() !== '') && list.every((row, i) => !i || list[i - 1][0] < row[0])));
+assert.equal(rows.reduce((sum, [, list]) => sum + list.length, 0), published.count);
+assert.deepEqual(Object.keys(published).sort(), ['count', 'dataDate', 'products', 'source', 'sourceSha256']);
 console.log('pickup slip products from the map passed');
 
 // Roster CSV: quoted fields, restored leading zeros, unrecoverable spreadsheet codes skipped, other kinds ignored.
