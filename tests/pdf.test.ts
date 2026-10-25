@@ -24,7 +24,7 @@ test('old source dates warn only on the first PDF page, preserving all rows and 
   }
   assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),rows(21).map(row=>row.sku));
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const doc=await pdfjs.getDocument({data:result.bytes.slice(),isEvalSupported:false,verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
+  const doc=await pdfjs.getDocument({data:result.bytes.slice(),verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
   try{
     for(let n=1;n<=doc.numPages;n++){
       const page=await doc.getPage(n);const content=await page.getTextContent();
@@ -39,7 +39,7 @@ test('old source dates warn only on the first PDF page, preserving all rows and 
       assert.ok(warningLines.length>=2,'stale warning and unreadable-date reminder use separate lines');
       assert.ok(Math.min(...warningLines.map(item=>item.transform[5]))>header.transform[5]+9,'warning does not overlap the header');
     }
-  }finally{await doc.destroy();}
+  }finally{await doc.loadingTask.destroy();}
 });
 test('a source only two days old keeps the ordinary 11-row layout with no warning',async()=>{
   const warning=inventoryWarning([{printed:{y:2026,m:10,d:19}}],{y:2026,m:10,d:21});
@@ -66,7 +66,7 @@ test('the requested ten-day warning fits one bold line inside the printable widt
   assert.equal(warning,'【提示】來源最早列印於 2026/10/11（距今 10 日）；庫存可能與現況不符，建議重新列印簡表再輸入。');
   const result=await generatePDF(rows(21),{storeName:'測試門市',sortMode:'sku',rowHeight:22.6,warning},font);
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const doc=await pdfjs.getDocument({data:result.bytes.slice(),isEvalSupported:false,verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
+  const doc=await pdfjs.getDocument({data:result.bytes.slice(),verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
   try{
     const page=await doc.getPage(1);const content=await page.getTextContent();
     const text=content.items.flatMap(item=>'str' in item?[item]:[]);
@@ -80,5 +80,5 @@ test('the requested ten-day warning fits one bold line inside the printable widt
     const ops=await page.getOperatorList();
     assert.ok(ops.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&ops.argsArray[i][0]===2));
     for(let n=2;n<=doc.numPages;n++)assert.ok(!(await (await doc.getPage(n)).getTextContent()).items.some(item=>'str' in item&&item.str.includes('【提示】')));
-  }finally{await doc.destroy();}
+  }finally{await doc.loadingTask.destroy();}
 });

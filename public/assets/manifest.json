@@ -1289,8 +1289,8 @@
     {
       "path": "pdfjs/standard_fonts/LICENSE_LIBERATION",
       "source": "pdfjs-dist/standard_fonts/LICENSE_LIBERATION",
-      "bytes": 4414,
-      "sha256": "93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b"
+      "bytes": 22154,
+      "sha256": "d2c4d5b3e115a519cb58eb691aa64538397e2611f9ebe801392cf9667997e7dc"
     },
     {
       "path": "tessdata/chi_tra.traineddata.gz",

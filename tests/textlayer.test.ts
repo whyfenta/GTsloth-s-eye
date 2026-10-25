@@ -63,7 +63,7 @@ test('pages with images (scans, incl. hidden scanner OCR) or without a table fal
 async function readPages(file:string){
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const images=new Set([pdfjs.OPS.paintImageXObject,pdfjs.OPS.paintInlineImageXObject,pdfjs.OPS.paintImageMaskXObject]);
-  const doc=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(file)),isEvalSupported:false,verbosity:0}).promise;const pages:TextPage[]=[];
+  const doc=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync(file)),verbosity:0}).promise;const pages:TextPage[]=[];
   for(let n=1;n<=doc.numPages;n++){const page=await doc.getPage(n);const vp=page.getViewport({scale:300/72});const ops=await page.getOperatorList();const content=await page.getTextContent();
     pages.push({viewport:vp.transform,width:Math.ceil(vp.width),height:Math.ceil(vp.height),hasImages:ops.fnArray.some(f=>images.has(f)),items:content.items.flatMap((i:any)=>'str' in i?[{str:i.str,transform:i.transform,width:i.width}]:[])});}
   return pages;

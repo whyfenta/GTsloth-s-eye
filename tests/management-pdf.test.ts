@@ -53,7 +53,7 @@ test('stale warnings are enlarged and bold on the first page, above the table',a
   for(const [i,page] of pages.entries())assert.equal(page.text.includes('【警語】'),i===0);
   assert.deepEqual(pages.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),rows.map(r=>r[0]));
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const doc=await pdfjs.getDocument({data:result.bytes.slice(),isEvalSupported:false,verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
+  const doc=await pdfjs.getDocument({data:result.bytes.slice(),verbosity:0,cMapUrl:'node_modules/pdfjs-dist/cmaps/',cMapPacked:true}).promise;
   try{
     const page=await doc.getPage(1);const content=await page.getTextContent();
     const text=content.items.flatMap(item=>'str' in item?[item]:[]);
@@ -62,5 +62,5 @@ test('stale warnings are enlarged and bold on the first page, above the table',a
     assert.ok(Math.abs(start.transform[0]-11.5)<.01);
     assert.ok(start.transform[5]>header.transform[5]+11.5);
     const ops=await page.getOperatorList();assert.ok(ops.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&ops.argsArray[i][0]===2));
-  }finally{await doc.destroy();}
+  }finally{await doc.loadingTask.destroy();}
 });

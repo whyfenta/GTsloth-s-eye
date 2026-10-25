@@ -117,7 +117,7 @@ A4 210 × 297 mm、留白 10 mm；五欄寬 40 / 60 / 22 / 25 / 43 mm。表格�
 
 ## 開發與重現
 
-Node.js 22.12+；`npm ci`、`npm test`、`npm run build`、`npm run dev`。
+Node.js 22.13+；`npm ci`、`npm test`、`npm run build`、`npm run dev`。
 
 先執行 `npm run audit:source` 檢查 tracked source、敏感路徑、憑證模式與公開依賴 SHA-256，再執行測試、建置及 `npm run audit:dist`。`.gitattributes` 固定程式的 LF 換行；公開依賴以原始 bytes 保存，確保 Windows/Linux 的資源雜湊一致。
 
