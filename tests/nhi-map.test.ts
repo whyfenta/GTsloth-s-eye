@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {loadNhi,match,rocDay,rocLabel,status,statusLabel,storeName} from '../scripts/nhi-match';
-import {applyReview,csvText,decodeCsv,lookup,mapText,marksOf,paidSiblings,readMap,REVIEW_COLUMNS,type MapEntry} from '../scripts/sku-map';
+import {applyReview,csvText,decodeCsv,lookup,mapText,marksOf,paidSiblings,publicPathProblem,readMap,REVIEW_COLUMNS,type MapEntry} from '../scripts/sku-map';
+import path from 'node:path';
 import {parsePage,type ParsedPage} from '../src/management-parser';
 import type {TextPage} from '../src/textlayer';
 
@@ -109,9 +110,18 @@ test('a filled-in review sheet becomes 人工確認 / 無健保碼, all or nothi
   assert.equal(marksOf('換包自費C-(停產)100粒/盒某藥錠'),'自費、停產');
 });
 
-test('the committed map is well-formed and every 健保碼 in it is in the NHI file',()=>{
-  const real=loadNhi(fs.readFileSync('docs/reference/nhi-drug-codes.csv','utf8'));
-  const map=readMap(fs.readFileSync('docs/reference/sku-nhi-map.csv','utf8'));
+test('the map stays out of this public repository',()=>{
+  const root=process.cwd();
+  assert.equal(publicPathProblem(root,path.resolve(root,'..','GTsloth-map','sku-nhi-map.csv')),undefined,'a sibling private repository');
+  assert.equal(publicPathProblem(root,path.resolve(root,'docs','reference','sku-nhi-map.csv')),undefined,'ignored by sku-nhi-map*.csv');
+  assert.equal(publicPathProblem(root,path.resolve(root,'output','map.csv')),undefined,'ignored by output/');
+  assert.match(publicPathProblem(root,path.resolve(root,'docs','reference','map.csv'))??'',/commit 後就會公開/);
+});
+
+// The map lives in a private repository: set SKU_NHI_MAP to its sku-nhi-map.csv to check it against the NHI file.
+test('the private map is well-formed and every 健保碼 in it is in the NHI file',t=>{
+  const file=process.env.SKU_NHI_MAP;if(!file||!fs.existsSync(file))return t.skip('Set SKU_NHI_MAP to the private sku-nhi-map.csv.');
+  const real=loadNhi(fs.readFileSync('docs/reference/nhi-drug-codes.csv','utf8'));const map=readMap(fs.readFileSync(file,'utf8'));
   for(const e of map.values())if(e.code)assert.ok(real.codes.has(e.code),`${e.sku} ${e.code}`);
 });
 

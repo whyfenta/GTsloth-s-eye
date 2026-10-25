@@ -1,8 +1,24 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { licence, match, status, storeName, MATCH_LABEL, type Match, type Nhi, type RocDay } from './nhi-match';
 import { csvRows } from './roster';
 
-// 商品代號對照檔 docs/reference/sku-nhi-map.csv: read, check and write it, look a 庫存簡表 up in it (查表), and take a
-// person's decisions back from the review sheet. Format and workflow: docs/reference/sku-nhi-map.md.
+// 商品代號對照檔 sku-nhi-map.csv, kept in a separate private repository: read, check and write it, look a 庫存簡表 up
+// in it (查表), and take a person's decisions back from the review sheet. Format and workflow: docs/reference/sku-nhi-map.md.
+
+/**
+ * This repository is public, so the map may sit inside it only where Git ignores it (sku-nhi-map*.csv, output/).
+ * Returns why `file` is refused, or undefined. Outside the repository, or without Git, nothing is checked.
+ */
+export function publicPathProblem(root: string, file: string): string | undefined {
+  const relative = path.relative(root, file);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return undefined;
+  try { execFileSync('git', ['check-ignore', '-q', '--', relative.split(path.sep).join('/')], { cwd: root, stdio: 'ignore' }); return undefined; }
+  catch (error) {
+    if ((error as { status?: number }).status !== 1) return undefined;
+    return `對照檔 ${relative} 在公開的 GTsloth-s-eye repo 內，且 Git 沒有排除它，commit 後就會公開；請放在另一個 private repo，例如 ../GTsloth-map/sku-nhi-map.csv。`;
+  }
+}
 
 export const MAP_COLUMNS = ['六碼', '健保藥品代號', '對接品名', '判定', '判定日期', '來源'] as const;
 export const VERDICTS = ['自動明確', '人工確認', '無健保碼'] as const;

@@ -3,8 +3,8 @@ import { csvRows } from './roster';
 
 // 商品代號（六碼）對健保藥品代號：讀健保用藥品項精簡檔、解析庫存簡表品名、以名稱比對候選健保碼。
 // Used by scripts/nhi-map.ts; the website loads none of this. The report carries no 健保碼 and its 國際條碼 are not in
-// the NHI file, so names are the only link. A 六碼 settled once goes into docs/reference/sku-nhi-map.csv (nhi-map.ts)
-// and later reports look it up there instead of matching again.
+// the NHI file, so names are the only link. A 六碼 settled once goes into the 商品代號對照檔 (sku-map.ts, kept in a private
+// repository) and later reports look it up there instead of matching again.
 
 /** ROC date as the NHI file prints it, YYYMMDD: 1151025 is 2026-10-25. */
 export type RocDay = string;

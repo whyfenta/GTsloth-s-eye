@@ -1,6 +1,12 @@
 # 商品代號對照檔
 
-檔案：[`sku-nhi-map.csv`](sku-nhi-map.csv)。UTF-8（含 BOM），6 欄，一個六碼一列，依六碼排序。目前只有表頭。
+檔案：`sku-nhi-map.csv`，放在**另一個 private repo**（例如 `whyfenta/GTsloth-map`），不放在這個公開 repo，因為它記錄整個商品檔的六碼與品名。UTF-8（含 BOM），6 欄，一個六碼一列，依六碼排序。
+
+這個 repo 只放格式說明與工具，並用三道關卡防止對照檔被公開：
+
+- `.gitignore` 排除 `sku-nhi-map*.csv`。
+- `npm run audit:source` 會擋下被強制加入（`git add -f`）的對照檔，CI 因此變紅。
+- `npm run nhi-map` 拒絕使用位在本 repo 內、又沒被 Git 排除的對照檔。
 
 用途：記錄門市商品代號（六碼，全門市共用）對到的健保藥品代號。庫存簡表沒有健保碼欄位，國際條碼也不在健保檔中，兩邊只能用名稱比對。同一個六碼確認過一次後，之後各門市的庫存簡表都直接查表，只有新的六碼或品名改變的六碼才重新比對。網站程式不讀取這個檔案。
 
@@ -21,9 +27,35 @@
 - 同一藥品的 00 與 G0 碼要依六碼的包裝選。
 - 健保檔更新時是整份換新。
 
+## 設定
+
+1. 在 GitHub 建立 private repo（例如 `GTsloth-map`），clone 到這個 repo 旁邊：
+
+   ```
+   GTsloth-s-eye/    ← 這個公開 repo（程式）
+   GTsloth-map/      ← private repo，放 sku-nhi-map.csv
+   ```
+
+2. 每次執行用 `--map` 指定對照檔，或先設定環境變數 `SKU_NHI_MAP`，之後就不必每次指定：
+
+   ```
+   npm run nhi-map -- --map ../GTsloth-map/sku-nhi-map.csv 庫存簡表.pdf
+   ```
+
+   - macOS／Linux：`export SKU_NHI_MAP=../GTsloth-map/sku-nhi-map.csv`
+   - Windows PowerShell：`$env:SKU_NHI_MAP = "..\GTsloth-map\sku-nhi-map.csv"`
+
+   兩者都有時以 `--map` 為準；都沒有時程式不執行。相對路徑以這個 repo 的根目錄為準（`npm run` 在這裡執行）；找不到對照檔所在的資料夾時，程式提醒先 clone private repo。
+
+3. 對照檔還不存在時從空白開始，第一次 `--write` 或 `--apply` 時建立（含表頭）。每次寫入後到 `GTsloth-map` commit、push。
+
+4. 在 Claude 雲端工作階段使用時，工作階段也要能存取 `GTsloth-map`，即 Claude GitHub App 的存取範圍要包含這個 repo。
+
+5. 設定 `SKU_NHI_MAP` 後執行 `npm test`，會額外檢查對照檔格式，以及其中每個健保碼都在健保檔裡。沒設定時這項略過，CI 也不會讀到對照檔。
+
 ## 使用方式
 
-需要系統列印的文字 PDF 庫存簡表（與「樹懶的管理」相同的要求），可一次放多份；含零庫存列印的簡表涵蓋整個商品檔。
+需要系統列印的文字 PDF 庫存簡表（與「樹懶的管理」相同的要求），可一次放多份；含零庫存列印的簡表涵蓋整個商品檔。以下指令都假設已設定 `SKU_NHI_MAP`，否則請加上 `--map …`。
 
 ```
 npm run nhi-map -- 庫存簡表.pdf [更多庫存簡表.pdf …]
@@ -32,7 +64,7 @@ npm run nhi-map -- 庫存簡表.pdf [更多庫存簡表.pdf …]
 1. 每個六碼先查對照檔，查不到或品名改變才比對名稱。結果寫到 `output/nhi-map/`（Git 不追蹤）：
    - `<檔名>-查表.csv`：每個六碼的健保碼、英文名、中文名、指定日期的給付狀態與查表結果。
    - `<檔名>-待確認.csv`：需要人工判斷的六碼，附原因、品名標記（自費、停供等）、庫存量、目前對照與最多 5 個候選（代號｜英文名｜中文名｜劑型與規格量｜藥商｜給付狀態｜分數與依據）。
-2. 不加參數時不改對照檔。確認結果後加 `--write` 重跑，寫入新的自動明確與品名更新，再 commit `docs/reference/sku-nhi-map.csv`。
+2. 不加參數時不改對照檔。確認結果後加 `--write` 重跑，寫入新的自動明確與品名更新，再到 private repo commit 對照檔。
 3. 人工判斷：在待確認表的「採用」欄填健保藥品代號，或填 `無` 表示沒有健保碼，空白的列略過。接著執行：
 
    ```

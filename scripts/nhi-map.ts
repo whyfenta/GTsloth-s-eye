@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,21 +7,26 @@ import { SIX } from '../src/management-model';
 import { parseDay, today, type Day } from '../src/report-date';
 import type { TextPage } from '../src/textlayer';
 import { loadNhi, rocDay, status, statusLabel, type Candidate } from './nhi-match';
-import { applyReview, csvText, decodeCsv, lookup, mapText, marksOf, paidSiblings, readMap, REVIEW_COLUMNS, type MapEntry, type Outcome, type StoreItem } from './sku-map';
+import { applyReview, csvText, decodeCsv, lookup, mapText, marksOf, paidSiblings, publicPathProblem, readMap, REVIEW_COLUMNS, type MapEntry, type Outcome, type StoreItem } from './sku-map';
 
 // 商品代號對照：庫存簡表的每個六碼先查對照檔，新的或品名變更的六碼才以名稱比對健保碼。
-// Usage:
-//   npm run nhi-map -- 庫存簡表.pdf [更多庫存簡表.pdf …] [--write] [--date YYYY-MM-DD]
-//   npm run nhi-map -- --apply output/nhi-map/<檔名>-待確認.csv [--date YYYY-MM-DD]
-//   npm run nhi-map -- --check [--date YYYY-MM-DD]
-// Results go to output/nhi-map/, which Git ignores. Only --write and --apply change docs/reference/sku-nhi-map.csv.
-// --date: the day whose 給付 status counts (default today in Taiwan). See docs/reference/sku-nhi-map.md.
+// Usage (the map is sku-nhi-map.csv in a separate private repository; --map, or SKU_NHI_MAP in the environment):
+//   npm run nhi-map -- --map ../GTsloth-map/sku-nhi-map.csv 庫存簡表.pdf [更多庫存簡表.pdf …] [--write] [--date YYYY-MM-DD]
+//   npm run nhi-map -- --map … --apply output/nhi-map/<檔名>-待確認.csv [--date YYYY-MM-DD]
+//   npm run nhi-map -- --map … --check [--date YYYY-MM-DD]
+// Results go to output/nhi-map/, which Git ignores. Only --write and --apply change the map; a missing map starts empty
+// and is created then. --date: the day whose 給付 status counts (default today in Taiwan). See docs/reference/sku-nhi-map.md.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const reference = path.join(root, 'docs', 'reference'); const mapPath = path.join(reference, 'sku-nhi-map.csv');
+const reference = path.join(root, 'docs', 'reference');
 const out = path.join(root, 'output', 'nhi-map');
 const args = process.argv.slice(2);
 const option = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] ?? '' : undefined; };
 const flag = (name: string) => { const i = args.indexOf(name); if (i >= 0) args.splice(i, 1); return i >= 0; };
+const mapOption = option('--map') || process.env.SKU_NHI_MAP;
+if (!mapOption) throw new Error('請用 --map 或環境變數 SKU_NHI_MAP 指定對照檔，例如 --map ../GTsloth-map/sku-nhi-map.csv；對照檔放在另一個 private repo，見 docs/reference/sku-nhi-map.md。');
+const mapPath = path.resolve(mapOption);
+const placement = publicPathProblem(root, mapPath); if (placement) throw new Error(placement);
+if (!existsSync(path.dirname(mapPath))) throw new Error(`找不到對照檔的資料夾 ${path.dirname(mapPath)}；請先 clone 放對照檔的 private repo。`);
 const iso = (day: Day) => `${day.y}-${String(day.m).padStart(2, '0')}-${String(day.d).padStart(2, '0')}`;
 const date = option('--date') ?? iso(today());
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !parseDay(date)) throw new Error('--date 請用 YYYY-MM-DD');
@@ -29,9 +35,10 @@ if (!apply && !check && !args.length) throw new Error('請指定庫存簡表 PDF
 const day = rocDay(date);
 
 const nhi = loadNhi(await readFile(path.join(reference, 'nhi-drug-codes.csv'), 'utf8'));
-const map = readMap(await readFile(mapPath, 'utf8'));
+const map = existsSync(mapPath) ? readMap(await readFile(mapPath, 'utf8')) : new Map<string, MapEntry>();
+if (!existsSync(mapPath)) console.log(`對照檔 ${mapPath} 尚不存在，以空白對照檔開始；--write 或 --apply 時建立。`);
 await mkdir(out, { recursive: true });
-const saveMap = async () => { await writeFile(mapPath, mapText(map)); console.log(`已更新 ${path.relative(root, mapPath)}：共 ${map.size} 個六碼`); };
+const saveMap = async () => { await writeFile(mapPath, mapText(map)); console.log(`已更新 ${mapPath}：共 ${map.size} 個六碼；請到它所在的 private repo commit。`); };
 
 /** One candidate in a review cell: code first, so it can be copied into 採用. */
 const describe = (code: string, extra = '') => {
