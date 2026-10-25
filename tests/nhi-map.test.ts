@@ -21,6 +21,10 @@ const nhi=loadNhi(csvText([HEADER,
   row('A023308100','HI-BESTON 50MG S.C. TABLETS','愛－必賜康糖衣錠５０毫克','THIAMINE 50 MG+RIBOFLAVIN 1 MG','','','0','950203','9991231','台灣田邊','糖衣錠'),
   row('B017121417','DURATEARS STERILE OPH OINT','淚膜眼藥膏','PETROLATUM 1 GM','3.5','GM','67','1150401','1151031','愛爾康','點眼膏劑'),
   row('B017121417','DURATEARS STERILE OPH OINT','淚膜眼藥膏','PETROLATUM 1 GM','3.5','GM','0','1151101','9991231','愛爾康','點眼膏劑'),
+  row('AC14915329','FLUCORTONE OINTMENT "TAI YU"','膚露潤軟膏','FLUOCINOLONE 0.25 MG/GM','10','GM','40.5','1120401','9991231','台裕','軟膏劑'),
+  row('AC60272421','"Wu Fu" Latropine Eye Drops 0.01％','"五福"樂托品點眼液0.01％','ATROPINE SULFATE .1 MG/ML','5','ML','29.9','1120801','9991231','五福','點眼液劑'),
+  row('AC21491100','IZAN E.C. TABLETS 100MG (BROMELAIN) "LITA"','\'\'利達\'\'益腫腸溶錠100毫克（鳳梨酵素）','BROMELAIN 100 MG','','','1.5','1031001','9991231','利達','腸溶錠'),
+  row('AC27557500','STATIN VAGINAL TABLETS 100000 UNITS "STANDARD" (NYSTATIN)','"生達" 速淨陰道錠１０萬單位（耐絲菌素）','NYSTATIN 100000 U (UNIT)','','','5','1040401','9991231','生達','錠劑'),
 ]));
 const DAY='1151025';const TODAY='2026-10-25';
 const IWELL_BOX='C-1000粒/盒(10粒/排)IWELL宜胃錠(複方)';const IWELL_BOTTLE='C-1000粒/瓶IWELL宜胃錠(複方)';
@@ -63,6 +67,12 @@ test('name matching picks one paid code, or says why it cannot',()=>{
   assert.equal(pick('自費C-4粒/盒VIAGRA威而鋼膜衣錠100MG'),'none');
   assert.equal(pick('C-28粒/盒DIOVAN得安穩膜衣錠80MG[永信]'),'maker','the [廠牌] tag names another maker');
   const clear=match(nhi,IWELL_BOX,DAY);assert.equal(clear.candidates[0].code,'AC450311G0','the chosen code is listed first');
+  assert.equal(pick('C-FLUCORT膚潤康乳膏0.025% 10G(紅)(盒)'),'none','a shortened English name alone is not enough: FLUCORT is not FLUCORTONE');
+  assert.equal(pick('C-LATROPINE樂托品點眼液0.01% 5ML(盒)[五福]'),'AC60272421');
+  assert.equal(pick('自費C-Latropine樂托品點眼液單支裝0.01%(30支/盒)(藍)[五福]'),'none','a unit-dose vial never takes the bottle code');
+  assert.equal(pick('停供C-1000粒/瓶鳳梨酵素膜衣錠100MG(食品)[利達]'),'food','食品 have no 健保碼');
+  assert.equal(pick('C-100粒/盒(10粒/排)STATIN速淨陰道錠10萬單位'),'AC27557500','the 劑型 says 錠劑, the name says 陰道錠');
+  assert.deepEqual(storeName('冷藏C-6支/盒EPREX宜保利血注射液10000IU 4KIU/0.4ML').strengths.map(a=>[a.unit,a.value]),[['u',10000],['u/ml',10000],['u',4000]]);
 });
 
 const entry=(sku:string,code:string,key:string,verdict:MapEntry['verdict']='自動明確'):MapEntry=>({sku,code,key,verdict,date:'2026-10-01',source:'26北-永和福和店 2026-10-01 列印'});

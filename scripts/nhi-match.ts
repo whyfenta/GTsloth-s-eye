@@ -26,20 +26,27 @@ const MODS: [string, RegExp][] = [
   ['口溶', /口溶|口崩|口腔崩散|口頰溶|\b(?:ODT|OD|DISCMELT|ORODISPERSIBLE)\b|ORALLY DISINTEGRATING/i],
   ['腸溶', /腸溶|腸衣|\bENTERIC\b|GASTRO-RESISTANT/i], ['發泡', /發泡|\bEFFERVESCENT\b/i], ['咀嚼', /咀嚼|嚼錠|\bCHEWABLE\b/i], ['舌下', /舌下|\bSUBLINGUAL\b/i],
 ];
-const ROUTES: [string, RegExp][] = [['眼', /眼用|點眼|眼藥|眼膏|眼液|眼水/], ['鼻', /鼻用|點鼻|鼻噴|鼻腔/], ['耳', /耳用|點耳|耳滴/], ['陰道', /陰道/]];
-/** form: the dosage-form words only (the NHI 劑型, or a store name without its brand); text: the whole name for release words. */
-function formOf(form: string, text: string): Form {
+const ROUTES: [string, RegExp][] = [['眼', /眼用|點眼|眼藥|眼膏|眼液|眼水|眼科|眼軟膏/], ['鼻', /鼻用|點鼻|鼻噴|噴鼻|鼻腔/], ['耳', /耳用|點耳|耳滴/], ['陰道', /陰道|膣/]];
+/**
+ * form: the dosage-form words only (the NHI 劑型, or a store name without its brand); text: the whole name for release
+ * words; route: where to look for 點眼, 點耳 and the like (these compound words do not occur in brands).
+ */
+function formOf(form: string, text: string, route = form): Form {
   return { base: BASES.find(([, pattern]) => pattern.test(form))?.[0], topical: TOPICAL.find(([, pattern]) => pattern.test(form))?.[0],
-    mods: new Set(MODS.filter(([, pattern]) => pattern.test(form) || pattern.test(text)).map(([name]) => name)), route: ROUTES.find(([, pattern]) => pattern.test(form))?.[0] };
+    mods: new Set(MODS.filter(([, pattern]) => pattern.test(form) || pattern.test(text)).map(([name]) => name)), route: ROUTES.find(([, pattern]) => pattern.test(route))?.[0] };
 }
+// A unit-dose vial is another package than the bottle: 單支裝 never takes the code of a 5 ML bottle.
+const SINGLE = /單支|單劑量|SINGLE[- ]?DOSE|UNIT[- ]?DOSE|UNIDOSE|\bPF\b|PRESERVATIVE[- ]FREE/i;
+// 食品 are not drugs and have no 健保碼, whatever ingredient they share with one (鳳梨酵素).
+const FOOD = /食品/;
 // What is left of a Chinese name once the form words are cut off is the brand (力必平膜衣錠 → 力必平, 滅咳康複合膠囊 → 滅咳康).
-const FORM_WORDS = /持續|長效|緩釋|控釋|延釋|膜衣|糖衣|口溶|口崩|腸溶|發泡|咀嚼|舌下|軟膠囊|膠囊|微粒|錠|顆粒|粒劑|散劑|粉|乳膏|軟膏|藥膏|凝膠|乳霜|洗劑|眼用|點眼|眼液|眼水|眼藥|鼻用|點鼻|耳用|耳滴|無菌|單支|懸液|懸浮|懸乳|糖漿|內服|口服|液|乳劑|栓劑|噴霧|吸入|氣化|定量|注射|筆|貼片|片|複合|酊/;
+const FORM_WORDS = /持續|長效|緩釋|控釋|延釋|膜衣|糖衣|口溶|口崩|腸溶|發泡|咀嚼|舌下|軟膠囊|膠囊|微粒|錠|顆粒|粒劑|散劑|粉|乳膏|軟膏|藥膏|凝膠|乳霜|洗劑|眼用|點眼|眼液|眼水|眼藥|鼻用|點鼻|噴鼻|耳用|點耳|耳滴|陰道|膣|無菌|單支|懸液|懸浮|懸乳|糖漿|內服|口服|液|乳劑|栓劑|噴霧|吸入|氣化|定量|注射|筆|貼片|片|複合|酊/;
 
 /** A strength or package size in comparable units: mass in mg, concentrations (mg/mL, mg/g, %) as %, units as u. */
 export type Amount = { unit: 'mg' | '%' | 'u' | 'u/ml' | 'g' | 'ml' | 'dose'; value: number; loose?: boolean };
 const MASS: Record<string, number> = { MG: 1, 毫克: 1, 公絲: 1, MCG: 0.001, UG: 0.001, ΜG: 0.001, 微克: 0.001, 微公克: 0.001, G: 1000, GM: 1000, 公克: 1000 };
 const VOLUME = new Set(['ML', '毫升', '公撮']); const WEIGHT = new Set(['G', 'GM', '公克']);
-const AMOUNT = /(\d*\.?\d+(?:\s*\/\s*\d*\.?\d+)*)\s*(MCG|UG|ΜG|MG|GM|G|ML|IU|U|%|毫克|公絲|微公克|微克|公克|毫升|公撮|萬單位|DOSE)(?![A-Z])(?:\s*\/\s*(\d*\.?\d+)?\s*(ML|GM|G|DOSE|TAB|HR|PUFF|劑量|毫升|公撮|公克))?/gi;
+const AMOUNT = /(\d*\.?\d+(?:\s*\/\s*\d*\.?\d+)*)\s*(MCG|UG|ΜG|MG|GM|G|ML|KIU|IU|U|%|毫克|公絲|微公克|微克|公克|毫升|公撮|萬單位|DOSE)(?![A-Z])(?:\s*\/\s*(\d*\.?\d+)?\s*(ML|GM|G|DOSE|TAB|HR|PUFF|劑量|毫升|公撮|公克))?/gi;
 const round = (value: number) => Number(value.toPrecision(6));
 /**
  * Amounts printed in a name or 成分. grams: G without a denominator is a package size (5G cream, 2.5G sachet) rather
@@ -54,9 +61,14 @@ export function amountsOf(text: string, grams: boolean): { strengths: Amount[]; 
     values.forEach((value, i) => {
       const loose = i < values.length - 1 ? { loose: true } : {}; const mass = MASS[unit];
       if (unit === '%') strengths.push({ unit: '%', value: round(value), ...loose });
-      else if (unit === 'IU' || unit === 'U' || unit === '萬單位') {
-        const units = unit === '萬單位' ? value * 10000 : value;
-        strengths.push(per && VOLUME.has(per) ? { unit: 'u/ml', value: round(units / divisor), ...loose } : { unit: 'u', value: round(units), ...loose });
+      else if (unit === 'KIU' || unit === 'IU' || unit === 'U' || unit === '萬單位') {
+        const units = value * (unit === '萬單位' ? 10000 : unit === 'KIU' ? 1000 : 1);
+        if (!per || !VOLUME.has(per)) strengths.push({ unit: 'u', value: round(units), ...loose });
+        else {
+          strengths.push({ unit: 'u/ml', value: round(units / divisor), ...loose });
+          // 4KIU/0.4ML is a syringe holding 4,000 U in 0.4 mL.
+          if (perCount) { strengths.push({ unit: 'u', value: round(units), ...loose }); sizes.push({ unit: 'ml', value: round(divisor) }); }
+        }
       } else if (VOLUME.has(unit)) sizes.push({ unit: 'ml', value: round(value) });
       else if (unit === 'DOSE') sizes.push({ unit: 'dose', value: round(value) });
       else if (per && (VOLUME.has(per) || WEIGHT.has(per))) {
@@ -91,6 +103,7 @@ export type NhiCode = {
 };
 type Indexed = NhiCode & {
   words: string[]; joined: Set<string>; han: string; whole: string; feature: Form; strengths: Amount[]; named: Amount[]; numbers: Set<string>; pack?: Amount; parts: number;
+  single: boolean;
 };
 export type Nhi = { codes: Map<string, NhiCode>; byLicence: Map<string, NhiCode[]>; byWord: Map<string, Indexed[]>; sortedWords: string[]; byBigram: Map<string, Indexed[]> };
 const COLUMNS = ['藥品代號', '藥品英文名稱', '藥品中文名稱', '成分', '規格量', '規格單位', '支付價', '有效起日', '有效迄日', '藥商', '製造廠名稱', '劑型', '最後給付價', '最後給付迄日'];
@@ -127,7 +140,8 @@ function index(entry: NhiCode): Indexed {
   // "U-Ca", "HI-BESTON" and "(O.N.S.D.)" are one brand: runs of up to four words are also kept joined.
   const joined = new Set<string>();
   for (let i = 0; i < nameWords.length; i++) for (let n = 2; n <= 4 && i + n <= nameWords.length; n++) joined.add(nameWords.slice(i, i + n).join(''));
-  const feature = formOf(entry.form || entry.zh, `${entry.zh} ${entry.en}`);
+  // The 劑型 of a vaginal tablet may say only 錠劑; its name still says 陰道錠.
+  const feature = formOf(entry.form || entry.zh, `${entry.zh} ${entry.en}`, `${entry.form} ${entry.zh}`);
   const grams = feature.base !== 'tablet' && feature.base !== 'capsule';
   const named = [entry.en, entry.zh].flatMap(text => amountsOf(text, grams).strengths);
   const strengths = [...amountsOf(entry.ingredients, false).strengths, ...named];
@@ -137,7 +151,8 @@ function index(entry: NhiCode): Indexed {
   else if (value > 0 && CONTENT[unit]) strengths.push({ unit: CONTENT[unit][0], value: round(value * CONTENT[unit][1]) });
   const han = hanOnly(entry.zh);
   return { ...entry, words: nameWords, joined, han, whole: han.replace(UNIT_WORDS, ''), feature, strengths, named,
-    numbers: new Set([entry.en, entry.zh, entry.ingredients].flatMap(numbersOf)), pack, parts: entry.ingredients.split('+').filter(Boolean).length };
+    numbers: new Set([entry.en, entry.zh, entry.ingredients].flatMap(numbersOf)), pack, parts: entry.ingredients.split('+').filter(Boolean).length,
+    single: SINGLE.test(`${entry.form} ${entry.zh} ${entry.en}`.normalize('NFKC')) };
 }
 
 /** Same 藥證: the 1st and 3rd–8th characters agree (A045031100 and AC450311G0); the 2nd varies with the price history. */
@@ -163,7 +178,7 @@ export function statusLabel(entry: NhiCode | undefined, day: RocDay): string {
  */
 export type StoreName = {
   key: string; english: string[]; core: string; whole: string; form: Form; strengths: Amount[]; sizes: Amount[]; bare: string[];
-  maker?: string[]; compound: boolean; pack?: '00' | 'G0';
+  maker?: string[]; compound: boolean; pack?: '00' | 'G0'; single: boolean; food: boolean;
 };
 // Package spec of counted solids: per 盒 or with an inner (n粒/排) the blister code G0, per 瓶 the plain code 00.
 const COUNTED = /^\d+(?:\.\d+)?\s*(?:粒|錠|顆|片|丸)\s*[/／]{1,2}\s*(盒|瓶)/;
@@ -186,19 +201,21 @@ export function storeName(raw: string): StoreName {
   // A brand keeps its first two characters even when one is a form word (保栓通, 舒栓寧).
   const cut = han.slice(2).search(FORM_WORDS); const core = cut >= 0 ? han.slice(0, cut + 2) : han;
   const all = hanOnly(rest); const formWords = all.startsWith(core) ? all.slice(core.length) : all;
-  const form = formOf(formWords, `${rest} ${leading}`);
+  const form = formOf(formWords, `${rest} ${leading}`, all);
   const { strengths, sizes } = amountsOf(`${rest} ${packed}`, form.base !== 'tablet' && form.base !== 'capsule');
   // Numbers without a unit (使肺泰250優氟吸入劑) still have to appear in the candidate's name.
   const bare = numbersOf(rest.normalize('NFKC').toUpperCase().replace(AMOUNT, ' '));
-  return { key, english, core, whole: all.replace(UNIT_WORDS, ''), form, strengths, sizes, bare, maker: maker ? MAKER_ALIAS[maker] ?? [maker] : undefined, compound, pack };
+  const printed = normalizeOCR(raw);
+  return { key, english, core, whole: all.replace(UNIT_WORDS, ''), form, strengths, sizes, bare, maker: maker ? MAKER_ALIAS[maker] ?? [maker] : undefined, compound, pack,
+    single: SINGLE.test(printed), food: FOOD.test(printed) };
 }
 
 export type Candidate = { code: string; score: number; why: string[] };
 type Scored = Candidate & { entry: Indexed };
 /** clear: one paid 健保碼 was chosen. The others go to a person, with the best candidates. */
-export type Match = { kind: 'clear'; code: string; candidates: Candidate[] } | { kind: 'unpaid' | 'codes' | 'ambiguous' | 'maker' | 'none'; candidates: Candidate[] };
+export type Match = { kind: 'clear'; code: string; candidates: Candidate[] } | { kind: 'unpaid' | 'codes' | 'ambiguous' | 'maker' | 'food' | 'none'; candidates: Candidate[] };
 export const MATCH_LABEL: Record<Match['kind'], string> = {
-  clear: '明確', unpaid: '只對到未給付碼', codes: '同藥證多個現行碼', ambiguous: '多個候選', maker: '品名廠牌與健保檔不符', none: '找不到候選',
+  clear: '明確', unpaid: '只對到未給付碼', codes: '同藥證多個現行碼', ambiguous: '多個候選', maker: '品名廠牌與健保檔不符', food: '品名標示為食品', none: '找不到候選',
 };
 /** A product needs a brand or Chinese-name hit plus agreeing details (THRESHOLD), and every rival must trail by MARGIN. */
 const THRESHOLD = 5; const MARGIN = 2;
@@ -233,11 +250,14 @@ function score(entry: Indexed, name: StoreName): Scored | undefined {
     total += name.core.length >= 3 ? 3 : 2; why.push('中文名'); named = true;
     if (name.whole.length > name.core.length && entry.whole.includes(name.whole)) { total += 2; why.push('中文全名'); }
   }
-  if (!named) return undefined;
+  // A shortened English name alone is too weak: FLUCORT is not FLUCORTONE unless the Chinese name agrees too.
+  if (!named || (why.includes('英文名縮寫') && !why.includes('中文名'))) return undefined;
   const f = name.form; const e = entry.feature;
   if (f.base && e.base && f.base !== e.base && f.route !== '鼻') return undefined;
   if (f.route && f.route !== e.route) return undefined;
   if (!f.route && e.route) { total -= 1; why.push(`健保檔為${e.route}用`); }
+  if (name.single && !entry.single) return undefined;
+  if (!name.single && entry.single) { total -= 2; why.push('健保檔為單支裝'); }
   if (f.topical && e.topical && f.topical !== e.topical && !entry.zh.includes(f.topical)) { total -= 1; why.push(`健保檔為${e.topical}`); }
   for (const mod of new Set([...f.mods, ...e.mods])) if (f.mods.has(mod) !== e.mods.has(mod)) { total -= f.mods.has(mod) ? 3 : 2; why.push(f.mods.has(mod) ? `健保檔無${mod}` : `品名無${mod}`); }
   if (name.strengths.length && entry.strengths.length) {
@@ -294,6 +314,7 @@ export function match(nhi: Nhi, raw: string, day: RocDay): Match {
     if (chosen.length > 1) return { kind: 'codes', candidates: shown() };
     // The store's [廠牌] tag names someone else: the name agrees, but a person should look.
     if (chosen[0].why.includes('廠牌不符')) return { kind: 'maker', candidates: shown(chosen[0].code) };
+    if (name.food) return { kind: 'food', candidates: shown(chosen[0].code) };
     return { kind: 'clear', code: chosen[0].code, candidates: shown(chosen[0].code) };
   }
   if (ranked.some(p => p !== top && p.score > top.score - MARGIN)) return { kind: 'ambiguous', candidates: shown() };
