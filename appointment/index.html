@@ -38,6 +38,7 @@
         <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好左側資料，就能查看本次狀態與下次日期。</p></div></section>
         <section class="panel slip-panel" id="slip-panel" aria-labelledby="slip-title">
           <div class="slip-panel-head"><h2 id="slip-title">領藥憑單</h2><button type="button" id="slip-clear">清空憑單</button></div>
+          <div class="slip-map"><button type="button" id="slip-map-load">載入商品對照檔</button><input id="slip-map-file" type="file" accept=".csv" hidden /><p id="slip-map-status" class="hint" role="status" aria-live="polite">未載入時，尚差藥品以健保碼顯示。選取商品代號對照檔 sku-nhi-map.csv 後，對得到的藥品改以六碼＋品名顯示與列印；對照檔只留在本頁記憶體，不上傳，清空憑單時保留，關閉頁面即清除。</p></div>
           <p id="slip-empty" class="empty-result">掃描處方 QR 後，會在這裡列出憑單內容。</p>
           <div id="slip-body" hidden>
             <p class="hint">同時交付多科或家人的處方時，依趟次取共同可領藥區間，日期旁的 x 為處方張數；找不到共同區間時請移除部分處方，分開開立。</p>
@@ -52,7 +53,7 @@
           </div>
         </section>
       </div>
-      <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，並受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不判斷藥品身分，也不記錄實際調劑。</p><p>領藥憑單的「領藥最終有效時間」為失效日前一天；病人姓名、身分證與生日只留在本頁記憶體供列印，身分證與生日只印在門市存查聯。列印後的下一次掃碼、清空憑單或關閉頁面即清除。</p></aside>
+      <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，並受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不記錄實際調劑；憑單的六碼與品名只依載入的商品代號對照檔查表，不另判斷藥品身分。</p><p>領藥憑單的「領藥最終有效時間」為失效日前一天；病人姓名、身分證與生日只留在本頁記憶體供列印，身分證與生日只印在門市存查聯。列印後的下一次掃碼、清空憑單或關閉頁面即清除。</p></aside>
     <footer class="calculator-footer"><span>樹懶的算數 · 把下次日期算清楚。 <span id="version"></span></span><span>瀏覽器內試算 · 不上傳 · 不記錄實際調劑</span></footer>
     </main>
   </div>

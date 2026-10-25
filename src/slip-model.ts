@@ -1,5 +1,7 @@
 /** Pickup-slip rules. Nothing here touches the DOM, so every rule is unit-tested on its own. */
 import { addDays, autoCalculate, type Calculation, type DateRange } from './arithmetic-model';
+import { cleanProductName } from './model';
+import type { MapEntry } from './sku-map';
 
 /** One scanned prescription. QR codes omit the refill count, so it must be chosen; a blank visit is inferred from today. */
 export interface SlipEntry { date: string; days: number; count?: number; visit?: number; name: string; idNumber: string; birth: string; hospital: string }
@@ -7,6 +9,8 @@ export interface SlipEntry { date: string; days: number; count?: number; visit?:
 export interface Trip extends DateRange { prescriptions: number }
 export interface SlipPlan { validUntil: string; second?: Trip; third?: Trip; notes: string[] }
 export interface MissingItem { code: string; name: string; quantity: string; note: string }
+/** A store product (六碼) for a prescribed 健保碼. name drops the package spec to fit the slip; full keeps it to tell packs apart. */
+export interface Product { sku: string; name: string; full: string }
 export interface SlipForm { phone: string; sms: boolean; call: boolean; note: string; staff: string; missing: MissingItem[] }
 export interface SlipData extends SlipPlan, SlipForm { openDate: string; names: string; hospitals: string; footer: string }
 export interface Ahead { visit: number; result: Calculation; windows: { range: DateRange; visit: number }[]; validUntil: string; notes: string[] }
@@ -15,6 +19,18 @@ export const MISSING_ROWS = 4;
 
 const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}`;
 const unique = (values: string[]) => [...new Set(values.map(value => value.trim()).filter(Boolean))];
+
+/** 健保碼 → the 六碼 products the map gives it, by 六碼. A 健保碼 can have several packs (瓶 and 盒); 無健保碼 rows have none. */
+export function productIndex(entries: Iterable<MapEntry>): Map<string, Product[]> {
+  const index = new Map<string, Product[]>();
+  for (const { sku, code, key } of [...entries].sort((a, b) => a.sku.localeCompare(b.sku))) {
+    if (!code) continue;
+    const products = index.get(code) ?? [];
+    products.push({ sku, name: cleanProductName(key, true).name || key, full: key });
+    index.set(code, products);
+  }
+  return index;
+}
 
 /** Windows still ahead of one prescription, each with its dispensing number. */
 export function prescriptionAhead(entry: SlipEntry, today: string): Ahead {

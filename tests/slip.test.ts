@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { buildSlip, planSlip, prescriptionAhead, type SlipEntry, type SlipForm } from '../src/slip-model';
+import { buildSlip, planSlip, prescriptionAhead, productIndex, type SlipEntry, type SlipForm } from '../src/slip-model';
+import { readMap, type MapEntry } from '../src/sku-map';
 import { csvRows, rosterNames } from '../scripts/roster';
 
 // Synthetic people only. 28 days × 3 from 2026/09/24 is the source slip's prescription.
@@ -69,6 +70,21 @@ assert.throws(() => buildSlip([entry(), entry({ hospital: ' ' })], form, '2026-1
 const item = { code: 'TESTCODE01', name: '', quantity: '28', note: '' };
 assert.throws(() => buildSlip([entry()], { ...form, missing: Array(5).fill(item) }, '2026-10-15'), /最多 4 列/);
 console.log('pickup slip trips, shared windows, rows and people passed');
+
+// 尚差藥品 from the map (synthetic 六碼): one 健保碼 can have several packs, listed by 六碼; the name drops the package spec
+// so it fits the slip, full keeps it to tell the packs apart; 無健保碼 rows map from nothing.
+const mapped = (sku: string, code: string, key: string): MapEntry => ({ sku, code, key, verdict: code ? '自動明確' : '無健保碼', date: '2026-10-25', source: '測試' });
+const index = productIndex([mapped('900002', 'AB41606100', '1000粒/瓶SINZAC信樂膠囊20MG'), mapped('900001', 'AB41606100', '1000粒/盒(10粒/排)SINZAC信樂膠囊20MG'),
+  mapped('900003', 'AC47341100', '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG'), mapped('900004', '', '4粒/盒VIAGRA威而鋼膜衣錠100MG')]);
+assert.deepEqual(index.get('AC47341100'), [{ sku: '900003', name: 'MELSTATIN美脂利錠20MG', full: '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG' }]);
+assert.deepEqual(index.get('AB41606100')!.map(({ sku, name }) => `${sku} ${name}`), ['900001 SINZAC信樂膠囊20MG', '900002 SINZAC信樂膠囊20MG']);
+assert.equal(index.size, 2);
+// The slip reads the map file as the scripts do: spreadsheet damage put back, a broken file rejected.
+const sheet = '六碼,健保藥品代號,對接品名,判定,判定日期,來源\n';
+assert.deepEqual(productIndex(readMap(sheet + '9001,ac47341100,"100粒/盒(10粒/排)MELSTATIN美脂利錠20MG",自動明確,2026/10/25,測試\n').values()).get('AC47341100'),
+  [{ sku: '009001', name: 'MELSTATIN美脂利錠20MG', full: '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG' }]);
+assert.throws(() => readMap('醫事機構代碼,醫事機構名稱\n'), /對照檔欄位應為/);
+console.log('pickup slip products from the map passed');
 
 // Roster CSV: quoted fields, restored leading zeros, unrecoverable spreadsheet codes skipped, other kinds ignored.
 assert.deepEqual(csvRows('a,"b,""c"""\r\n\r\n"d\ne",f\n'), [['a', 'b,"c"'], ['d\ne', 'f']]);
