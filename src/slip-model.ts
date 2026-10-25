@@ -11,17 +11,20 @@ export interface SlipPlan { validUntil: string; second?: Trip; third?: Trip; not
 export interface MissingItem { code: string; name: string; quantity: string; note: string }
 /** A store product (六碼) for a prescribed 健保碼. name drops the package spec to fit the slip; full keeps it to tell packs apart. */
 export interface Product { sku: string; name: string; full: string }
-export interface SlipForm { phone: string; sms: boolean; call: boolean; note: string; staff: string; missing: MissingItem[] }
+/** Pickup dates agreed with the patient in place of the calculated trip windows, which stay the default. */
+export interface TripDates { second?: DateRange; third?: DateRange }
+export interface SlipForm { phone: string; sms: boolean; call: boolean; note: string; staff: string; missing: MissingItem[]; trips?: TripDates }
 export interface SlipData extends SlipPlan, SlipForm { openDate: string; names: string; hospitals: string; footer: string }
 export interface Ahead { visit: number; result: Calculation; windows: { range: DateRange; visit: number }[]; validUntil: string; notes: string[] }
 /** The printed table has four rows. */
 export const MISSING_ROWS = 4;
 
 const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}`;
+const fullDate = (value: string) => value.replaceAll('-', '/');
 const unique = (values: string[]) => [...new Set(values.map(value => value.trim()).filter(Boolean))];
 
 /** 健保碼 → the 六碼 products the map gives it, by 六碼. A 健保碼 can have several packs (瓶 and 盒); 無健保碼 rows have none. */
-export function productIndex(entries: Iterable<MapEntry>): Map<string, Product[]> {
+export function productIndex(entries: Iterable<Pick<MapEntry, 'sku' | 'code' | 'key'>>): Map<string, Product[]> {
   const index = new Map<string, Product[]>();
   for (const { sku, code, key } of [...entries].sort((a, b) => a.sku.localeCompare(b.sku))) {
     if (!code) continue;
@@ -78,8 +81,25 @@ export function planSlip(entries: SlipEntry[], today: string): SlipPlan {
   return { validUntil, ...(third ? { third: next } : { second: next }), notes };
 }
 
+/** Agreed dates replace a trip's window, never its prescription count; they must stay within today and 領藥最終有效時間. */
+function agreeTrips(plan: SlipPlan, trips: TripDates | undefined, today: string): SlipPlan {
+  const agreed = { ...plan, notes: [...plan.notes] };
+  for (const [row, label] of [['second', '第二次'], ['third', '第三次']] as const) {
+    const dates = trips?.[row], computed = plan[row];
+    if (!dates || !computed || (dates.start === computed.start && dates.end === computed.end)) continue;
+    const name = `${label}預計領藥日`;
+    if (dates.start > dates.end) throw new Error(`${name}的起日不能晚於訖日。`);
+    if (dates.start < today) throw new Error(`${name}不能早於今天。`);
+    if (dates.end > plan.validUntil) throw new Error(`${name}不能晚於領藥最終有效時間 ${fullDate(plan.validUntil)}。`);
+    const outside = dates.start < computed.start || dates.end > computed.end;
+    agreed.notes.push(`${name}依約定改為 ${monthDay(dates.start)}～${monthDay(dates.end)}（計算區間 ${monthDay(computed.start)}～${monthDay(computed.end)}${outside ? '，超出計算區間，請確認符合領藥規定' : ''}）。`);
+    agreed[row] = { start: dates.start, end: dates.end, prescriptions: computed.prescriptions };
+  }
+  return agreed;
+}
+
 export function buildSlip(entries: SlipEntry[], form: SlipForm, today: string): SlipData {
-  const plan = planSlip(entries, today);
+  const plan = agreeTrips(planSlip(entries, today), form.trips, today);
   const blank = entries.findIndex(entry => !entry.hospital.trim());
   if (blank >= 0) throw new Error(`第 ${blank + 1} 張請填寫醫院名稱。`);
   if (form.missing.length > MISSING_ROWS) throw new Error(`尚差品項最多 ${MISSING_ROWS} 列，其餘請寫在備註。`);
