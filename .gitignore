@@ -10,6 +10,7 @@ tests/fixtures/*.pdf
 tests/fixtures/
 handoff/
 *.pdf
+sku-nhi-map*.csv
 .env
 .env.*
 *.pem

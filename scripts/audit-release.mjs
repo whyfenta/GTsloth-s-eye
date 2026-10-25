@@ -10,7 +10,7 @@ assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
 assert.equal(lock.version, pkg.version);
 assert.equal(lock.packages[''].version, pkg.version);
 assert.equal(lock.name, pkg.name);
-const deny = /(?:^|\/)(?:fixtures|handoff|node_modules|output|tmp|qa-results|\.git)(?:\/|$)|\.pdf$|(?:^|\/)\.env(?:\.|$)|\.(?:pem|key|p12|pfx|tar|zip|tgz)$|\.tar\.gz$/i;
+const deny = /(?:^|\/)(?:fixtures|handoff|node_modules|output|tmp|qa-results|\.git)(?:\/|$)|\.pdf$|(?:^|\/)\.env(?:\.|$)|\.(?:pem|key|p12|pfx|tar|zip|tgz)$|\.tar\.gz$|(?:^|\/)sku-nhi-map[^/]*\.csv$/i;
 const secrets = [ /gh[pousr]_[A-Za-z0-9]{30,}/, /github_pat_[A-Za-z0-9_]{50,}/, /sk-(?:proj-)?[A-Za-z0-9_-]{40,}/, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ ];
 function inspect(file) {
   assert.ok(!deny.test(file), `Forbidden release path: ${file}`);

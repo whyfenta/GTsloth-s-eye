@@ -127,6 +127,8 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 健保用藥品項精簡檔（比對商品代號與健保藥品代號用的參考資料，網站程式不讀取）見 [docs/reference/nhi-drug-codes.md](docs/reference/nhi-drug-codes.md)。
 
+商品代號（六碼）對健保藥品代號的比對、查表工具 `npm run nhi-map`（網站程式不讀取），見 [docs/reference/sku-nhi-map.md](docs/reference/sku-nhi-map.md)。對照檔本身含整個商品檔的六碼與品名，放在另一個 private repo，不放在這裡；以 `--map` 或環境變數 `SKU_NHI_MAP` 指定。
+
 ## GitHub Pages 自動發布
 
 `.github/workflows/pages.yml` 在 main 的「Build and test」push 執行成功後，對同一 commit 重跑 source audit、測試、以 `--base=/GTsloth-s-eye/` 建置及 dist audit，再部署到 GitHub Pages；也可在 Actions 頁手動執行（僅限 main）。發布使用 GitHub 內建的 `GITHUB_TOKEN` 與 OIDC。
