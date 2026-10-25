@@ -10,7 +10,8 @@
     "qa": "tsx scripts/qa.ts",
     "audit:source": "node scripts/audit-release.mjs source",
     "audit:dist": "node scripts/audit-release.mjs dist",
-    "slip-assets": "tsx scripts/slip-assets.ts"
+    "slip-assets": "tsx scripts/slip-assets.ts",
+    "nhi-map": "tsx scripts/nhi-map.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",
