@@ -12,6 +12,17 @@ export function decodePrescriptionBytes(bytes: Uint8Array): { text: string; enco
   }
   throw new Error('無法完整解碼 QR，請重新掃描或改用手動輸入。');
 }
+/** Windows-1252 character → byte, for scanners that type each byte of the QR as one character. */
+const cp1252 = new Map([...new TextDecoder('windows-1252').decode(Uint8Array.from({ length: 128 }, (_, i) => i + 128))].map((char, i) => [char, i + 128]));
+/** A scanner that types every byte of a Big5 or UTF-8 QR as its own character turns 測試 into ´ú¸Õ; map the characters back to bytes and decode them. Text that is not wholly such characters is left alone. */
+function repairByteText(text: string, encoding: string): { text: string; encoding: string } {
+  const chars = [...text];
+  if (chars.every(char => char < '\x80') || !chars.every(char => char < '\x80' || cp1252.has(char))) return { text, encoding };
+  try {
+    const decoded = decodePrescriptionBytes(Uint8Array.from(chars, char => cp1252.get(char) ?? char.charCodeAt(0)));
+    return { text: decoded.text, encoding: `逐位元組還原 ${decoded.encoding}` };
+  } catch { return { text, encoding }; }
+}
 function prescriptionFields(text: string): { fields: string[]; date: string } {
   if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
   const fields = text.replace(/^﻿/, '').split(';');
@@ -28,12 +39,14 @@ function prescriptionFields(text: string): { fields: string[]; date: string } {
   return { fields, date };
 }
 /** Only non-identifying fields needed for date calculation leave this parser. */
-export function parsePrescription(text: string, encoding = '文字輸入'): PrescriptionQR {
+export function parsePrescription(scanned: string, scannedAs = '文字輸入'): PrescriptionQR {
+  const { text, encoding } = repairByteText(scanned, scannedAs);
   const { fields, date } = prescriptionFields(text);
   return { date, days: Number(fields[9]), drugCount: (fields.length - 14) / 5, encoding };
 }
 /** Fields 1, 3, 4 and 6 hold the institution code, ID number, name and ROC birth date; a malformed ID or birth date is left blank. */
-export function parsePrescriptionSlip(text: string, encoding = '文字輸入'): SlipQR {
+export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入'): SlipQR {
+  const { text, encoding } = repairByteText(scanned, scannedAs);
   const { fields, date } = prescriptionFields(text);
   const idNumber = fields[2].trim().toUpperCase();
   let birth = '';
