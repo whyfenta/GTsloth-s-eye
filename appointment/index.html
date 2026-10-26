@@ -34,10 +34,11 @@
               <div class="form-actions"><button type="submit" class="primary">試算領藥日期</button><button type="reset">清除重填</button></div>
             </div>
           </form>
+          <div class="slip-only slip-clear-row"><button type="button" id="slip-clear" class="slip-clear">清空憑單</button></div>
         </section>
         <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好左側資料，就能查看本次狀態與下次日期。</p></div></section>
         <section class="panel slip-panel" id="slip-panel" aria-labelledby="slip-title">
-          <div class="slip-panel-head"><h2 id="slip-title">領藥憑單</h2><button type="button" id="slip-clear">清空憑單</button></div>
+          <h2 id="slip-title">領藥憑單</h2>
           <p id="slip-empty" class="empty-result">掃描處方 QR 後，會在這裡列出憑單內容。</p>
           <div id="slip-body" hidden>
             <p class="hint">同時交付多科或家人的處方時，依趟次取共同可領藥區間，日期旁的 x 為處方張數；找不到共同區間時請移除部分處方，分開開立。</p>
