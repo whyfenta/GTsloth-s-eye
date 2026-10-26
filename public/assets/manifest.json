@@ -1355,10 +1355,10 @@
     },
     {
       "path": "nhi/products.json",
-      "bytes": 323399,
-      "sha256": "37aa09f6e66ddf463107aa67f189921ae762d4492f7374a774cff7698327be14",
+      "bytes": 324396,
+      "sha256": "e216805276fc4dc736e0a4b7b88c5da611e784f4ae65dba6aaed52db434dedde",
       "source": "whyfenta/GTsloth-map sku-nhi-map.csv",
-      "sourceSha256": "ac47a6404df1b2ec1ac747c707695cf1c8d980b79323f926206025125832b650",
+      "sourceSha256": "e10aad1c4db6a2cdb4d4de95d70e9462c3ce4835377b166fd273024be08641f8",
       "dataDate": "2026-10-26",
       "conversion": "scripts/slip-assets.ts --map：健保碼 → 六碼與對接品名（不含判定、判定日期與來源）"
     }
