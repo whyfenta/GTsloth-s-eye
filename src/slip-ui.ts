@@ -219,11 +219,13 @@ function identify(drug: Drug) {
   drug.products = catalog?.get(drug.code.toUpperCase()) ?? [];
   choose(drug, drug.products.length === 1 ? drug.products[0] : drug.products.find(product => product.sku === drug.product?.sku));
 }
-function drugText(drug: Drug): string {
+/** The 六碼 is set in bold so it stands apart from the name; a 健保碼 left unmatched stays plain. */
+function drugText(text: HTMLElement, drug: Drug) {
   const total = `（總量 ${drug.total}）`;
-  if (drug.product) return `${drug.product.sku} ${drug.product.name}${total}`;
-  if (!drug.products.length) return `${drug.code}${total}${catalog ? ' · 對照檔查無此健保碼' : ''}`;
-  return `${drug.products.map(product => product.sku).join('／')} ${[...new Set(drug.products.map(product => product.name))].join('／')}${total}`;
+  if (drug.product) return text.replaceChildren(make('strong', 'slip-sku', drug.product.sku), `${drug.product.name}${total}`);
+  if (!drug.products.length) return text.replaceChildren(`${drug.code}${total}${catalog ? ' · 對照檔查無此健保碼' : ''}`);
+  text.replaceChildren(make('strong', 'slip-sku', drug.products.map(product => product.sku).join('／')),
+    `${[...new Set(drug.products.map(product => product.name))].join('／')}${total}`);
 }
 function drugRow(drug: Drug): HTMLElement {
   const row = make('div', 'slip-drug');
@@ -232,7 +234,8 @@ function drugRow(drug: Drug): HTMLElement {
   box.checked = drug.missing;
   const detail = make('div', 'slip-drug-detail');
   detail.hidden = !drug.missing;
-  const text = make('span', '', drugText(drug));
+  const text = make('span');
+  drugText(text, drug);
   const name = textInput(drug.name, '品名', value => { drug.name = value.trim(); });
   if (drug.products.length > 1) {
     const select = make('select');
@@ -243,7 +246,7 @@ function drugRow(drug: Drug): HTMLElement {
     select.addEventListener('change', () => {
       choose(drug, drug.products.find(product => product.sku === select.value));
       name.value = drug.name;
-      text.textContent = drugText(drug);
+      drugText(text, drug);
     });
     detail.append(select);
   }
@@ -352,7 +355,9 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
 
 panel.addEventListener('input', update);
 panel.addEventListener('change', update);
-element('slip-clear').addEventListener('click', clearSlip);
+element('slip-clear').addEventListener('click', () => {
+  if (confirm('確定要清空憑單？已掃入的處方、尚差品項、聯絡電話與備註都會清除，無法復原。')) clearSlip();
+});
 element('slip-print').addEventListener('click', async () => {
   try {
     const data = slipData();
