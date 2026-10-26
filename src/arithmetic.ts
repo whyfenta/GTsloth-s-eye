@@ -19,6 +19,8 @@ let mode: 'calc' | 'slip' = 'calc';
 let calcDate = '';
 let scanBuffer = '';
 let scanTimer: ReturnType<typeof setTimeout> | undefined;
+/** When the input method last composed in the entry field; a page cannot switch the IME, so a scan typed through it is dropped. */
+let imeAt = -Infinity;
 let today = taiwanToday();
 let lastInput: AutoInput | undefined;
 element('version').textContent = __APP_VERSION__;
@@ -154,10 +156,18 @@ function applyQR(data: PrescriptionQR, moveFocus = true) {
   // Stay on the entry field so the next prescription can be scanned right away.
   if (moveFocus) date.focus();
 }
+const imeWarning = () => `目前是中文輸入模式，掃碼內容會被輸入法攔截。請按 Shift 切換成英數後${mode === 'slip' ? '重新掃碼' : '重新掃碼或輸入日期'}。`;
 function finishScan(moveFocus = true) {
   const value = scanBuffer;
   clearScan();
   if (!value) return;
+  // Keys the IME let through between compositions are only part of the QR.
+  if (performance.now() - imeAt < 1000) {
+    date.value = '';
+    status.textContent = imeWarning();
+    if (moveFocus) date.focus();
+    return;
+  }
   // The keyboard scanner provides text, never raw bytes. Reject corrupted text.
   // Remove only CR/LF scanner suffixes, preserving prescription spaces and fields.
   const text = value.replace(/[\r\n]+$/, '');
@@ -199,9 +209,24 @@ function validateManualDate() {
   }
 }
 date.addEventListener('focus', () => date.select());
-date.addEventListener('input', () => {
+// Composition only happens with the Chinese IME on: drop what it composes and say how to switch to 英數.
+date.addEventListener('compositionstart', () => {
+  imeAt = performance.now();
+  clearScan();
+  status.textContent = imeWarning();
+});
+date.addEventListener('compositionend', () => {
+  imeAt = performance.now();
+  clearScan();
+  date.value = '';
+  status.textContent = imeWarning();
+});
+date.addEventListener('input', event => {
+  if ((event as InputEvent).isComposing) return;
   date.setCustomValidity('');
   datePicker.value = '';
+  // An input that only empties the field (as after a composition) keeps the IME warning.
+  if (!date.value) return;
   status.textContent = '';
   if (scanBuffer || date.value.includes(';')) {
     scanBuffer += date.value;
@@ -225,13 +250,16 @@ date.addEventListener('paste', event => {
   finishScan();
 });
 date.addEventListener('keydown', event => {
-  if (event.key !== 'Enter' && event.key !== 'Tab') return;
+  // An Enter that commits a composition belongs to the IME, not to the scan.
+  if (event.isComposing || event.key !== 'Enter' && event.key !== 'Tab') return;
   if (scanBuffer || date.value.includes(';')) {
     event.preventDefault();
     if (!scanBuffer) scanBuffer = date.value;
     finishScan();
   } else if (event.key === 'Enter') {
     event.preventDefault();
+    // The scanner's closing Enter after the IME took the QR keeps the IME warning.
+    if (performance.now() - imeAt < 1000) { status.textContent = imeWarning(); return; }
     if (mode === 'slip') { status.textContent = '憑單需要掃描處方 QR；只有日期時請切換到「試算」。'; return; }
     validateManualDate();
     if (date.reportValidity()) days.focus();
