@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,largeOrder,LOW_COVER,WIDE_COVER,overstock,toOrder,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {add,mul,NHI_A_FACTOR,aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,largeOrder,LOW_COVER,WIDE_COVER,overstock,toOrder,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -77,6 +77,18 @@ test('a 缺貨 name adds 1 to the rank coefficient on every strategy, without ch
     assert.equal(cmp(b.rows[0].coefficient,a.rows[0].coefficient),0);assert.equal(cmp(b.rows[2].coefficient,a.rows[2].coefficient),0);
   }
   assert.deepEqual(safetyList(items,frac(1n),short,false,'hamster').rows.map(r=>r.safety),[105n,79n,12n],'hamster: 30 × 3.5, ceil(20 × 3.925), 10 × 1.2');
+});
+test('a 健保碼 starting with A takes 0.85 of the coefficient before the 缺貨 +1; other or unmapped codes keep the full quantity',()=>{
+  const base=Array.from({length:27},(_,i)=>use(String(500000+i),1,1));
+  const items=aggregateUsage([...base,use('000001',30,30),use('000002',20,20),use('000003',10,10)]).items;
+  const short=aggregateStock([stock('000001',0,'A1','品一'),stock('000002',0,'A2','缺貨 品二'),stock('000003',0,'A3','品三')]);
+  const nhi=new Map([['000001','A000076100'],['000002','AC12345100'],['000003','BC23456100']]);
+  const rows=safetyList(items,frac(1n),short,false,'hamster',undefined,nhi).rows;
+  assert.deepEqual(rows.map(r=>r.sku),['000001','000002','000003'],'membership and rank do not change');
+  assert.deepEqual(rows.map(r=>r.nhiA),[true,true,false]);
+  assert.equal(cmp(rows[1].coefficient,add(mul(frac(117n,40n),NHI_A_FACTOR),frac(1n))),0,'2.925 × 0.85 + 1, not (2.925 + 1) × 0.85');
+  assert.deepEqual(rows.map(r=>r.safety),[90n,70n,12n],'ceil(30 × 3.5 × 0.85), ceil(20 × (2.925 × 0.85 + 1)), 10 × 1.2');
+  assert.deepEqual(safetyList(items,frac(1n),short,false,'hamster',undefined,new Map([['000002','']])).rows.map(r=>r.safety),[105n,79n,12n],'no 健保碼: full quantity');
 });
 test('a 冷藏 name multiplies the coefficient by 0.8 after any 缺貨 bonus, without changing membership or rank',()=>{
   assert.equal(formatFrac(COLD_FACTOR),'0.8');
