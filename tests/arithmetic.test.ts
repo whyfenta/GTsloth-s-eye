@@ -68,6 +68,18 @@ slipFields[5] = '';
 slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
 assert.deepEqual([slipQR.idNumber, slipQR.birth], ['', '']);
 assert.throws(() => parsePrescriptionSlip(sample.replace(';PO;', ';;')));
+// A scanner that types each Big5 or UTF-8 byte as a Windows-1252 character (測試 → ´ú¸Õ) is decoded back.
+const byteTyped = (bytes: Uint8Array) => [...bytes].map(byte => new TextDecoder('windows-1252').decode(Uint8Array.of(byte))).join('');
+const big5Fields = [...slipFields];
+big5Fields[3] = byteTyped(Uint8Array.of(0xb4, 0xfa, 0xb8, 0xd5));
+assert.equal(big5Fields[3], '´ú¸Õ');
+slipQR = parsePrescriptionSlip(big5Fields.join(';') + ';');
+assert.deepEqual([slipQR.name, slipQR.encoding], ['測試', '逐位元組還原 big5']);
+big5Fields[3] = byteTyped(new TextEncoder().encode('測試'));
+assert.deepEqual([parsePrescriptionSlip(big5Fields.join(';') + ';').name, parsePrescription(big5Fields.join(';') + ';').date], ['測試', '2026-01-01']);
+// Text that cannot be read back as bytes stays as scanned.
+big5Fields[3] = 'Zoë';
+assert.equal(parsePrescriptionSlip(big5Fields.join(';') + ';').name, 'Zoë');
 for (const size of [1, 2, 3, 5]) {
   const text = [...fields.slice(0, 14), ...Array.from({ length: size }, () => fields.slice(14)).flat()].join(';') + ';';
   assert.equal(parsePrescription(text).drugCount, size);
