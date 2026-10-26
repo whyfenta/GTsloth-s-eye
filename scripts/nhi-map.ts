@@ -50,13 +50,15 @@ const current = (entry?: MapEntry) => entry ? `${entry.code || '無健保碼'}�
 
 if (apply) {
   const { applied, skipped } = applyReview(decodeCsv(await readFile(apply)), map, nhi, date);
-  console.log(`待確認表：寫入 ${applied.length} 筆（人工確認 ${applied.filter(e => e.verdict === '人工確認').length}、無健保碼 ${applied.filter(e => e.verdict === '無健保碼').length}），採用欄空白 ${skipped} 筆`);
+  const count = (verdict: MapEntry['verdict']) => applied.filter(e => e.verdict === verdict).length;
+  console.log(`待確認表：寫入 ${applied.length} 筆（人工確認 ${count('人工確認')}、無健保碼 ${count('無健保碼')}、健保檔外代號 ${count('健保檔外代號')}），採用欄空白 ${skipped} 筆`);
   if (applied.length) await saveMap();
 } else if (check) {
   // After the NHI file is refreshed: codes that disappeared, stopped being paid, or have a scheduled change.
   const rows: string[][] = []; const counts: Record<string, number> = {};
   for (const entry of map.values()) {
-    if (!entry.code) continue;
+    // 健保檔外代號 is by design not in the NHI file, so there is nothing to check it against.
+    if (!entry.code || entry.verdict === '健保檔外代號') continue;
     const e = nhi.codes.get(entry.code); const s = e && status(e, day);
     const problem = !e ? '健保檔無此碼' : !s!.paid ? '未給付' : s!.stop ? '已排定停止給付' : s!.change ? '已排定調價' : '';
     if (!problem) continue;
