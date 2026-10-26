@@ -5,12 +5,13 @@ import { usageImportGuide } from './usage-import-guide';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, NHI_A_FACTOR, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, today, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
 import { derive, LIST_TITLE, listRows, listSpec, SAFETY_ALERT_NOTE, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
 import { FEEDBACK_ENDPOINT } from './feedback-config';
 import { DocumentSource } from './source';
+import { loadNhiCodes } from './products';
 import { cropCanvas, rotateCanvas } from './geometry';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -39,6 +40,8 @@ let feedbackSent = ''; let feedbackStatus = '';
 let generation = 0; let outputs: Partial<Record<ListKind, Output>> = {}; let generating = false;
 const selected: Record<ListKind, boolean> = { safety: false, dead: false, empty: false };
 let fontBytes: Promise<Uint8Array> | undefined;
+/** 六碼 → 健保碼 for the safety list's A factor; null when the lookup failed (the list then warns). Loaded during parsing. */
+let nhiCodes: Map<string, string> | null = new Map();
 const busy = () => adding || parsing || generating;
 
 app.innerHTML = `
@@ -146,6 +149,7 @@ async function parseAll() {
   resetResults(); cancelRequested = false; parsing = true; showError(''); const docNo = documentNumber; const current = () => docNo === documentNumber && !cancelRequested;
   const order = [...entries.map((_, file) => ({ file, page: 1 })), ...entries.flatMap((entry, file) => Array.from({ length: entry.source.pages - 1 }, (_, i) => ({ file, page: i + 2 })))];
   progress = { done: 0, total: order.length, message: '讀取各檔案第一頁，核對報表與門市' }; render();
+  const codes = loadNhiCodes().catch(() => null);
   try {
     for (const [step, { file, page }] of order.entries()) {
       if (!current()) return;
@@ -162,6 +166,7 @@ async function parseAll() {
       }
       if (step % 4 === 0) { renderInputs(); await new Promise(resolve => setTimeout(resolve)); }
     }
+    nhiCodes = await codes; if (!current()) return;
     parsed = true; progress.message = `共讀取 ${pages.length} 頁${rejected.length ? `，${rejected.length} 頁無法使用` : ''}`; admit();
   } catch (error) { if (current()) showError(error instanceof Error ? error.message : '解析失敗，請重試。'); }
   finally { if (docNo === documentNumber) { parsing = false; render(); if(parsed)scrollToNextAction(); } }
@@ -205,7 +210,7 @@ async function checkFirstPages(): Promise<string | undefined> {
 }
 /** Rows that need a look stay in the review list after they are confirmed, so the decision can be seen and undone. */
 function admit() {
-  data = derive(pages, rejected, decisions);
+  data = derive(pages, rejected, decisions, today(), nhiCodes);
   originals = new Map([...data.usageRows, ...data.stockRows].map(row => [row.id, { ...row, notes: [...row.notes] }]));
   for (const row of [...data.pendingUsage, ...data.pendingStock, ...data.summary.unitConflicts.flatMap(c => c.rows), ...data.duplicates.flat()]) attention.add(row.id);
   for (const row of [...data.usageRows, ...data.stockRows]) if (row.excluded) attention.add(row.id);
@@ -228,7 +233,7 @@ const ask = async (title: string, html: string, cancel: string, ok: string) => B
 /** `recompute: false` is for view-only changes (review page, list choice, feedback status): the derived data is reused. */
 function render(recompute = true) {
   renderInputs();
-  if (recompute || !data) data = parsed || pages.length ? derive(pages, rejected, decisions) : undefined;
+  if (recompute || !data) data = parsed || pages.length ? derive(pages, rejected, decisions, today(), nhiCodes) : undefined;
   renderSources(); renderReview(); renderLists();
   const step = data?.ready ? 3 : data ? 2 : 1;
   document.querySelectorAll<HTMLElement>('[data-step]').forEach(item => item.classList.toggle('active', Number(item.dataset.step) === step));
@@ -315,7 +320,7 @@ function renderLists() {
   const strategyOptions = `<div id="safety-options" class="mg-list-options"><fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>安全量策略</legend>
     <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為平衡派。</p>
     <div class="mg-strategy-grid">${strategyCards}</div>
-    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；品名保有「缺貨」前綴的品項，係數再 +1（管制藥又缺貨時先 × ${formatFrac(CONTROLLED_FACTOR)} 再 +1）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
+    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；健保碼為 A 開頭的品項，係數 × ${formatFrac(NHI_A_FACTOR)}（非 A 開頭或查無健保碼者維持原量）；品名保有「缺貨」前綴的品項，係數再 +1（缺貨的 +1 在最外層：先乘完上述係數再 +1）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
     </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
     safety: '預防常用藥物臨時缺貨，建議您的安全及採購量',

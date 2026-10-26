@@ -1,6 +1,6 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, largeOrder, LARGE_ORDER, longPeriod, matchStores, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, today, toOrder, unheldOnList, usageCodes, usageErrors,
+import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, largeOrder, LARGE_ORDER, longPeriod, matchStores, NHI_A_FACTOR, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, today, toOrder, unheldOnList, usageCodes, usageErrors,
   type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
@@ -37,7 +37,7 @@ export const needsReview = <R extends { reviewed: boolean; excluded?: string }>(
 const pagesOf = (rows: { origin: { reportPage: number } }[]) => [...new Set(rows.map(row => row.origin.reportPage))].sort((a, b) => a - b);
 const label = { usage: '醫品調劑數量統計表', inventory: '庫存簡表' };
 
-export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'inventory'; reason: string }[], decisions: Decisions, now: Day = today()): Derived {
+export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'inventory'; reason: string }[], decisions: Decisions, now: Day = today(), nhi: ReadonlyMap<string, string> | null = new Map()): Derived {
   const usage = assemble(pages.filter(page => page.kind === 'usage'));
   // Stock sheets may be several separate printouts (a main sheet and a supplement): each must be complete on its own.
   const stockReports = assembleReports(pages.filter(page => page.kind === 'inventory'));
@@ -86,9 +86,12 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
   const sourcesReady = !blockers.length && assemblyComplete(usage) && stockReports.length > 0 && stockReports.every(assemblyComplete) && Boolean(months);
   const ready = sourcesReady && !pendingUsage.length && !pendingStock.length && !summary.unitConflicts.length && !summary.invalid.length;
   const strategy = decisions.safetyStrategy ?? DEFAULT_SAFETY_STRATEGY;
-  const ordinary = months ? safetyList(summary.items, months, items, false, strategy) : undefined;
+  // null: the 健保碼 lookup could not be loaded, so no code gets the A factor and the list is told so.
+  const codes = nhi ?? new Map<string, string>();
+  const ordinary = months ? safetyList(summary.items, months, items, false, strategy, undefined, codes) : undefined;
   const partner = ordinary && stock.pages.length && partnerSupplied(unheldOnList(ordinary)) ? { missing: unheldOnList(ordinary) } : undefined;
-  const safety = partner ? safetyList(summary.items, months!, items, true, strategy, PARTNER_COVERS[decisions.partnerCover ?? 'standard']) : ordinary;
+  const safety = partner ? safetyList(summary.items, months!, items, true, strategy, PARTNER_COVERS[decisions.partnerCover ?? 'standard'], codes) : ordinary;
+  if (!nhi && safety?.rows.length) warnings.push(`健保碼對照載入失敗，健保碼 A 開頭品項的建議量未套用 × ${formatFrac(NHI_A_FACTOR)}，安全量與待採量可能偏高；請重新整理頁面後再產生清單`);
   const { dead, empty, selfPay } = slotLists(stockRows, usageCodes(usageRows));
   const listed = new Set(safety?.rows.map(row => row.sku));
   const missing = summary.items.filter(item => !items.has(item.sku)).map(item => ({ sku: item.sku, name: item.name, pages: pagesOf(item.rows), onList: listed.has(item.sku) }));
