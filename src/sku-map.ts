@@ -4,9 +4,12 @@ import { csvRows } from './csv';
 // (scripts/sku-map.ts) and the one that publishes its 健保碼 → 六碼 part for the pickup slip (scripts/slip-assets.ts).
 // Format: docs/reference/sku-nhi-map.md.
 export const MAP_COLUMNS = ['六碼', '健保藥品代號', '對接品名', '判定', '判定日期', '來源'] as const;
-export const VERDICTS = ['自動明確', '人工確認', '無健保碼'] as const;
+export const VERDICTS = ['自動明確', '人工確認', '無健保碼', '健保檔外代號'] as const;
 export type Verdict = typeof VERDICTS[number];
-/** One 六碼. code is empty only for 無健保碼. key: the 庫存簡表 name it was settled for (storeName().key). */
+/**
+ * One 六碼. code is empty only for 無健保碼; for 健保檔外代號 it is a code the NHI file does not list (戒菸、公費 drugs on a
+ * prescription QR), so nothing checks it against that file. key: the 庫存簡表 name it was settled for (storeName().key).
+ */
 export type MapEntry = { sku: string; code: string; key: string; verdict: Verdict; date: string; source: string };
 
 const SIX = /^\d{6}$/; const CODE = /^[A-Z0-9]{10}$/; const ISO = /^\d{4}-\d{2}-\d{2}$/;

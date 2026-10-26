@@ -23,7 +23,7 @@ export function publicPathProblem(root: string, file: string): string | undefine
   }
 }
 
-const SIX = /^\d{6}$/;
+const SIX = /^\d{6}$/; const CODE = /^[A-Z0-9]{10}$/;
 const field = (value: string) => /[",\r\n]/.test(value) || /^\s|\s$/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 /** UTF-8 with BOM so a spreadsheet shows the Chinese; LF line ends as the repository keeps them. */
 export const csvText = (rows: readonly (readonly string[])[]) => '\uFEFF' + rows.map(row => row.map(field).join(',')).join('\n') + '\n';
@@ -65,11 +65,13 @@ const MARKS = /自費|公費|不售|停供|停產|停售|禁售|禁請|註銷|�
 export const marksOf = (raw: string) => [...new Set(raw.normalize('NFKC').match(MARKS) ?? [])].join('、');
 
 export const REVIEW_COLUMNS = ['六碼', '簡表品名', '對接品名', '待確認原因', '品名標記', '庫存量', '目前對照', '候選1', '候選2', '候選3', '候選4', '候選5', '來源', '採用'] as const;
-/** 採用: the 健保藥品代號 chosen, or 無 (無健保碼) when the product has none. */
+/** 採用: the 健保藥品代號 chosen, 無 (無健保碼) when the product has none, or 外:代號 for a code the NHI file does not list. */
 const NONE = new Set(['無', '無健保碼']);
+const OUTSIDE = /^外[:：]\s*/;
 /**
- * Applies the filled-in 採用 column of a review sheet: a 健保碼 becomes 人工確認, 無 becomes 無健保碼. Rows left
- * blank are skipped. Any bad row rejects the whole sheet, so a half-applied review never reaches the map.
+ * Applies the filled-in 採用 column of a review sheet: a 健保碼 becomes 人工確認, 無 becomes 無健保碼, 外:代號 becomes
+ * 健保檔外代號. Rows left blank are skipped. Any bad row rejects the whole sheet, so a half-applied review never reaches
+ * the map.
  */
 export function applyReview(text: string, map: Map<string, MapEntry>, nhi: Nhi, date: string): { applied: MapEntry[]; skipped: number } {
   const [header, ...rows] = csvRows(text.replace(/^\uFEFF/, ''));
@@ -78,12 +80,14 @@ export function applyReview(text: string, map: Map<string, MapEntry>, nhi: Nhi, 
   const applied: MapEntry[] = []; const errors: string[] = []; let skipped = 0;
   rows.forEach((row, i) => {
     const pick = (row[chosen] ?? '').trim().toUpperCase(); if (!pick) { skipped++; return; }
-    const none = NONE.has(pick);
-    const entry: MapEntry = { sku: sixDigits((row[sku] ?? '').trim()), code: none ? '' : pick, key: (row[key] ?? '').trim(),
-      verdict: none ? '無健保碼' : '人工確認', date, source: (row[source] ?? '').trim() };
+    const none = NONE.has(pick); const outside = OUTSIDE.test(pick);
+    const entry: MapEntry = { sku: sixDigits((row[sku] ?? '').trim()), code: none ? '' : pick.replace(OUTSIDE, ''), key: (row[key] ?? '').trim(),
+      verdict: none ? '無健保碼' : outside ? '健保檔外代號' : '人工確認', date, source: (row[source] ?? '').trim() };
     const line = `第 ${i + 2} 列（${entry.sku}）`;
     if (!SIX.test(entry.sku)) errors.push(`${line}：六碼應為 6 位數字`);
-    else if (entry.code && !nhi.codes.has(entry.code)) errors.push(`${line}：健保檔沒有 ${entry.code}`);
+    else if (outside && !CODE.test(entry.code)) errors.push(`${line}：健保檔外代號應為 10 碼英數字`);
+    else if (outside && nhi.codes.has(entry.code)) errors.push(`${line}：${entry.code} 在健保檔裡，請直接填代號，不加「外:」`);
+    else if (!outside && entry.code && !nhi.codes.has(entry.code)) errors.push(`${line}：健保檔沒有 ${entry.code}；健保檔以外的代號（戒菸、公費等）請填「外:${entry.code}」`);
     else if (!entry.key) errors.push(`${line}：缺少對接品名`);
     else applied.push(entry);
   });

@@ -108,7 +108,7 @@ test('查表 first; matching only for new or renamed 六碼; a person decides wh
   assert.equal(open.kind,'review');assert.equal(open.kind==='review'&&open.key,'100粒/盒(10粒/排)CORTISONE乙酸可體松錠25MG');
 });
 
-test('a filled-in review sheet becomes 人工確認 / 無健保碼, all or nothing',()=>{
+test('a filled-in review sheet becomes 人工確認 / 無健保碼 / 健保檔外代號, all or nothing',()=>{
   const sheet=(rows:string[][])=>csvText([REVIEW_COLUMNS,...rows.map(([sku,key,chosen])=>REVIEW_COLUMNS.map(name=>name==='六碼'?sku:name==='對接品名'?key:name==='採用'?chosen:name==='來源'?'26北':''))]);
   const map=new Map<string,MapEntry>();
   const result=applyReview(sheet([['131580','100粒/盒(10粒/排)CORTISONE乙酸可體松錠25MG','ac13381100'],['99972','4粒/盒VIAGRA威而鋼膜衣錠100MG','無'],['106508','4粒/盒CIALIS犀利士膜衣錠20MG','無健保碼'],['000001','某品名','']]),map,nhi,TODAY);
@@ -116,6 +116,12 @@ test('a filled-in review sheet becomes 人工確認 / 無健保碼, all or nothi
   assert.deepEqual([...map.values()].map(e=>[e.sku,e.code,e.verdict,e.date]),[['131580','AC13381100','人工確認',TODAY],['099972','','無健保碼',TODAY],['106508','','無健保碼',TODAY]]);
   assert.throws(()=>applyReview(sheet([['000002','乙','AC13381100'],['000003','丙','ZZ00000000']]),map,nhi,TODAY),/健保檔沒有 ZZ00000000/);
   assert.equal(map.size,3,'a bad sheet writes nothing');
+  assert.throws(()=>applyReview(sheet([['000002','乙','A0386463EH']]),map,nhi,TODAY),/請填「外:A0386463EH」/);
+  assert.throws(()=>applyReview(sheet([['000002','乙','外:AC13381100']]),map,nhi,TODAY),/在健保檔裡/);
+  assert.throws(()=>applyReview(sheet([['000002','乙','外:A03864']]),map,nhi,TODAY),/應為 10 碼/);
+  applyReview(sheet([['000279','SMOKFREE淨菸經皮吸收戒菸貼片15號(7片/盒)','外:a0386463eh'],['170789','Paxlovid療程','外：XC0VID0001']]),map,nhi,TODAY);
+  assert.deepEqual([map.get('000279'),map.get('170789')].map(e=>[e?.code,e?.verdict]),[['A0386463EH','健保檔外代號'],['XC0VID0001','健保檔外代號']],'a code the NHI file does not list (戒菸、公費)');
+  assert.deepEqual(readMap(mapText(map)),map,'the new verdict survives the map file');
   assert.equal(decodeCsv(new Uint8Array([164,187,189,88,44,177,196,165,206])),'六碼,採用','a sheet saved by Excel as Big5');
   assert.equal(marksOf('換包自費C-(停產)100粒/盒某藥錠'),'自費、停產');
 });
@@ -129,10 +135,10 @@ test('the map stays out of this public repository',()=>{
 });
 
 // The map lives in a private repository: set SKU_NHI_MAP to its sku-nhi-map.csv to check it against the NHI file.
-test('the private map is well-formed and every 健保碼 in it is in the NHI file',t=>{
+test('the private map is well-formed and every 健保碼 in it is in the NHI file, except 健保檔外代號',t=>{
   const file=process.env.SKU_NHI_MAP;if(!file||!fs.existsSync(file))return t.skip('Set SKU_NHI_MAP to the private sku-nhi-map.csv.');
   const real=loadNhi(fs.readFileSync('docs/reference/nhi-drug-codes.csv','utf8'));const map=readMap(fs.readFileSync(file,'utf8'));
-  for(const e of map.values())if(e.code)assert.ok(real.codes.has(e.code),`${e.sku} ${e.code}`);
+  for(const e of map.values())if(e.code)assert.equal(real.codes.has(e.code),e.verdict!=='健保檔外代號',`${e.sku} ${e.code} ${e.verdict}`);
 });
 
 // The attached 26 永和福和店 庫存簡表 stays private: set MANAGEMENT_INVENTORY_PDF to run this one.
