@@ -46,7 +46,7 @@ const describe = (code: string, extra = '') => {
   return [code, e.en, e.zh, `${e.form}${e.size ? ` ${e.size}${e.sizeUnit}` : ''}`, e.firm, statusLabel(e, day), extra].filter(Boolean).join('｜');
 };
 const scored = (c: Candidate) => describe(c.code, `${c.score} 分：${c.why.join('、')}`);
-const current = (entry?: MapEntry) => entry ? `${entry.code || '無健保碼'}（${entry.verdict}，${entry.date}：${entry.key}）` : '';
+const current = (entry?: MapEntry) => entry ? `${entry.code || '無健保碼'}（${entry.verdict}，${entry.date}：${entry.key}${entry.replacedBy ? `；改用 ${entry.replacedBy}` : ''}）` : '';
 
 if (apply) {
   const { applied, skipped } = applyReview(decodeCsv(await readFile(apply)), map, nhi, date);

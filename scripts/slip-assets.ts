@@ -8,7 +8,7 @@ import { rosterNames } from './roster';
 // Builds the 領藥憑單 lookup assets and records them in manifest.json (rerun after scripts/assets.mjs).
 // Usage: npm run slip-assets -- [A21030000I-D2100G-001.csv] [--date YYYY-MM-DD] [--map ../GTsloth-map/sku-nhi-map.csv]
 // Download the CSV from https://data.gov.tw/dataset/168341 and pass it unopened: spreadsheet edits corrupt codes.
-// --map rebuilds nhi/products.json from the private 商品代號對照檔: only 健保碼, 六碼 and 對接品名 are published.
+// --map rebuilds nhi/products.json from the private 商品代號對照檔: only 健保碼, 六碼, 對接品名 and 改用六碼 are published.
 // Without a CSV or --map only the manifest entries are refreshed from the files already in public/assets.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const assets = path.join(root, 'public', 'assets');
@@ -38,8 +38,8 @@ if (args[0]) {
 if (mapPath) {
   const bytes = await readFile(mapPath);
   const entries = [...readMap(bytes.toString('utf8')).values()].filter(entry => entry.code).sort((a, b) => a.sku.localeCompare(b.sku));
-  const products: Record<string, [string, string][]> = {};
-  for (const { sku, code, key } of entries) (products[code] ??= []).push([sku, key]);
+  const products: Record<string, string[][]> = {};
+  for (const { sku, code, key, replacedBy } of entries) (products[code] ??= []).push(replacedBy ? [sku, key, replacedBy] : [sku, key]);
   // 判定日期 of the newest row; 判定 and 來源 (store names) stay in the private repository.
   const mapDate = entries.map(entry => entry.date).sort().at(-1) ?? '';
   await writeFile(path.join(assets, 'nhi', 'products.json'), JSON.stringify({
@@ -58,7 +58,7 @@ const entries: { path: string; [key: string]: string }[] = [
     conversion: 'scripts/slip-assets.ts：醫事機構種類 A 的代碼與名稱', license: '政府資料開放授權條款第1版' },
   { path: 'licenses/OGDL-Taiwan-1.0.txt', source: 'https://data.gov.tw/license' },
   { path: 'nhi/products.json', source: products.source, sourceSha256: products.sourceSha256, dataDate: products.dataDate,
-    conversion: 'scripts/slip-assets.ts --map：健保碼 → 六碼與對接品名（不含判定、判定日期與來源）' },
+    conversion: 'scripts/slip-assets.ts --map：健保碼 → 六碼、對接品名與改用六碼（不含判定、判定日期與來源）' },
 ];
 // Replace this script's entries in place and append new ones, leaving every other asset entry untouched.
 for (const { path: relative, ...extra } of entries) {
