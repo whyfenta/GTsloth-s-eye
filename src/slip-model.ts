@@ -42,7 +42,8 @@ export function productIndex(entries: Iterable<Pick<MapEntry, 'sku' | 'code' | '
     const products = index.get(code) ?? [];
     if (products.some(product => product.sku === shown.sku)) continue;
     const product: Product = { sku: shown.sku, name: cleanProductName(shown.key, true).name || shown.key, full: shown.key };
-    products.push(target?.code ? { ...product, replaced: { sku, code: target.code } } : product);
+    // Sharing one 健保碼 with its replacement, the old 六碼 simply shows as that product: there is no other code to name.
+    products.push(target?.code && target.code !== code ? { ...product, replaced: { sku, code: target.code } } : product);
     index.set(code, products);
   }
   return index;

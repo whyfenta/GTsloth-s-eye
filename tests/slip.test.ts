@@ -99,6 +99,8 @@ assert.equal(index.size, 2);
 const replaced = productIndex([{ ...mapped('900005', 'AC481911G0', 'THYROID-S活甲錠0.1MG(排)'), replacedBy: '900006' }, mapped('900006', 'AC48191100', '1000粒/瓶THYROID-S活甲錠100UG')]);
 assert.deepEqual(replaced.get('AC481911G0'), [{ sku: '900006', name: 'THYROID-S活甲錠100UG', full: '1000粒/瓶THYROID-S活甲錠100UG', replaced: { sku: '900005', code: 'AC48191100' } }]);
 assert.deepEqual(replaced.get('AC48191100')!.map(product => product.sku), ['900006']);
+assert.deepEqual(productIndex([{ ...mapped('900007', 'AC48191100', '100粒/盒THYROID-S活甲錠100UG'), replacedBy: '900006' }, mapped('900006', 'AC48191100', '1000粒/瓶THYROID-S活甲錠100UG')]).get('AC48191100'),
+  [{ sku: '900006', name: 'THYROID-S活甲錠100UG', full: '1000粒/瓶THYROID-S活甲錠100UG' }], 'a replacement sharing the 健保碼 lists only the 六碼 dispensed');
 // The slip reads the map file as the scripts do: spreadsheet damage put back, a broken file rejected.
 const sheet = '六碼,健保藥品代號,對接品名,判定,判定日期,來源\n';
 assert.deepEqual(productIndex(readMap(sheet + '9001,ac47341100,"100粒/盒(10粒/排)MELSTATIN美脂利錠20MG",自動明確,2026/10/25,測試\n').values()).get('AC47341100'),
