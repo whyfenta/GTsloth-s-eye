@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { addDays, autoCalculate, rangeDays, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday } from '../src/arithmetic-model';
+import { addDays, autoCalculate, rangeDays, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday, visitAfter } from '../src/arithmetic-model';
 import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionSlip } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
@@ -122,3 +122,65 @@ assert.deepEqual(clamped, { start: '2026-11-11', end: '2026-11-15' });
 assert.equal(rangeDays(clamped), 5);
 assert.equal(rangeDays(calculate(input, '2026-01-01').next!), 10);
 console.log('arithmetic visit inference passed');
+
+// A late previous pickup restarts its period: visit 3 moves from 2/20～3/1 to 2/25～3/6 after visit 2 on 2/5.
+const third = { ...input, visit: 3, previous: '2026-02-05' };
+assert.equal(calculate({ ...input, visit: 3 }, '2026-02-22').state, 'normal'); // The case this field exists for.
+result = calculate(third, '2026-02-22');
+assert.equal(result.state, 'early');
+assert.deepEqual(result.schedule[2], { start: '2026-02-25', end: '2026-03-06' });
+assert.equal(result.earliestReturn, '2026-03-27');
+assert.deepEqual(result.shift, { previous: '2026-02-05', original: calculate(input, '2026-01-01').schedule, originalReturn: '2026-03-22' });
+assert.equal(calculate({ ...input, visit: 3 }, '2026-03-03').state, 'late');
+result = calculate(third, '2026-03-03');
+assert.deepEqual([result.state, result.message, result.returnDate], ['normal', '本次在順延後的領藥區間內，可領藥。', '2026-03-27']);
+result = calculate(third, '2026-03-08'); // Late again: corrected from today as before.
+assert.deepEqual([result.state, result.next], ['late', { start: '2026-03-28', end: '2026-04-01' }]);
+// A pickup inside its window, or on the day its period would start anyway, moves nothing.
+for (const previous of ['2026-01-21', '2026-01-25', '2026-01-30', '2026-01-31']) {
+  assert.deepEqual(calculate({ ...third, previous }, '2026-02-22'), calculate({ ...input, visit: 3 }, '2026-02-22'));
+}
+// Visit 1 two days late moves visit 2 and visit 3.
+result = calculate({ ...input, visit: 2, previous: '2026-01-03' }, '2026-01-21');
+assert.equal(result.state, 'early');
+assert.deepEqual(result.schedule.slice(1), [{ start: '2026-01-23', end: '2026-02-01' }, { start: '2026-02-22', end: '2026-03-03' }]);
+assert.deepEqual([result.next, result.earliestReturn], [undefined, '2026-03-24']);
+assert.deepEqual(calculate({ ...input, visit: 2, previous: '2026-01-03' }, '2026-01-25').next, { start: '2026-02-22', end: '2026-03-03' });
+// Expiry cuts a moved window short, or removes it.
+const short = { date: '2026-08-23', days: 28, count: 3, visit: 3 };
+result = calculate({ ...short, previous: '2026-10-24' }, '2026-11-05');
+assert.deepEqual([result.state, result.schedule[2], result.earliestReturn], ['early', { start: '2026-11-11', end: '2026-11-15' }, '2026-12-09']);
+result = calculate({ ...short, previous: '2026-10-30' }, '2026-11-05');
+assert.deepEqual([result.state, result.schedule.length, result.returnDate], ['invalid', 2, '2026-11-17']);
+assert.equal(result.message, '前次逾期領藥後已無第 3 次，請回診，建議最早115/11/17。');
+// Previous dates that cannot be right.
+assert.equal(calculate({ ...input, previous: '2026-01-01' }, '2026-01-21').message, '第 1 次領藥沒有前次，請清除前次領藥日。');
+assert.equal(calculate(third, '2026-02-04').message, '前次領藥日不能晚於今天。');
+assert.equal(calculate({ ...third, previous: '2026-01-15' }, '2026-02-22').message, '前次領藥日早於第 2 次可領藥區間（115/01/21 起），請核對日期或本次次數。');
+assert.match(calculate({ ...input, visit: 2, previous: '2025-12-31' }, '2026-01-21').message, /早於第 1 次可領藥區間/);
+assert.throws(() => calculate({ ...third, previous: '2026-02-30' }, '2026-02-22'));
+// Same windows as the late correction made on the day of the previous pickup, for every late day.
+for (const days of [28, 29, 30]) {
+  const base = { date: '2026-01-01', days, count: 3 };
+  for (const visit of [2, 3]) {
+    const prior = calculate({ ...base, visit: 1 }, '2026-01-01').schedule[visit - 2];
+    for (let previous = addDays(prior.end, 1); previous <= addDays(base.date, days * 3); previous = addDays(previous, 1)) {
+      const late = calculate({ ...base, visit: visit - 1 }, previous);
+      const moved = calculate({ ...base, visit, previous }, previous);
+      if (late.next) assert.deepEqual(moved.schedule[visit - 1], late.next, `${days} 天第 ${visit} 次 前次 ${previous}`);
+      else assert.deepEqual([moved.state, moved.returnDate], ['invalid', late.returnDate], `${days} 天第 ${visit} 次 前次 ${previous}`);
+    }
+  }
+}
+// A blank visit follows the previous pickup instead of today.
+assert.deepEqual([visitAfter('2026-01-01', 30, 3, '2026-01-03'), visitAfter('2026-01-01', 30, 3, '2026-01-21'), visitAfter('2026-01-01', 30, 3, '2026-02-05')], [2, 3, 3]);
+assert.equal(visitAfter('2026-01-01', 30, 3, '2026-02-20'), 4);
+scenarios = autoCalculate({ date: '2026-01-01', days: 30, previous: '2026-02-05' }, '2026-02-22');
+assert.deepEqual(scenarios.map(s => [s.count, s.visit, s.inferred, s.result.state]), [[2, 3, true, 'invalid'], [3, 3, true, 'early']]);
+assert.deepEqual([scenarios[0].result.message, scenarios[0].result.returnDate], ['前次已是最後一次（第 2 次）領藥，請回診，建議最早115/02/25。', '2026-02-25']);
+assert.equal(autoCalculate({ date: '2026-01-01', days: 30, count: 2, visit: 3, previous: '2026-02-05' }, '2026-02-22')[0].result.message, '本次領藥次數超過處方可調劑次數。');
+// Each count's expiry cuts the same moved window differently, so the two are not merged.
+scenarios = autoCalculate({ date: '2026-01-01', days: 30, visit: 2, previous: '2026-02-05' }, '2026-02-22');
+assert.deepEqual(scenarios.map(s => s.result.schedule[1]), [{ start: '2026-02-25', end: '2026-03-02' }, { start: '2026-02-25', end: '2026-03-06' }]);
+assert.ok(!sameOutcome(scenarios[0], scenarios[1]));
+console.log('arithmetic previous-pickup shift passed');
