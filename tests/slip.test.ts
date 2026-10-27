@@ -94,16 +94,23 @@ const index = productIndex([mapped('900002', 'AB41606100', '1000粒/瓶SINZAC信
 assert.deepEqual(index.get('AC47341100'), [{ sku: '900003', name: 'MELSTATIN美脂利錠20MG', full: '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG' }]);
 assert.deepEqual(index.get('AB41606100')!.map(({ sku, name }) => `${sku} ${name}`), ['900001 SINZAC信樂膠囊20MG', '900002 SINZAC信樂膠囊20MG']);
 assert.equal(index.size, 2);
+// A replaced 六碼 (改用六碼) keeps its older 健保碼 for prescribers that still use it; a scan of that code shows the 六碼
+// dispensed instead and its newer 健保碼.
+const replaced = productIndex([{ ...mapped('900005', 'AC481911G0', 'THYROID-S活甲錠0.1MG(排)'), replacedBy: '900006' }, mapped('900006', 'AC48191100', '1000粒/瓶THYROID-S活甲錠100UG')]);
+assert.deepEqual(replaced.get('AC481911G0'), [{ sku: '900006', name: 'THYROID-S活甲錠100UG', full: '1000粒/瓶THYROID-S活甲錠100UG', replaced: { sku: '900005', code: 'AC48191100' } }]);
+assert.deepEqual(replaced.get('AC48191100')!.map(product => product.sku), ['900006']);
+assert.deepEqual(productIndex([{ ...mapped('900007', 'AC48191100', '100粒/盒THYROID-S活甲錠100UG'), replacedBy: '900006' }, mapped('900006', 'AC48191100', '1000粒/瓶THYROID-S活甲錠100UG')]).get('AC48191100'),
+  [{ sku: '900006', name: 'THYROID-S活甲錠100UG', full: '1000粒/瓶THYROID-S活甲錠100UG' }], 'a replacement sharing the 健保碼 lists only the 六碼 dispensed');
 // The slip reads the map file as the scripts do: spreadsheet damage put back, a broken file rejected.
 const sheet = '六碼,健保藥品代號,對接品名,判定,判定日期,來源\n';
 assert.deepEqual(productIndex(readMap(sheet + '9001,ac47341100,"100粒/盒(10粒/排)MELSTATIN美脂利錠20MG",自動明確,2026/10/25,測試\n').values()).get('AC47341100'),
   [{ sku: '009001', name: 'MELSTATIN美脂利錠20MG', full: '100粒/盒(10粒/排)MELSTATIN美脂利錠20MG' }]);
 assert.throws(() => readMap('醫事機構代碼,醫事機構名稱\n'), /對照檔欄位應為/);
-// The published lookup holds 健保碼 → [六碼, 對接品名] only: no 判定, dates or 來源 (store names) from the private map.
-const published = JSON.parse(readFileSync('public/assets/nhi/products.json', 'utf8')) as { count: number; products: Record<string, [string, string][]> };
+// The published lookup holds 健保碼 → [六碼, 對接品名, 改用六碼?] only: no 判定, dates or 來源 (store names) from the private map.
+const published = JSON.parse(readFileSync('public/assets/nhi/products.json', 'utf8')) as { count: number; products: Record<string, string[][]> };
 const rows = Object.entries(published.products);
 assert.ok(rows.length > 1000 && rows.every(([code, list]) => /^[A-Z0-9]{10}$/.test(code) && list.length > 0
-  && list.every(row => row.length === 2 && /^\d{6}$/.test(row[0]) && row[1].trim() !== '') && list.every((row, i) => !i || list[i - 1][0] < row[0])));
+  && list.every(row => (row.length === 2 || row.length === 3 && /^\d{6}$/.test(row[2])) && /^\d{6}$/.test(row[0]) && row[1].trim() !== '') && list.every((row, i) => !i || list[i - 1][0] < row[0])));
 assert.equal(rows.reduce((sum, [, list]) => sum + list.length, 0), published.count);
 assert.deepEqual(Object.keys(published).sort(), ['count', 'dataDate', 'products', 'source', 'sourceSha256']);
 console.log('pickup slip products from the map passed');

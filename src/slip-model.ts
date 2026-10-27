@@ -9,8 +9,12 @@ export interface SlipEntry { date: string; days: number; count?: number; visit?:
 export interface Trip extends DateRange { prescriptions: number }
 export interface SlipPlan { validUntil: string; second?: Trip; third?: Trip; notes: string[] }
 export interface MissingItem { code: string; name: string; quantity: string; note: string }
-/** A store product (六碼) for a prescribed 健保碼. name drops the package spec to fit the slip; full keeps it to tell packs apart. */
-export interface Product { sku: string; name: string; full: string }
+/**
+ * A store product (六碼) for a prescribed 健保碼. name drops the package spec to fit the slip; full keeps it to tell packs apart.
+ * replaced: the prescribed code belongs to a 六碼 now replaced by this one (改用六碼); sku is the original 六碼, code this
+ * product's own, newer 健保碼.
+ */
+export interface Product { sku: string; name: string; full: string; replaced?: { sku: string; code: string } }
 /** Pickup dates agreed with the patient in place of the calculated trip windows, which stay the default. */
 export interface TripDates { second?: DateRange; third?: DateRange }
 export interface SlipForm { phone: string; sms: boolean; call: boolean; note: string; staff: string; missing: MissingItem[]; trips?: TripDates }
@@ -23,13 +27,23 @@ const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value
 const fullDate = (value: string) => value.replaceAll('-', '/');
 const unique = (values: string[]) => [...new Set(values.map(value => value.trim()).filter(Boolean))];
 
-/** 健保碼 → the 六碼 products the map gives it, by 六碼. A 健保碼 can have several packs (瓶 and 盒); 無健保碼 rows have none. */
-export function productIndex(entries: Iterable<Pick<MapEntry, 'sku' | 'code' | 'key'>>): Map<string, Product[]> {
+/**
+ * 健保碼 → the 六碼 products the map gives it, by 六碼. A 健保碼 can have several packs (瓶 and 盒); 無健保碼 rows have none.
+ * A replaced 六碼 (改用六碼) is listed under its own, older 健保碼 as the product that replaced it.
+ */
+export function productIndex(entries: Iterable<Pick<MapEntry, 'sku' | 'code' | 'key' | 'replacedBy'>>): Map<string, Product[]> {
+  const sorted = [...entries].sort((a, b) => a.sku.localeCompare(b.sku));
+  const bySku = new Map(sorted.map(entry => [entry.sku, entry]));
   const index = new Map<string, Product[]>();
-  for (const { sku, code, key } of [...entries].sort((a, b) => a.sku.localeCompare(b.sku))) {
+  for (const { sku, code, key, replacedBy } of sorted) {
     if (!code) continue;
+    const target = replacedBy ? bySku.get(replacedBy) : undefined;
+    const shown = target?.code ? target : { sku, code, key };
     const products = index.get(code) ?? [];
-    products.push({ sku, name: cleanProductName(key, true).name || key, full: key });
+    if (products.some(product => product.sku === shown.sku)) continue;
+    const product: Product = { sku: shown.sku, name: cleanProductName(shown.key, true).name || shown.key, full: shown.key };
+    // Sharing one 健保碼 with its replacement, the old 六碼 simply shows as that product: there is no other code to name.
+    products.push(target?.code && target.code !== code ? { ...product, replaced: { sku, code: target.code } } : product);
     index.set(code, products);
   }
   return index;

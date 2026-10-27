@@ -87,6 +87,7 @@ test('the map file: header, spreadsheet damage put back, every problem reported'
   assert.throws(()=>readMap(header+'000019,AC450311G0,甲,猜的,2026-10-01,x\n000019,AC450311G0,甲,自動明確,2026-10-01,x\n000020,AC450311G0,乙,無健保碼,2026-10-01,x\n000021,,丙,人工確認,2026-10-01,x\n'),
     (e:Error)=>/4 個問題/.test(e.message)&&/判定應為/.test(e.message)&&/六碼重複/.test(e.message)&&/無健保碼不應填/.test(e.message)&&/應為 10 碼/.test(e.message));
   assert.throws(()=>readMap('六碼,健保碼\n'),/對照檔欄位應為/);
+  assert.throws(()=>readMap(header.trim()+',改用六碼\n000019,AC450311G0,甲,人工確認,2026-10-01,x,000019\n'),/不能改用自己/);
 });
 
 test('查表 first; matching only for new or renamed 六碼; a person decides what matching cannot',()=>{
@@ -122,6 +123,13 @@ test('a filled-in review sheet becomes 人工確認 / 無健保碼 / 健保檔�
   applyReview(sheet([['000279','SMOKFREE淨菸經皮吸收戒菸貼片15號(7片/盒)','外:a0386463eh'],['170789','Paxlovid療程','外：XC0VID0001']]),map,nhi,TODAY);
   assert.deepEqual([map.get('000279'),map.get('170789')].map(e=>[e?.code,e?.verdict]),[['A0386463EH','健保檔外代號'],['XC0VID0001','健保檔外代號']],'a code the NHI file does not list (戒菸、公費)');
   assert.deepEqual(readMap(mapText(map)),map,'the new verdict survives the map file');
+  applyReview(sheet([['000019','IWELL宜胃錠(盒)','AC450311G0'],['131580','100粒/盒(10粒/排)CORTISONE乙酸可體松錠25MG','ac13381100 改:19']]),map,nhi,TODAY);
+  assert.equal(map.get('131580')?.replacedBy,'000019','改:六碼 keeps the old 健保碼 and names the 六碼 dispensed instead');
+  assert.deepEqual(readMap(mapText(map)),map,'改用六碼 survives the map file');
+  assert.throws(()=>applyReview(sheet([['000002','乙','AC13381100 改:000003']]),map,nhi,TODAY),/改用六碼 000003：不在對照檔/);
+  assert.throws(()=>applyReview(sheet([['000002','乙','無 改:000019']]),map,nhi,TODAY),/本身須有健保碼/);
+  assert.throws(()=>applyReview(sheet([['000002','乙','AC13381100 改:131580']]),map,nhi,TODAY),/本身也已改用 000019/);
+  assert.ok(!map.has('000002'),'a sheet with a bad 改用六碼 writes nothing');
   assert.equal(decodeCsv(new Uint8Array([164,187,189,88,44,177,196,165,206])),'六碼,採用','a sheet saved by Excel as Big5');
   assert.equal(marksOf('換包自費C-(停產)100粒/盒某藥錠'),'自費、停產');
 });

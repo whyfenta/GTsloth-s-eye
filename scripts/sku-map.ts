@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { csvRows } from '../src/csv';
-import { MAP_COLUMNS, sixDigits, type MapEntry, type Verdict } from '../src/sku-map';
+import { MAP_COLUMNS, replacementProblems, sixDigits, type MapEntry, type Verdict } from '../src/sku-map';
 import { licence, match, status, storeName, MATCH_LABEL, type Match, type Nhi, type RocDay } from './nhi-match';
 export { decodeCsv } from '../src/csv';
 export { MAP_COLUMNS, readMap, VERDICTS, type MapEntry, type Verdict } from '../src/sku-map';
@@ -29,7 +29,7 @@ const field = (value: string) => /[",\r\n]/.test(value) || /^\s|\s$/.test(value)
 export const csvText = (rows: readonly (readonly string[])[]) => '\uFEFF' + rows.map(row => row.map(field).join(',')).join('\n') + '\n';
 
 export const mapText = (map: Map<string, MapEntry>) => csvText([MAP_COLUMNS,
-  ...[...map.values()].sort((a, b) => a.sku.localeCompare(b.sku)).map(e => [e.sku, e.code, e.key, e.verdict, e.date, e.source])]);
+  ...[...map.values()].sort((a, b) => a.sku.localeCompare(b.sku)).map(e => [e.sku, e.code, e.key, e.verdict, e.date, e.source, e.replacedBy ?? ''])]);
 
 /** One 六碼 of a 庫存簡表: the first name printed for it, and where it came from (store and print date). */
 export type StoreItem = { sku: string; rawName: string; qty: string; source: string };
@@ -51,7 +51,7 @@ export function lookup(item: StoreItem, map: Map<string, MapEntry>, nhi: Nhi, da
   const fresh = (code: string, verdict: Verdict): MapEntry => ({ sku: item.sku, code, key, verdict, date, source: item.source });
   if (!previous) return found.kind === 'clear' ? { kind: 'matched', entry: fresh(found.code, '自動明確') } : { kind: 'review', reason: MATCH_LABEL[found.kind], key, match: found };
   const same = found.kind === 'clear' ? found.code === previous.code : found.kind === 'none' && previous.verdict === '無健保碼';
-  if (same) return { kind: 'renamed', entry: fresh(previous.code, previous.verdict), previous };
+  if (same) return { kind: 'renamed', entry: { ...fresh(previous.code, previous.verdict), ...previous.replacedBy && { replacedBy: previous.replacedBy } }, previous };
   if (found.kind === 'clear' && previous.verdict === '自動明確') return { kind: 'matched', entry: fresh(found.code, '自動明確'), previous };
   return { kind: 'review', reason: '品名已變更', key, match: found, previous };
 }
@@ -65,9 +65,12 @@ const MARKS = /自費|公費|不售|停供|停產|停售|禁售|禁請|註銷|�
 export const marksOf = (raw: string) => [...new Set(raw.normalize('NFKC').match(MARKS) ?? [])].join('、');
 
 export const REVIEW_COLUMNS = ['六碼', '簡表品名', '對接品名', '待確認原因', '品名標記', '庫存量', '目前對照', '候選1', '候選2', '候選3', '候選4', '候選5', '來源', '採用'] as const;
-/** 採用: the 健保藥品代號 chosen, 無 (無健保碼) when the product has none, or 外:代號 for a code the NHI file does not list. */
+/**
+ * 採用: the 健保藥品代號 chosen, 無 (無健保碼) when the product has none, or 外:代號 for a code the NHI file does not list.
+ * A code may be followed by 改:六碼 (改用六碼), e.g. `AC481911G0 改:123243`: the 六碼 now dispensed instead.
+ */
 const NONE = new Set(['無', '無健保碼']);
-const OUTSIDE = /^外[:：]\s*/;
+const OUTSIDE = /^外[:：]\s*/; const REPLACED = /\s*改[:：]\s*(\d{1,6})\s*$/;
 /**
  * Applies the filled-in 採用 column of a review sheet: a 健保碼 becomes 人工確認, 無 becomes 無健保碼, 外:代號 becomes
  * 健保檔外代號. Rows left blank are skipped. Any bad row rejects the whole sheet, so a half-applied review never reaches
@@ -79,10 +82,12 @@ export function applyReview(text: string, map: Map<string, MapEntry>, nhi: Nhi, 
   const [sku, key, source, chosen] = [at('六碼'), at('對接品名'), at('來源'), at('採用')];
   const applied: MapEntry[] = []; const errors: string[] = []; let skipped = 0;
   rows.forEach((row, i) => {
-    const pick = (row[chosen] ?? '').trim().toUpperCase(); if (!pick) { skipped++; return; }
+    const typed = (row[chosen] ?? '').trim().toUpperCase(); if (!typed) { skipped++; return; }
+    const replacedBy = typed.match(REPLACED)?.[1]; const pick = typed.replace(REPLACED, '');
     const none = NONE.has(pick); const outside = OUTSIDE.test(pick);
     const entry: MapEntry = { sku: sixDigits((row[sku] ?? '').trim()), code: none ? '' : pick.replace(OUTSIDE, ''), key: (row[key] ?? '').trim(),
       verdict: none ? '無健保碼' : outside ? '健保檔外代號' : '人工確認', date, source: (row[source] ?? '').trim() };
+    if (replacedBy) entry.replacedBy = sixDigits(replacedBy);
     const line = `第 ${i + 2} 列（${entry.sku}）`;
     if (!SIX.test(entry.sku)) errors.push(`${line}：六碼應為 6 位數字`);
     else if (outside && !CODE.test(entry.code)) errors.push(`${line}：健保檔外代號應為 10 碼英數字`);
@@ -92,6 +97,9 @@ export function applyReview(text: string, map: Map<string, MapEntry>, nhi: Nhi, 
     else applied.push(entry);
   });
   if (errors.length) throw new Error(`待確認表有 ${errors.length} 個問題，未寫入對照檔：\n  ${errors.join('\n  ')}`);
+  const next = new Map(map); for (const entry of applied) next.set(entry.sku, entry);
+  const problems = replacementProblems(next);
+  if (problems.length) throw new Error(`待確認表有 ${problems.length} 個問題，未寫入對照檔：\n  ${problems.join('\n  ')}`);
   for (const entry of applied) map.set(entry.sku, entry);
   return { applied, skipped };
 }

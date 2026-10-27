@@ -222,10 +222,11 @@ function identify(drug: Drug) {
 /** The 六碼 is set in bold so it stands apart from the name; a 健保碼 left unmatched stays plain. */
 function drugText(text: HTMLElement, drug: Drug) {
   const total = `（總量 ${drug.total}）`;
-  if (drug.product) return text.replaceChildren(make('strong', 'slip-sku', drug.product.sku), `${drug.product.name}${total}`);
+  const replaced = (product: Product) => product.replaced ? `（原六碼 ${product.replaced.sku} 已改用，新健保碼 ${product.replaced.code}）` : '';
+  if (drug.product) return text.replaceChildren(make('strong', 'slip-sku', drug.product.sku), `${drug.product.name}${total}${replaced(drug.product)}`);
   if (!drug.products.length) return text.replaceChildren(`${drug.code}${total}${catalog ? ' · 對照檔查無此健保碼' : ''}`);
   text.replaceChildren(make('strong', 'slip-sku', drug.products.map(product => product.sku).join('／')),
-    `${[...new Set(drug.products.map(product => product.name))].join('／')}${total}`);
+    `${[...new Set(drug.products.map(product => product.name))].join('／')}${total}${[...new Set(drug.products.map(replaced))].join('')}`);
 }
 function drugRow(drug: Drug): HTMLElement {
   const row = make('div', 'slip-drug');
@@ -241,7 +242,7 @@ function drugRow(drug: Drug): HTMLElement {
     const select = make('select');
     select.setAttribute('aria-label', '缺的是哪一個六碼');
     select.add(new Option(`請選擇六碼（此健保碼對到 ${drug.products.length} 個）`, ''));
-    for (const product of drug.products) select.add(new Option(`${product.sku} ${product.full}`, product.sku));
+    for (const product of drug.products) select.add(new Option(`${product.sku} ${product.full}${product.replaced ? `（改用，原 ${product.replaced.sku}）` : ''}`, product.sku));
     select.value = drug.product?.sku ?? '';
     select.addEventListener('change', () => {
       choose(drug, drug.products.find(product => product.sku === select.value));
