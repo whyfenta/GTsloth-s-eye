@@ -31,8 +31,11 @@ export function rocText(value: string): string {
 export function rangeDays(range: DateRange): number {
   return dayNumber(range.end) - dayNumber(range.start) + 1;
 }
-export interface PrescriptionInput { date: string; days: number; count: number; visit: number }
+/** previous: the actual date of the previous pickup, when it may have been late. */
+export interface PrescriptionInput { date: string; days: number; count: number; visit: number; previous?: string }
 export interface DateRange { start: string; end: string }
+/** A late previous pickup restarts its medication period, moving this and later windows; original keeps the prescription's own dates. */
+export interface Shift { previous: string; original: DateRange[]; originalReturn: string }
 export interface Calculation {
   state: 'normal' | 'early' | 'late' | 'invalid';
   message: string;
@@ -41,36 +44,62 @@ export interface Calculation {
   earliestReturn: string;
   next?: DateRange;
   returnDate?: string;
+  shift?: Shift;
+}
+/** The last 10 days of the period that starts at anchor and runs `periods` periods, never past expiry. */
+function windowAfter(anchor: string, days: number, periods: number, expiry: string): DateRange {
+  const end = addDays(anchor, days * periods - 1);
+  return { start: addDays(anchor, days * periods - 10), end: end > expiry ? expiry : end };
 }
 export function calculate(input: PrescriptionInput, today = taiwanToday()): Calculation {
-  const { date, days, count, visit } = input;
+  const { date, days, count, visit, previous } = input;
   const current = dayNumber(today), origin = dayNumber(date);
-  if (![28, 29, 30].includes(days) || ![2, 3].includes(count) || ![1, 2, 3].includes(visit)) throw new Error('請完成給藥日份與領藥次數。');
+  // The visit after the last one is only asked for with a previous pickup date: it answers when to return.
+  if (![28, 29, 30].includes(days) || ![2, 3].includes(count) || !(visit >= 1 && visit <= (previous ? count + 1 : 3))) throw new Error('請完成給藥日份與領藥次數。');
+  if (previous) dayNumber(previous);
   const expiry = addDays(date, days * count);
-  const earliestReturn = addDays(expiry, -10);
-  const schedule = Array.from({ length: count }, (_, index) => {
-    const end = addDays(date, index === 0 ? 0 : days * index - 1);
-    return { start: index === 0 ? date : addDays(end, -9), end };
-  });
-  const base = { schedule, expiry, earliestReturn };
-  if (current < origin) return { ...base, state: 'invalid', message: '處方日期尚未到，請核對日期。' };
-  if (visit > count) return { ...base, state: 'invalid', message: '本次領藥次數超過處方可調劑次數。' };
-  if (today > expiry) return { ...base, state: 'invalid', message: `處方已於${rocText(expiry)}失效，請回診。` };
-  const range = schedule[visit - 1];
+  const schedule = Array.from({ length: count }, (_, index) => index === 0 ? { start: date, end: date } : windowAfter(date, days, index, expiry));
+  let base: Omit<Calculation, 'state' | 'message'> = { schedule, expiry, earliestReturn: addDays(expiry, -10) };
+  const invalid = (message: string): Calculation => ({ ...base, state: 'invalid', message });
+  if (current < origin) return invalid('處方日期尚未到，請核對日期。');
+  if (visit > count && !previous) return invalid('本次領藥次數超過處方可調劑次數。');
+  if (today > expiry) return invalid(`處方已於${rocText(expiry)}失效，請回診。`);
+  if (previous) {
+    const prior = schedule[visit - 2];
+    if (!prior) return invalid('第 1 次領藥沒有前次，請清除前次領藥日。');
+    if (previous > today) return invalid('前次領藥日不能晚於今天。');
+    if (previous < prior.start) return invalid(`前次領藥日早於第 ${visit - 1} 次可領藥區間（${rocText(prior.start)} 起），請核對日期或本次次數。`);
+    // Inside its window the previous pickup keeps its period; a late one restarts it on the pickup date, as the late rule below does.
+    if (previous > addDays(date, days * (visit - 2))) {
+      const windows: DateRange[] = [];
+      let periods = 1;
+      for (; visit - 1 + periods <= count; periods++) {
+        const moved = windowAfter(previous, days, periods, expiry);
+        if (moved.start >= expiry) break;
+        windows.push(moved);
+      }
+      base = { schedule: [...schedule.slice(0, visit - 1), ...windows], expiry, earliestReturn: addDays(previous, days * periods - 10),
+        shift: { previous, original: schedule, originalReturn: base.earliestReturn } };
+    }
+    const returnDate = base.earliestReturn;
+    if (visit > count) return { ...invalid(`前次已是最後一次（第 ${count} 次）領藥，請回診，建議最早${rocText(returnDate)}。`), returnDate };
+    if (!base.schedule[visit - 1]) return { ...invalid(`前次逾期領藥後已無第 ${visit} 次，請回診，建議最早${rocText(returnDate)}。`), returnDate };
+  }
+  const range = base.schedule[visit - 1];
   if (today < range.start) return { ...base, state: 'early', message: '尚未到領藥區間，請預包。' };
   if (today > range.end) {
     const start = addDays(today, days - 10);
     // Same strict boundary as the source sheet's H12: start must precede expiry.
     if (start >= expiry) return { ...base, state: 'late', message: '本次領藥延遲，下次請回診。', returnDate: start };
-    const end = addDays(today, days - 1);
-    return { ...base, state: 'late', message: '本次領藥延遲，請使用修正日期。', next: { start, end: end > expiry ? expiry : end } };
+    return { ...base, state: 'late', message: '本次領藥延遲，請使用修正日期。', next: windowAfter(today, days, 1, expiry) };
   }
-  return { ...base, state: 'normal', message: '本次在原定領藥日期內，可領藥。',
-    ...(visit < count ? { next: schedule[visit] } : { returnDate: earliestReturn }) };
+  const next = base.schedule[visit];
+  return { ...base, state: 'normal', message: base.shift ? '本次在順延後的領藥區間內，可領藥。' : '本次在原定領藥日期內，可領藥。',
+    ...(next ? { next } : { returnDate: base.earliestReturn }) };
 }
 
-/** QR codes omit the refill count and visit number; blank selections are inferred from today. */
-export interface AutoInput { date: string; days: number; count?: number; visit?: number }
+/** QR codes omit the refill count and visit number; blank selections are inferred from the previous pickup date, else from today. */
+export interface AutoInput { date: string; days: number; count?: number; visit?: number; previous?: string }
 export interface Scenario { count: number; visit: number; inferred: boolean; note?: string; result: Calculation }
 export function inferVisit(date: string, days: number, count: number, today: string): { visit: number; note?: string } {
   const elapsed = dayNumber(today) - dayNumber(date);
@@ -84,17 +113,27 @@ export function inferVisit(date: string, days: number, count: number, today: str
   }
   return { visit: count };
 }
+/** The visit after a pickup on `previous`. Pickups are never early, so that one was the last visit whose window had opened; count + 1 means it was the last. */
+export function visitAfter(date: string, days: number, count: number, previous: string): number {
+  const elapsed = dayNumber(previous) - dayNumber(date);
+  let visit = 1;
+  while (visit < count && elapsed >= days * visit - 10) visit++;
+  return visit + 1;
+}
 export function autoCalculate(input: AutoInput, today = taiwanToday()): Scenario[] {
   const counts = input.count ? [input.count] : [2, 3];
   const scenarios = counts.filter(count => !input.visit || input.visit <= count).map(count => {
-    const { visit, note } = input.visit ? { visit: input.visit, note: undefined } : inferVisit(input.date, input.days, count, today);
-    return { count, visit, inferred: !input.visit, note, result: calculate({ date: input.date, days: input.days, count, visit }, today) };
+    const { visit, note } = input.visit ? { visit: input.visit, note: undefined }
+      : input.previous ? { visit: visitAfter(input.date, input.days, count, input.previous), note: undefined } : inferVisit(input.date, input.days, count, today);
+    return { count, visit, inferred: !input.visit, note, result: calculate({ date: input.date, days: input.days, count, visit, previous: input.previous }, today) };
   });
   // A chosen visit beyond every candidate count still reports the source sheet's invalid message.
-  return scenarios.length ? scenarios : [{ count: input.count ?? 2, visit: input.visit!, inferred: false, result: calculate({ ...input, count: input.count ?? 2, visit: input.visit! }, today) }];
+  return scenarios.length ? scenarios : [{ count: input.count ?? 2, visit: input.visit!, inferred: false, result: calculate({ date: input.date, days: input.days, count: input.count ?? 2, visit: input.visit! }, today) }];
 }
 export function sameOutcome(a: Scenario, b: Scenario): boolean {
   const range = (r?: DateRange) => r ? `${r.start}~${r.end}` : '';
   return a.visit === b.visit && (a.visit === a.count) === (b.visit === b.count) && a.note === b.note && a.result.state === b.result.state && a.result.message === b.result.message
-    && range(a.result.next) === range(b.result.next) && a.result.returnDate === b.result.returnDate;
+    && range(a.result.next) === range(b.result.next) && a.result.returnDate === b.result.returnDate
+    // A moved window is cut by each count's own expiry.
+    && range(a.result.schedule[a.visit - 1]) === range(b.result.schedule[b.visit - 1]);
 }

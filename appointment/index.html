@@ -31,8 +31,8 @@
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
-              <label for="visit">本次第幾次領藥</label><select id="visit"><option value="">依今日自動判斷</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select>
-              <p class="hint">掃 QR 會帶入處方日期與給藥日份，並依今天日期自動判斷本次為第幾次：在區間內、延遲領藥，或提前交付預處理（顯示實際可來領藥的區間）；QR 不含可調劑次數，若 2、3 次結果不同會分別列出。實際次數已知時可手動選擇覆蓋。</p>
+              <div class="field-row"><div><label for="visit">本次第幾次領藥</label><select id="visit"><option value="">自動判斷</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select></div><div><label for="previous-date">前次逾期領藥日</label><input id="previous-date" type="date" /></div></div>
+              <p class="hint">掃 QR 會帶入處方日期與給藥日份，並依今天日期自動判斷本次為第幾次：在區間內、延遲領藥，或提前交付預處理（顯示實際可來領藥的區間）；QR 不含可調劑次數，若 2、3 次結果不同會分別列出。實際次數已知時可手動選擇覆蓋。前次逾期領藥時，在「前次逾期領藥日」填處方箋背面的前次調劑日期，本次起的區間會順延，次數也改依前次領藥日判斷。</p>
               <div class="form-actions"><button type="submit" class="primary">試算領藥日期</button><button type="reset">清除重填</button></div>
             </div>
           </form>
@@ -56,7 +56,7 @@
           </div>
         </section>
       </div>
-      <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，並受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不記錄實際調劑；憑單的六碼與品名只依網站內附的商品代號查詢檔查表，不另判斷藥品身分。</p><p>領藥憑單的「領藥最終有效時間」為失效日前一天；病人姓名、身分證與生日只留在本頁記憶體供列印，身分證與生日只印在門市存查聯。列印後的下一次掃碼、清空憑單或關閉頁面即清除。</p></aside>
+      <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，前次逾期領藥以前次領藥日重新計算，都受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不記錄實際調劑；憑單的六碼與品名只依網站內附的商品代號查詢檔查表，不另判斷藥品身分。</p><p>領藥憑單的「領藥最終有效時間」為失效日前一天；病人姓名、身分證與生日只留在本頁記憶體供列印，身分證與生日只印在門市存查聯。列印後的下一次掃碼、清空憑單或關閉頁面即清除。</p></aside>
     <footer class="calculator-footer"><span>樹懶的算數 · 把下次日期算清楚。 <span id="version"></span></span><span>瀏覽器內試算 · 不上傳 · 不記錄實際調劑</span></footer>
     </main>
   </div>
