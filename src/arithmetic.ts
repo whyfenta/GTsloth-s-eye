@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { autoCalculate, rangeDays, sameOutcome, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
+import { autoCalculate, rangeDays, sameOutcome, shortDate, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
 import { parsePrescription, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
 import { addPrescription } from './slip-ui';
 
@@ -10,6 +10,7 @@ const date = element<HTMLInputElement>('prescription-date');
 const days = element<HTMLSelectElement>('days');
 const count = element<HTMLSelectElement>('count');
 const visit = element<HTMLSelectElement>('visit');
+const previous = element<HTMLInputElement>('previous-date');
 const result = element('result');
 const status = element('qr-status');
 const datePicker = element<HTMLInputElement>('date-picker');
@@ -40,6 +41,7 @@ function refreshDate() {
   const changed = nextToday !== today;
   today = nextToday;
   datePicker.max = today;
+  previous.max = today;
   if (changed && lastInput) render(lastInput);
 }
 refreshDate();
@@ -58,20 +60,22 @@ function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   box.className = 'recommended';
   const label = document.createElement('p');
   const dates = document.createElement('strong');
-  if (value.state === 'early') {
-    label.textContent = '本次可領藥區間';
-    dates.textContent = rangeText(value.schedule[visit - 1]);
-  } else if (value.next) {
-    // A late recalculation clamped by expiry leaves fewer days than a normal 10-day window.
-    const span = rangeDays(value.next);
-    const compressed = value.state === 'late' && span < 10;
+  // A window recalculated from a late pickup (today's, or the previous one) and clamped by expiry leaves fewer days than the normal 10.
+  const recalculated = value.state === 'late' || !!value.shift;
+  const show = (text: string, range: DateRange) => {
+    const span = rangeDays(range);
+    const compressed = recalculated && span < 10;
     box.classList.toggle('compressed', compressed);
-    label.textContent = `${value.state === 'late' ? '延遲後修正 · ' : ''}${visit === count ? '下次回診區間' : '下次領藥區間'}${compressed ? `僅有${span}天` : ''}`;
-    dates.textContent = rangeText(value.next);
-  } else {
+    label.textContent = `${text}${compressed ? `僅有${span}天` : ''}`;
+    dates.textContent = rangeText(range);
+  };
+  const moved = value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : '';
+  if (value.state === 'early') show(`${moved}本次可領藥區間`, value.schedule[visit - 1]);
+  else if (value.next) show(`${value.state === 'late' ? '延遲後修正 · ' : moved}${visit === count ? '下次回診區間' : '下次領藥區間'}`, value.next);
+  else {
     // A late pickup that leaves no further window is as urgent as a compressed one.
     box.classList.toggle('compressed', value.state === 'late');
-    label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : '本次為最後一次 · 最早回診日';
+    label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : `${moved}本次為最後一次 · 最早回診日`;
     dates.textContent = fullDate(value.returnDate!);
   }
   box.append(label, dates);
@@ -88,7 +92,7 @@ function render(input: AutoInput) {
       if (scenario.inferred) {
         const inferred = document.createElement('p');
         inferred.className = 'inferred';
-        inferred.textContent = `依今日判斷：第 ${scenario.visit} 次領藥${merged ? '（可調劑 2 或 3 次結果相同）' : ''}`;
+        inferred.textContent = `依${input.previous ? '前次領藥日' : '今日'}判斷：第 ${scenario.visit} 次領藥${merged ? '（可調劑 2 或 3 次結果相同）' : ''}`;
         result.append(inferred);
       }
       const countPrefix = !input.count && !merged ? `若可調劑 ${scenario.count} 次：` : '';
@@ -100,17 +104,34 @@ function render(input: AutoInput) {
         result.append(note);
       }
     }
-    if (shown.every(s => s.result.state === 'invalid')) return;
+    // Only where it could mislead: a refill "in the original window" right after a late pickup the tool was not told about.
+    const live = shown.filter(s => s.result.state !== 'invalid');
+    const reminder = !input.previous ? (live.some(s => s.visit >= 2 && s.result.state === 'normal') ? '前次如逾期領藥，請填前次逾期領藥日重算。' : '')
+      : live.length && live.every(s => !s.result.shift) ? '前次領藥日未造成順延，時程不變。' : '';
+    if (reminder) {
+      const hint = document.createElement('p');
+      hint.className = 'hint';
+      hint.textContent = reminder;
+      result.append(hint);
+    }
+    if (!live.length) return;
     const longest = scenarios.at(-1)!.result;
     const table = document.createElement('table');
     table.className = 'schedule';
     const caption = table.createCaption();
-    caption.textContent = '原定時程';
+    caption.textContent = longest.shift ? '時程（依前次領藥日順延）' : '原定時程';
     const body = table.createTBody();
     const suffix = (s: Scenario) => scenarios.length > 1 ? `（可調劑 ${s.count} 次）` : '';
-    for (const [label, dates] of [
-      ...longest.schedule.map((range, i) => [`第 ${i + 1} 次領藥`, rangeText(range)]),
-      ...scenarios.flatMap(s => [[`最早回診日${suffix(s)}`, fullDate(s.result.earliestReturn)], [`處方失效日${suffix(s)}`, fullDate(s.result.expiry)]]),
+    // Moved rows show the new dates first and the prescription's own dates after them.
+    const was = (now: string, before?: string) => before && before !== now ? `原 ${before}` : '';
+    const short = (range: DateRange) => range.start === range.end ? shortDate(range.start) : `${shortDate(range.start)}～${shortDate(range.end)}`;
+    for (const [label, dates, before] of [
+      ...(longest.shift?.original ?? longest.schedule).map((range, i) => {
+        const now = longest.schedule[i];
+        return [`第 ${i + 1} 次領藥`, now ? rangeText(now) : '已無（前次逾期）', longest.shift ? was(now ? short(now) : '', short(range)) : ''];
+      }),
+      ...scenarios.flatMap(s => [[`最早回診日${suffix(s)}`, fullDate(s.result.earliestReturn), was(shortDate(s.result.earliestReturn), s.result.shift && shortDate(s.result.shift.originalReturn))],
+        [`處方失效日${suffix(s)}`, fullDate(s.result.expiry), '']]),
     ]) {
       const row = body.insertRow();
       const heading = document.createElement('th');
@@ -119,6 +140,12 @@ function render(input: AutoInput) {
       row.append(heading);
       const cell = row.insertCell();
       cell.textContent = dates;
+      if (before) {
+        const span = document.createElement('span');
+        span.className = 'was';
+        span.textContent = before;
+        cell.append(span);
+      }
       if (label.startsWith('處方失效日')) cell.className = 'expiry-date';
     }
     result.append(table);
@@ -150,6 +177,7 @@ function applyQR(data: PrescriptionQR, moveFocus = true) {
   days.value = String(data.days);
   count.value = '';
   visit.value = '';
+  previous.value = '';
   emptyResult();
   status.textContent = `已帶入 ${fullDate(data.date)}、${data.days} 天，並依今日判斷本次次數。請核對日期；如需指定可調劑次數或本次次數，請手動選擇。`;
   submit(false);
@@ -189,6 +217,7 @@ function finishScan(moveFocus = true) {
   days.value = '';
   count.value = '';
   visit.value = '';
+  previous.value = '';
   emptyResult();
   try { applyQR(parsePrescription(text), moveFocus); }
   catch (error) {
@@ -286,8 +315,9 @@ function submit(report = true) {
   refreshDate();
   validateManualDate();
   if (!(report ? form.reportValidity() : form.checkValidity())) return;
-  // Blank count or visit means "infer from today" (QR codes carry neither).
-  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined, visit: Number(visit.value) || undefined });
+  // Blank count or visit means "infer" (QR codes carry neither): from the previous pickup date when given, else from today.
+  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined, visit: Number(visit.value) || undefined,
+    previous: previous.value || undefined });
   if (matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 form.addEventListener('submit', event => {
