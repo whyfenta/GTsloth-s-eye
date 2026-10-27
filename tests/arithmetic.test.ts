@@ -60,10 +60,11 @@ assert.throws(() => parsePrescription(sample.replace(';.5;', ';0;')));
 assert.throws(() => parsePrescription(sample.replace(';28;', ';90;')));
 // The slip parser keeps who and where; the date parser above still returns no identifying field.
 const slipFields = [...fields];
-slipFields[2] = 'a123456789';
+slipFields[2] = '04';
+slipFields[4] = 'a123456789';
 let slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
 assert.deepEqual(slipQR, { date: '2026-01-01', days: 28, drugCount: 1, encoding: '文字輸入', institution: '0000000000', name: '測試', idNumber: 'A123456789', birth: '2010-01-01', drugs: [{ code: 'TESTCODE01', total: '14' }] });
-slipFields[2] = '12345';
+slipFields[4] = '12345';
 slipFields[5] = '';
 slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
 assert.deepEqual([slipQR.idNumber, slipQR.birth], ['', '']);
