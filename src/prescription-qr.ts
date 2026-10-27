@@ -44,11 +44,11 @@ export function parsePrescription(scanned: string, scannedAs = '文字輸入'): 
   const { fields, date } = prescriptionFields(text);
   return { date, days: Number(fields[9]), drugCount: (fields.length - 14) / 5, encoding };
 }
-/** Fields 1, 3, 4 and 6 hold the institution code, ID number, name and ROC birth date; a malformed ID or birth date is left blank. */
+/** Fields 1, 4, 5 and 6 hold the institution code, name, ID number and ROC birth date (checked against a real QR); a malformed ID or birth date is left blank. */
 export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入'): SlipQR {
   const { text, encoding } = repairByteText(scanned, scannedAs);
   const { fields, date } = prescriptionFields(text);
-  const idNumber = fields[2].trim().toUpperCase();
+  const idNumber = fields[4].trim().toUpperCase();
   let birth = '';
   try { birth = rocDate(fields[5].trim()); } catch { /* The store copy then prints the ID number alone. */ }
   const drugs = [];
