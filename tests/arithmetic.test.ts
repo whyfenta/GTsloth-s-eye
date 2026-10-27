@@ -56,7 +56,11 @@ assert.throws(() => parsePrescription(sample.replace('1150101', '1150230')));
 assert.throws(() => parsePrescription(sample.replace(';2;', ';1;')));
 assert.throws(() => parsePrescription(sample.replace('測試', '\uFFFD')));
 assert.throws(() => parsePrescription(sample.replace(';PO;', ';;')));
-assert.throws(() => parsePrescription(sample.replace(';.5;', ';0;')));
+assert.throws(() => parsePrescription(sample.replace(';14;', ';0;')));
+assert.throws(() => parsePrescription(sample.replace(';14;', ';X1;')));
+// The dose is not read and its format varies by hospital; only a blank one is rejected.
+assert.equal(parsePrescription(sample.replace(';.5;', ';X1;')).drugCount, 1);
+assert.throws(() => parsePrescription(sample.replace(';.5;', '; ;')));
 assert.throws(() => parsePrescription(sample.replace(';28;', ';90;')));
 // The slip parser keeps who and where; the date parser above still returns no identifying field.
 const slipFields = [...fields];
@@ -69,6 +73,9 @@ slipFields[5] = '';
 slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
 assert.deepEqual([slipQR.idNumber, slipQR.birth], ['', '']);
 assert.throws(() => parsePrescriptionSlip(sample.replace(';PO;', ';;')));
+// Layout of a real eye clinic QR, patient fields replaced: dose X1 for drops and ointment, notes joined by commas in field 14.
+const eye = [...slipFields.slice(0, 13), '3,00000000,過敏史:無,TESTVISITID', 'TESTCODE01', 'X1', 'QID', 'OS', '1', 'TESTCODE02', 'X1', 'QN', 'OU', '1'];
+assert.deepEqual(parsePrescriptionSlip(eye.join(';') + ';').drugs, [{ code: 'TESTCODE01', total: '1' }, { code: 'TESTCODE02', total: '1' }]);
 // A scanner that types each Big5 or UTF-8 byte as a Windows-1252 character (測試 → ´ú¸Õ) is decoded back.
 const byteTyped = (bytes: Uint8Array) => [...bytes].map(byte => new TextDecoder('windows-1252').decode(Uint8Array.of(byte))).join('');
 const big5Fields = [...slipFields];

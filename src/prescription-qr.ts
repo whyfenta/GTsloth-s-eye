@@ -33,8 +33,9 @@ function prescriptionFields(text: string): { fields: string[]; date: string } {
   if (!/^\d+$/.test(fields[9]) || ![28, 29, 30].includes(Number(fields[9]))) throw new Error('QR 給藥日份不在目前支援的 28、29、30 天內，請手動核對。');
   const decimal = /^(?:\d+(?:\.\d+)?|\.\d+)$/;
   for (let i = 14; i < fields.length; i += 5) {
+    // Nothing reads the dose and hospitals write it their own way (an eye clinic writes X1), so only the total's format is checked.
     const [code, dose, frequency, route, total] = fields.slice(i, i + 5);
-    if (![code, dose, frequency, route, total].every(v => v.trim()) || !decimal.test(dose) || !decimal.test(total) || !/[1-9]/.test(dose) || !/[1-9]/.test(total)) throw new Error('QR 藥品欄位缺漏或數量格式不支援，請核對後手動輸入。');
+    if (![code, dose, frequency, route, total].every(v => v.trim()) || !decimal.test(total) || !/[1-9]/.test(total)) throw new Error('QR 藥品欄位缺漏或數量格式不支援，請核對後手動輸入。');
   }
   return { fields, date };
 }
