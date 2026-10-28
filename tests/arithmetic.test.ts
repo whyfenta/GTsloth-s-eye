@@ -67,7 +67,9 @@ const slipFields = [...fields];
 slipFields[2] = '04';
 slipFields[4] = 'a123456789';
 let slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
-assert.deepEqual(slipQR, { date: '2026-01-01', days: 28, drugCount: 1, encoding: '文字輸入', institution: '0000000000', name: '測試', idNumber: 'A123456789', birth: '2010-01-01', drugs: [{ code: 'TESTCODE01', total: '14' }] });
+// rx is what the prescription check reads: diagnoses, 就醫科別, the age band on the visit date, each drug's frequency and route.
+assert.deepEqual(slipQR, { date: '2026-01-01', days: 28, drugCount: 1, encoding: '文字輸入', institution: '0000000000', name: '測試', idNumber: 'A123456789', birth: '2010-01-01', drugs: [{ code: 'TESTCODE01', total: '14' }],
+  rx: { dx: ['A', 'B'], dept: '', age: 'AGE10-19', drugs: [{ code: 'TESTCODE01', frequency: 'QD AM', route: 'PO' }] } });
 slipFields[4] = '12345';
 slipFields[5] = '';
 slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');

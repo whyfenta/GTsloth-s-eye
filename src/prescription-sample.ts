@@ -1,5 +1,6 @@
-import { rocDate } from './arithmetic-model';
-import { parsePrescriptionLayout, splitFields } from './prescription-qr';
+import { ageBand, parsePrescriptionLayout, splitFields } from './prescription-qr';
+
+export { ageBand, birthShape } from './prescription-qr';
 
 const FAILED = '失敗：';
 // Field numbers count from 1, as in the README; arrays count from 0.
@@ -8,25 +9,6 @@ const kept = [1, 2, 8, 10, 12];
 /** Fields 3, 7 and 11 are of unknown use: a short code is kept, anything longer may identify the patient. */
 const shortCode = (value: string) => /^[0-9A-Za-z]{1,4}$/.test(value) ? value : '';
 
-/** A birth date that cannot be read is described by its shape, never its value: digits become 9, letters A, any other character outside printable ASCII X, symbols stay; past 12 characters only the length. */
-export function birthShape(value: string): string {
-  const chars = [...value];
-  if (chars.length > 12) return `AGE?len${chars.length}`;
-  return `AGE?${chars.map(char => /[0-9]/.test(char) ? '9' : /[A-Za-z]/.test(char) ? 'A' : /[\x20-\x7E]/.test(char) ? char : 'X').join('')}`;
-}
-/** Completed years on the visit date in 10-year bands (AGE0-9 … AGE80-89, AGE90+), with 60–69 split at 65 for the rules on older patients.
- *  An unreadable birth date gives its shape; a blank one, an unreadable visit date or a birth after the visit gives a blank. */
-export function ageBand(birthRoc: string, visitRoc: string): string {
-  let birth: string, visit: string;
-  try { birth = rocDate(birthRoc.trim()); } catch { return birthRoc.trim() ? birthShape(birthRoc) : ''; }
-  try { visit = rocDate(visitRoc.trim()); } catch { return ''; }
-  const age = Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0);
-  if (age < 0) return '';
-  if (age >= 90) return 'AGE90+';
-  if (age >= 60 && age < 70) return age < 65 ? 'AGE60-64' : 'AGE65-69';
-  const low = age - age % 10;
-  return `AGE${low}-${low + 9}`;
-}
 /** One prescription as one line in the same ;-separated layout. Every field is blank unless a rule keeps it, so nothing moves and nothing unlisted leaks. */
 export function deidentify(scanned: string, scannedAs?: string): string {
   const { fields } = parsePrescriptionLayout(scanned, scannedAs);

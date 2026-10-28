@@ -1,8 +1,12 @@
 import { rocDate } from './arithmetic-model';
+import { normCode, type RxFacts } from './rx-check';
 
 export interface PrescriptionQR { date: string; days: number; drugCount: number; encoding: string }
-/** Identifying fields printed on the pickup slip. They stay in page memory only: never stored, logged or sent. */
-export interface SlipQR extends PrescriptionQR { institution: string; name: string; idNumber: string; birth: string; drugs: { code: string; total: string }[] }
+/**
+ * Identifying fields printed on the pickup slip, and what the prescription check reads (diagnoses, 就醫科別, age band, each drug's
+ * frequency and route). They stay in page memory only: never stored, logged or sent.
+ */
+export interface SlipQR extends PrescriptionQR { institution: string; name: string; idNumber: string; birth: string; drugs: { code: string; total: string }[]; rx: RxFacts }
 export function decodePrescriptionBytes(bytes: Uint8Array): { text: string; encoding: string } {
   for (const encoding of ['utf-8', 'big5']) {
     try {
@@ -72,7 +76,38 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   const drugs = [];
   for (let i = 14; i < fields.length; i += 5) drugs.push({ code: fields[i].trim(), total: fields[i + 4].trim() });
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
-    idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs };
+    idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7])) };
+}
+/** A birth date that cannot be read is described by its shape, never its value: digits become 9, letters A, any other character outside printable ASCII X, symbols stay; past 12 characters only the length. */
+export function birthShape(value: string): string {
+  const chars = [...value];
+  if (chars.length > 12) return `AGE?len${chars.length}`;
+  return `AGE?${chars.map(char => /[0-9]/.test(char) ? '9' : /[A-Za-z]/.test(char) ? 'A' : /[\x20-\x7E]/.test(char) ? char : 'X').join('')}`;
+}
+/** Completed years on the visit date in 10-year bands (AGE0-9 … AGE80-89, AGE90+), with 60–69 split at 65 for the rules on older patients.
+ *  An unreadable birth date gives its shape; a blank one, an unreadable visit date or a birth after the visit gives a blank. */
+export function ageBand(birthRoc: string, visitRoc: string): string {
+  let birth: string, visit: string;
+  try { birth = rocDate(birthRoc.trim()); } catch { return birthRoc.trim() ? birthShape(birthRoc) : ''; }
+  try { visit = rocDate(visitRoc.trim()); } catch { return ''; }
+  const age = Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0);
+  if (age < 0) return '';
+  if (age >= 90) return 'AGE90+';
+  if (age >= 60 && age < 70) return age < 65 ? 'AGE60-64' : 'AGE65-69';
+  const low = age - age % 10;
+  return `AGE${low}-${low + 9}`;
+}
+/**
+ * What the prescription check reads, each field trimmed and upper-cased as hospitals write either case: field 12's #-separated
+ * diagnoses without dots, field 7's 就醫科別, each drug's code, frequency and route. The 就醫科別 has 2 characters, or 4 when a
+ * hospital pads it (AB00, 0100); any other length is the hospital's own code (146, 0NB) and leaves the department unknown.
+ */
+export function rxFacts(fields: string[], age: string): RxFacts {
+  const f = fields.map(value => value.trim().toUpperCase());
+  const dept = f[6].length === 2 || (f[6].length === 4 && f[6].endsWith('00')) ? f[6].slice(0, 2) : '';
+  const drugs = [];
+  for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3] });
+  return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, drugs };
 }
 export function parsePrescriptionBytes(bytes: Uint8Array): PrescriptionQR {
   const { text, encoding } = decodePrescriptionBytes(bytes);
