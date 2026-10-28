@@ -163,6 +163,8 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 健保用藥品項精簡檔（比對商品代號與健保藥品代號、以及處方規則對照 ATC 用的參考資料，網站程式不讀取）見 [docs/reference/nhi-drug-codes.md](docs/reference/nhi-drug-codes.md)。
 
+ICD-10-CM 中英文對照檔（健保署 2023 年版中文版，處方規則以中文顯示診斷碼用的參考資料，網站程式不讀取）見 [docs/reference/icd10cm-zh.md](docs/reference/icd10cm-zh.md)。
+
 商品代號（六碼）對健保藥品代號的比對、查表工具 `npm run nhi-map`（網站程式不讀取），見 [docs/reference/sku-nhi-map.md](docs/reference/sku-nhi-map.md)。對照檔本身含整個商品檔的六碼與品名，放在另一個 private repo，不放在這裡；以 `--map` 或環境變數 `SKU_NHI_MAP` 指定。
 
 ## GitHub Pages 自動發布
