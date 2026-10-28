@@ -23,11 +23,28 @@ function repairByteText(text: string, encoding: string): { text: string; encodin
     return { text: decoded.text, encoding: `逐位元組還原 ${decoded.encoding}` };
   } catch { return { text, encoding }; }
 }
-function prescriptionFields(text: string): { fields: string[]; date: string } {
-  if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
+/** Fields of a scanned QR, one terminator removed; every other empty field is kept. */
+export function splitFields(text: string): string[] {
   const fields = text.replace(/^﻿/, '').split(';');
-  if (fields.at(-1) === '') fields.pop(); // Remove one terminator only; preserve every other empty field.
+  if (fields.at(-1) === '') fields.pop();
+  return fields;
+}
+/** Layout only, shared by every parser: readable text, 14 fixed fields, then 5 per drug (at least one). */
+function layoutFields(text: string): string[] {
+  if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
+  const fields = splitFields(text);
   if (fields.length < 19 || (fields.length - 14) % 5 !== 0) throw new Error('不是支援的處方 QR 格式，或藥品欄位不完整。');
+  return fields;
+}
+/** Any prescription type and number of days: the layout, and no blank drug field. For collecting samples, not for dispensing. */
+export function parsePrescriptionLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } {
+  const { text, encoding } = repairByteText(scanned, scannedAs);
+  const fields = layoutFields(text);
+  if (fields.slice(14).some(value => !value.trim())) throw new Error('QR 藥品欄位有空白。');
+  return { fields, encoding };
+}
+function prescriptionFields(text: string): { fields: string[]; date: string } {
+  const fields = layoutFields(text);
   if (!/^\d{10}$/.test(fields[0]) || fields[1] !== '2') throw new Error('目前支援此格式的連續處方 QR，請確認掃到正確的碼。');
   const date = rocDate(fields[7]);
   if (!/^\d+$/.test(fields[9]) || ![28, 29, 30].includes(Number(fields[9]))) throw new Error('QR 給藥日份不在目前支援的 28、29、30 天內，請手動核對。');

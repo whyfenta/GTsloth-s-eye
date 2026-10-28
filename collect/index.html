@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#234d43" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="description" content="連續掃描處方 QR，在瀏覽器裡去識別化，輸出可複製或下載的樣本文字。" />
+  <title>處方樣本收集 · 處方 QR 去識別化</title>
+</head>
+<body>
+  <div class="calculator-shell">
+    <header class="calculator-header"><a class="calculator-brand" href="../" aria-label="處方樣本收集，返回樹懶的工作主目錄"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h2m2 0h2m-6 3h6m-6 3h2m2 0h2"/></svg><span>處方樣本收集<span class="calculator-brand-sub">← 返回主目錄</span></span></a><a class="calculator-home" href="../">← 主目錄</a></header>
+    <main>
+      <section class="calculator-intro"><div><p class="eyebrow">PRESCRIPTION SAMPLES, DE-IDENTIFIED</p><h1>刷處方 QR，去掉病人資料再交出去。</h1><p>連續刷處方 QR，每一張都在這個瀏覽器裡去識別化，最後複製或下載交給藥師。</p></div></section>
+      <div class="collect-grid">
+        <section class="panel" aria-labelledby="scan-title">
+          <h2 id="scan-title">掃描處方 QR</h2>
+          <label for="scan">處方 QR</label>
+          <input id="scan" type="text" placeholder="點這裡，再用掃碼機刷處方 QR" aria-describedby="scan-help scan-status" autocomplete="off" spellcheck="false" maxlength="32769" autofocus />
+          <p id="scan-help" class="hint">可以連續刷，每刷一張右側加一行；同一張重刷不會重複加入。掃碼機要在英數模式，中文輸入法請先按 Shift 切換。</p>
+          <p id="scan-status" class="scan-status" role="status" aria-live="polite"></p>
+          <p class="collect-count">已收 <strong id="collected">0</strong> 張<span id="failed"></span></p>
+          <div class="form-actions"><button type="button" class="primary" id="copy">複製全部</button><button type="button" id="download">下載 .txt</button><button type="button" class="collect-clear" id="clear">清除</button></div>
+          <p class="hint">這台電腦的瀏覽器只保存去識別化後的結果，誤關分頁重開仍在；掃碼原文解析後即丟棄，不保存、不送出。</p>
+        </section>
+        <section class="panel" aria-labelledby="lines-title">
+          <h2 id="lines-title">去識別化結果</h2>
+          <p id="lines-empty" class="empty-result">刷入處方 QR 後，去識別化的結果會一張一行列在這裡。</p>
+          <ol id="lines" class="collect-lines" hidden></ol>
+        </section>
+      </div>
+      <aside class="calculation-note"><h2>去識別化方式</h2><p>每張處方輸出一行，維持原本以分號分隔的欄位位置，刪掉的欄位留空。姓名、身分證清空，生日改成每 10 歲一級的年齡層，備註只留過敏史；醫事機構代碼、處方類型、就醫日期、給藥日份、診斷碼與藥品照原樣保留。</p><p>無法解析的 QR 只記「失敗：原因，欄位數」，不記原文。處理全在這個瀏覽器裡，頁面不連線到任何地方。</p></aside>
+      <footer class="calculator-footer"><span>處方樣本收集 · 去識別化後才交出。 <span id="version"></span></span><span>瀏覽器內處理 · 不上傳 · 不保存原文</span></footer>
+    </main>
+  </div>
+  <script type="module" src="/src/collect.ts"></script>
+</body>
+</html>
