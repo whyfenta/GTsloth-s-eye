@@ -38,6 +38,18 @@
 
 **更新醫院名冊**（出現「查無醫事機構代碼」或定期更新時）：到政府資料開放平臺「健保特約醫療院所名冊」 https://data.gov.tw/dataset/168341 下載 CSV（資源 `A21030000I-D2100G-001`），**不要先用 Excel 開啟**（Excel 會去掉代碼開頭的 0，並把部分代碼變成科學記號），再執行 `npm run slip-assets -- 路徑/A21030000I-D2100G-001.csv`。程式只保留醫事機構種類 A（醫院、診所）的代碼與名稱，寫入 `public/assets/nhi/institutions.json` 並更新 manifest；無法還原的代碼會列出並略過。目前名冊資料日期 2026/10/24，共 25,344 筆；來源檔有 7 筆代碼已是科學記號，這 7 家診所的處方會出現查無代碼的提示。資料依政府資料開放授權條款第 1 版使用，顯名聲明見 `public/assets/licenses/OGDL-Taiwan-1.0.txt`。
 
+### 處方警示（試用，預設關閉）
+
+憑單模式每掃入一張處方，比對 QR 的診斷碼（ICD-10-CM）和每個藥的 ATC，在該張處方卡片下方列出和本次診斷對不上的藥，讓藥師在忙碌時也能發現可能開錯的藥，例如藥名相似而拿錯、病人或處方弄錯。規則用知識庫分層判定，不做統計關聯，所以不需要蒐集病人資料。
+
+- **開關**：規則表是草稿，**預設關閉**，藥師審完才打開。試用時在網址加上 `?rxcheck=1`，例如 https://whyfenta.github.io/GTsloth-s-eye/appointment/?rxcheck=1 ，只對這次開啟的頁面有效，不儲存；`?rxcheck=0` 關閉。審完後把 `src/rx-check-config.ts` 的 `RX_CHECK_DEFAULT` 改成 `true` 再發布，所有人預設開啟（仍可用 `?rxcheck=0` 關閉）。試算模式不顯示警示。
+- **畫面**：每張卡片下先列出科別、年齡層與本次診斷（附中文名稱），紅色、黃色警示直接顯示，灰色提示與已由某一層解釋的藥收在「灰色提示 n 則・已解釋 m 個藥」，點開才看到。每則一行：藥名（商品對照查得到時用品名，否則用健保成分）、ATC 與理由，理由裡的診斷碼附中文名稱。警示不印在憑單上。
+- **判定**：每個藥依序看適應症、同處方的其他藥、科別常用、低風險，前一層解釋得了就停；都解釋不了時高警訊藥給黃色、其他給灰色。注意事項（診斷、年齡、同處方）與同成分重複另外判定。沒有診斷碼的處方只給一則灰色提示；不在健保用藥品項的代碼（例如特材）當成低風險。規則表、寫法與待藥師確認的事項見 [docs/reference/rx-rules.md](docs/reference/rx-rules.md)。
+- **讀取的 QR 欄位**：第 7 欄就醫科別（2 碼；補成 4 碼的如 `AB00`、`0100` 取前 2 碼；院內 3 碼如 `146`、`0NB` 當作未知科別）、第 12 欄診斷碼（`#` 分隔，有無小數點與結尾 `#` 都可以）、第 6 欄生日（只用來算年齡層，與收集頁相同：每 10 歲一級，60～69 歲在 65 歲切開），以及每個藥的健保碼、頻率、途徑；大小寫與多餘空白不影響。這些只留在頁面記憶體，和姓名一樣不儲存、不送出。
+- **資料檔**：`public/assets/rx/` 的規則表（`rules.json`，約 21 KB）、健保碼對 ATC 與成分（`drugs.json`，約 1.8 MB，gzip 約 0.36 MB）、ICD-10-CM 中文名稱（`icd10cm.json`，約 6.3 MB，gzip 約 0.64 MB），開關打開後第一次掃碼時整份載入。診斷名稱不依章節分檔按需載入，因為那樣請求的網址會透露這位病人的診斷章節。改了 `docs/reference/rx-rules/` 的規則表，或更新 `docs/reference/` 的健保用藥品項、ICD 對照檔後，執行 `npm run rx-assets` 重產並更新 manifest（`npm test` 會檢查有沒有重產）。健保署資料依其政府網站資料開放宣告使用，出處見 `public/assets/licenses/NHI-open-data.txt`。
+- **測試**：單元測試只用合成 QR 與合成規則表。和規則草稿的 Python 原型逐藥比對的測試需要本機的去識別化樣本，以環境變數 `RX_SAMPLES`（樣本檔，Windows 以 `;` 分隔）與 `RX_PROTOTYPE`（`check_rules.py`）指定，未指定時跳過；目前 171 張、558 個藥全部一致。
+- **後續工作**：藥名相似（LASA）提示、左右眼比對、過敏比對、給付期間檢查、規則表的出處與審核欄位、接入食藥署「全部藥品許可證資料集」的適應症原文。
+
 ## 處方樣本收集（處方 QR 去識別化）
 
 網址：https://whyfenta.github.io/GTsloth-s-eye/collect/ （不在首頁導覽，直接分享網址）。用途是為規則式處方警示（比對 ICD-10 診斷碼與藥品，找出「藥和診斷對不上」的處方）收集各院所、各科的真實處方樣本：門市值班同事用鍵盤式掃碼機連續刷處方 QR，每一張在瀏覽器裡去識別化，最後按「複製全部」或「下載 .txt」交給藥師，檢查各院所的格式差異與規則涵蓋度。
@@ -114,7 +126,7 @@
 - 沒有檔案上傳 API、庫存資料庫、分析追蹤、外部 OCR 服務、LocalStorage、IndexedDB 或 Service Worker。
 - 例外：處方樣本收集把去識別化後的結果存在瀏覽器的 LocalStorage（見上方「處方樣本收集」）；掃碼原文不儲存。
 - 另一個例外：樹懶的管理產生 PDF 時，會把校對修改紀錄（見上方「校對回饋」）送到 `src/feedback-config.ts` 設定的 Google Apps Script 網址；報表檔案、店名、統計期間與任何數量都不送出。
-- 樹懶的算數的領藥憑單會在畫面與列印中顯示病人姓名，門市存查聯另印身分證與生日；這些資料只在當次頁面記憶體，不儲存、不送出。醫院名冊、商品代號查詢檔（健保碼、六碼、品名）與憑單底圖是網站本身的公開資源；商品代號對照檔本身與其判定、來源門市仍留在 private repo。
+- 樹懶的算數的領藥憑單會在畫面與列印中顯示病人姓名，門市存查聯另印身分證與生日；這些資料只在當次頁面記憶體，不儲存、不送出。處方警示（預設關閉）讀取的診斷碼、科別、年齡層與藥品也一樣；它的規則表、藥品與診斷名稱資料檔整份載入，請求不因處方內容而不同。醫院名冊、商品代號查詢檔（健保碼、六碼、品名）與憑單底圖是網站本身的公開資源；商品代號對照檔本身與其判定、來源門市仍留在 private repo。
 - 使用者檔案、原圖裁切與結果只存在當次頁面記憶體。圖片檔只在辨識或檢視原圖時解碼，加入多張照片不會同時佔用解碼後的記憶體。清除／關閉／重新整理會失去資料；下載 PDF 由使用者裝置保存。
 - OCR 模型、Worker、WASM、PDF.js 字型資源及中文字型均從網站本身載入。HTTP 快取可能保存公開依賴資源，不保存庫存文件。
 - 原始庫存 PDF、人工基準 JSON、測試影像、輸出及詳細辨識紀錄留在本機，Git 忽略這些資料，部署封包只有靜態程式與公開依賴資源。
@@ -161,9 +173,9 @@ GitHub Actions 在 push main、pull request 與手動執行時，測試 Ubuntu N
 
 程式結構、已重現問題與簡化順序見 [2026-10-21 程式 review](docs/code-review-2026-10-21.md)。
 
-健保用藥品項精簡檔（比對商品代號與健保藥品代號、以及處方規則對照 ATC 用的參考資料，網站程式不讀取）見 [docs/reference/nhi-drug-codes.md](docs/reference/nhi-drug-codes.md)。
+健保用藥品項精簡檔（比對商品代號與健保藥品代號、以及處方警示對照 ATC 用的參考資料；網站程式不直接讀取，處方警示用的 `public/assets/rx/drugs.json` 由它產生）見 [docs/reference/nhi-drug-codes.md](docs/reference/nhi-drug-codes.md)。
 
-ICD-10-CM 中英文對照檔（健保署 2023 年版中文版，處方規則以中文顯示診斷碼用的參考資料，網站程式不讀取）見 [docs/reference/icd10cm-zh.md](docs/reference/icd10cm-zh.md)。
+ICD-10-CM 中英文對照檔（健保署 2023 年版中文版，處方警示以中文顯示診斷碼用的參考資料；網站程式不直接讀取，`public/assets/rx/icd10cm.json` 由它產生）見 [docs/reference/icd10cm-zh.md](docs/reference/icd10cm-zh.md)。
 
 商品代號（六碼）對健保藥品代號的比對、查表工具 `npm run nhi-map`（網站程式不讀取），見 [docs/reference/sku-nhi-map.md](docs/reference/sku-nhi-map.md)。對照檔本身含整個商品檔的六碼與品名，放在另一個 private repo，不放在這裡；以 `--map` 或環境變數 `SKU_NHI_MAP` 指定。
 
@@ -185,7 +197,7 @@ ICD-10-CM 中英文對照檔（健保署 2023 年版中文版，處方規則以�
 2. 完成 source audit、測試、建置及 dist audit 後提交、push，透過 pull request 合併至 main。
 3. 確認該 commit 的「Build and test」與「Deploy GitHub Pages」執行成功，再核對公開網站的頁尾版本。
 
-`public/assets/manifest.json` 記錄依賴版本、來源、SHA-256 和授權；`scripts/assets.mjs` 可重下載公開資源。完成後使用 Python 與 `fonttools==4.60.1` 執行 `scripts/static-font.py` 產生 PDF 靜態字型，再執行 `npm run slip-assets` 補回領藥憑單底圖與醫院名冊的紀錄。一般建置不需重新下載資源。完整授權位於 `public/assets/licenses/`。
+`public/assets/manifest.json` 記錄依賴版本、來源、SHA-256 和授權；`scripts/assets.mjs` 可重下載公開資源。完成後使用 Python 與 `fonttools==4.60.1` 執行 `scripts/static-font.py` 產生 PDF 靜態字型，再執行 `npm run slip-assets` 補回領藥憑單底圖與醫院名冊的紀錄、`npm run rx-assets` 補回處方警示資料的紀錄。一般建置不需重新下載資源。完整授權位於 `public/assets/licenses/`。
 
 `qa.html` 與 `scripts/browser-qa.ts` 是本機開發驗證入口，不包含於 Vite 正式輸出。其大量 PDF 功能專供效能測試，不執行人工確認；正式網站的校對關卡始終有效。
 
