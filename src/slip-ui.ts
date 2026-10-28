@@ -2,14 +2,18 @@ import { addDays, taiwanToday, type DateRange } from './arithmetic-model';
 import { loadRoster, ROSTER_SOURCE, unknownInstitution } from './institutions';
 import type { SlipQR } from './prescription-qr';
 import { loadProducts } from './products';
+import type { RxFacts } from './rx-check';
+import { rxCheckOn } from './rx-check-config';
+import { renderRxCheck } from './rx-check-ui';
+import { loadRxData, type RxData } from './rx-data';
 import { buildSlip, planSlip, prescriptionAhead, MISSING_ROWS, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
 
 // Every scanned prescription joins the slip; identifying fields live only in these objects and the inputs below.
 // products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
-interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
-  drugList: HTMLFieldSetElement; counts: HTMLInputElement[]; visits: HTMLInputElement[] }
+interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+  drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[] }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -31,6 +35,9 @@ const scanField = element<HTMLInputElement>('prescription-date');
 let items: Item[] = [];
 /** 健保碼 → 六碼, loaded on the first scan. */
 let catalog: Map<string, Product[]> | undefined;
+/** 處方警示: off unless switched on (src/rx-check-config.ts); its rules and lookups load on the first scan. */
+const rxOn = rxCheckOn(location.search);
+let rxData: RxData | undefined;
 /** The calculated trips, and dates agreed with the patient in their place; base is the window they replaced. */
 let plan: SlipPlan | undefined;
 let agreed: Partial<Record<Row, { base: Trip; range: DateRange }>> = {};
@@ -281,7 +288,13 @@ function fillItem(item: Item) {
     labelled('姓名', textInput(item.name, '', value => { item.name = value.trim(); })),
     labelled('醫院名稱', hospital), count.field, visit.field);
   listDrugs(item);
-  li.append(head, fields, item.hospitalNote, item.state, item.drugList);
+  li.append(head, fields, item.hospitalNote, item.state, item.drugList, item.check);
+}
+/** The card's 處方警示, never on the slip; drug names follow the product lookup once it has loaded. */
+function showCheck(item: Item) {
+  if (!rxOn) return;
+  if (!rxData) { item.check.replaceChildren(make('p', 'hint', '處方警示資料載入中…')); return; }
+  renderRxCheck(item.check, item.rx, item.drugs.map(drug => drug.product?.name ?? [...new Set(drug.products.map(product => product.name))].join('／')), rxData);
 }
 function lookup(item: Item) {
   const input = item.element.querySelector<HTMLInputElement>('[data-role=hospital]')!;
@@ -334,18 +347,22 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
   const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
-    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })),
+    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
-    drugList: make('fieldset', 'slip-drugs'), counts: [], visits: [] };
+    drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [] };
+  item.check.hidden = !rxOn;
   item.drugs.forEach(identify);
   fillItem(item);
   items.push(item);
   list.append(item.element);
   lookup(item);
+  showCheck(item);
+  if (rxOn && !rxData) loadRxData().then(loaded => { rxData = loaded; items.forEach(showCheck); })
+    .catch((error: Error) => { if (!rxData) for (const other of items) other.check.replaceChildren(make('p', 'error', error.message)); });
   if (!catalog) loadProducts().then(loaded => {
     if (catalog) return;
     catalog = loaded.index;
-    for (const other of items) { other.drugs.forEach(identify); listDrugs(other); }
+    for (const other of items) { other.drugs.forEach(identify); listDrugs(other); showCheck(other); }
     update();
   }).catch((error: Error) => { status.textContent = error.message; });
   update();

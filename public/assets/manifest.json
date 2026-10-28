@@ -1361,6 +1361,40 @@
       "sourceSha256": "e3e85c161ba5c57f2ac5e15edeb92b1dd284c91cc24e046ffebbfeb0f2a45ce6",
       "dataDate": "2026-10-27",
       "conversion": "scripts/slip-assets.ts --map：健保碼 → 六碼、對接品名與改用六碼（不含判定、判定日期與來源）"
+    },
+    {
+      "path": "rx/rules.json",
+      "bytes": 20873,
+      "sha256": "ae1e588abd2f0bdbb66bc9103066990d94cd602b1b3bdb1d583a19cfa98362c0",
+      "source": "docs/reference/rx-rules/*.csv（本專案的規則表草稿，待藥師審核）",
+      "conversion": "scripts/rx-assets.ts：逐列檢查後原樣轉成 JSON"
+    },
+    {
+      "path": "rx/drugs.json",
+      "bytes": 1839621,
+      "sha256": "fc726e20f7760d1905669e6596b3bb6962ebc4cfa942f9790e580d859049da7e",
+      "source": "衛生福利部中央健康保險署「健保用藥品項」，經 docs/reference/nhi-drug-codes.csv 精簡",
+      "sourceSha256": "8224a841e247148964def3f05a703ead0389199ff2d982ea3fd42d33a598dd7e",
+      "dataDate": "2026-10-25",
+      "conversion": "scripts/rx-assets.ts：健保碼 → ATC代碼與成分",
+      "license": "健保署政府網站資料開放宣告（使用時註明出處）",
+      "licenseSource": "https://www.nhi.gov.tw/ch/cp-4379-5d212-3280-1.html"
+    },
+    {
+      "path": "rx/icd10cm.json",
+      "bytes": 6348757,
+      "sha256": "1587e925025d358a8c03d88e6bf3e246bede7d06eb31e923c16d7067f82438ce",
+      "source": "衛生福利部中央健康保險署「2023年版_中文版ICD-10-CM/PCS(正式版)(115.08.27更新)」，經 docs/reference/icd10cm-zh.csv 轉換",
+      "sourceSha256": "e85d665057ce815f17b2ada311a638b5867d2898a3c5f60f155518d0d6320513",
+      "conversion": "scripts/rx-assets.ts：代碼 → 中文名稱（含 2014 版已刪除的舊碼）",
+      "license": "健保署政府網站資料開放宣告（使用時註明出處）",
+      "licenseSource": "https://www.nhi.gov.tw/ch/cp-4379-5d212-3280-1.html"
+    },
+    {
+      "path": "licenses/NHI-open-data.txt",
+      "bytes": 929,
+      "sha256": "2edb9f8a2305fe4d2d45737fbd2697078c79ba55e009cebfcc58a547e9019d9e",
+      "source": "https://www.nhi.gov.tw/ch/cp-4379-5d212-3280-1.html"
     }
   ]
 }
