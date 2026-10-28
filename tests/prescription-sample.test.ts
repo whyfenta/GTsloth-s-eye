@@ -67,6 +67,18 @@ assert.equal(rejected(qr({ 4: '�' })), '失敗：QR 文字不完整或含亂�
 // Chinese in a kept field means another layout, which could put a name there.
 for (const n of [1, 2, 8, 10, 12]) assert.equal(rejected(qr({ [n]: '測試' })), `失敗：第 ${n} 欄出現中文或全形字，可能是不同院所的 QR 格式，欄位數 24`);
 assert.equal(failureLine(qr(), 'not an error'), '失敗：無法解析，欄位數 24');
+// A retained allergy or drug field cannot split one prescription across output lines.
+for (const newline of ['\r', '\n', '\r\n', '\u2028', '\u2029']) {
+  for (const n of [14, 15, 16, 17, 18, 19]) {
+    const value = n === 14 ? '過敏史:藥物甲' : fields[n - 1];
+    const text = qr({ [n]: `${value}${newline}TESTSECRET` });
+    const failed = new SampleLog();
+    assert.equal(failed.record('newline', text).state, 'failed');
+    assert.equal(failed.lines()[0], '失敗：保留欄位含換行，無法輸出單行樣本，欄位數 24');
+    assert.equal(failed.text().split('\n').length, 2);
+    assert.ok(!failed.text().includes('TESTSECRET'));
+  }
+}
 for (const text of [short, qr({ 18: '' }), qr({ 1: '測試' })]) {
   for (const secret of ['測試', 'A123456789', '0500101', 'TESTCODE01', 'TESTNOTE01']) assert.ok(!rejected(text).includes(secret), secret);
 }

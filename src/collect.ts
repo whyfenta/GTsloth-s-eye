@@ -1,6 +1,7 @@
 import './collect.css';
 import { taiwanToday } from './arithmetic-model';
 import { SampleLog, scanKey, type Recorded } from './prescription-sample';
+import { SampleQueue } from './sample-queue';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -20,7 +21,7 @@ let scanTimer: ReturnType<typeof setTimeout> | undefined;
 /** When the input method last composed in the scan field; a page cannot switch the IME, so a scan typed through it is dropped. */
 let imeAt = -Infinity;
 /** Scans are digested one after another, so a quick rescan is compared with the scan before it. */
-let queue = Promise.resolve();
+const queue = new SampleQueue();
 
 function say(text: string, tone: 'ok' | 'warn' | 'error' = 'ok') {
   status.textContent = text;
@@ -69,10 +70,14 @@ function clearScan() {
   scan.placeholder = '點這裡，再用掃碼機刷處方 QR';
 }
 const imeWarning = '目前是中文輸入模式，掃碼內容會被輸入法攔截。請按 Shift 切換成英數後重新掃碼。';
-async function record(text: string) {
+async function record(text: string, isCurrent: () => boolean) {
   let result: Recorded;
-  try { result = log.record(await scanKey(text), text); }
-  catch { say('這個瀏覽器無法處理掃碼，請改用最新版 Chrome 或 Edge 開啟本頁。', 'error'); return; }
+  try {
+    const key = await scanKey(text);
+    if (!isCurrent()) return;
+    result = log.record(key, text);
+  }
+  catch { if (isCurrent()) say('這個瀏覽器無法處理掃碼，請改用最新版 Chrome 或 Edge 開啟本頁。', 'error'); return; }
   const unsaved = save() ? '' : ' 瀏覽器無法保存結果，關閉分頁前請先下載。';
   render(result.index);
   const at = `第 ${result.index + 1} 行`;
@@ -90,7 +95,7 @@ function finishScan() {
   const text = value.replace(/[\r\n]+$/, '');
   // A product barcode or stray typing is not a prescription QR and is not recorded as a failure.
   if (!text.includes(';')) { say('這不是處方 QR（沒有以分號分隔的欄位），沒有記錄。', 'warn'); return; }
-  queue = queue.then(() => record(text));
+  void queue.enqueue(isCurrent => record(text, isCurrent));
 }
 // Composition only happens with the Chinese IME on: drop what it composes and say how to switch to 英數.
 scan.addEventListener('compositionstart', () => {
@@ -132,25 +137,34 @@ scan.addEventListener('keydown', event => {
 });
 scan.addEventListener('blur', () => { if (scanBuffer) finishScan(); });
 
-copy.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(log.text());
-    say(`已複製 ${log.entries.length} 行，可以貼到訊息或文件交給藥師。`);
-  } catch { say('無法複製，請改按「下載 .txt」。', 'error'); }
+copy.addEventListener('click', () => {
+  finishScan();
+  void queue.enqueue(async isCurrent => {
+    try {
+      await navigator.clipboard.writeText(log.text());
+      if (isCurrent()) say(`已複製 ${log.entries.length} 行，可以貼到訊息或文件交給藥師。`);
+    } catch { if (isCurrent()) say('無法複製，請改按「下載 .txt」。', 'error'); }
+  });
   scan.focus();
 });
 download.addEventListener('click', () => {
-  const url = URL.createObjectURL(new Blob([log.text()], { type: 'text/plain;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `處方QR去識別化_${taiwanToday().replaceAll('-', '')}_${log.collected}張.txt`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  say(`已下載 ${log.entries.length} 行。`);
+  finishScan();
+  void queue.enqueue(() => {
+    const url = URL.createObjectURL(new Blob([log.text()], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `處方QR去識別化_${taiwanToday().replaceAll('-', '')}_${log.collected}張.txt`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    say(`已下載 ${log.entries.length} 行。`);
+  });
   scan.focus();
 });
 clear.addEventListener('click', () => {
   if (confirm(`確定要清除全部 ${log.entries.length} 行？請先複製或下載；清除後無法復原。`)) {
+    queue.cancel();
+    clearScan();
+    scan.value = '';
     log.clear();
     save();
     render();
