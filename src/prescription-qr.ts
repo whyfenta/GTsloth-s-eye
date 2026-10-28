@@ -36,11 +36,11 @@ function layoutFields(text: string): string[] {
   if (fields.length < 19 || (fields.length - 14) % 5 !== 0) throw new Error('不是支援的處方 QR 格式，或藥品欄位不完整。');
   return fields;
 }
-/** Any prescription type and number of days: the layout, and no blank drug field. For collecting samples, not for dispensing. */
+/** Any prescription type and number of days: the layout, and a code for every drug; a blank dose, frequency, route or total stays blank. For collecting samples, not for dispensing. */
 export function parsePrescriptionLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } {
   const { text, encoding } = repairByteText(scanned, scannedAs);
   const fields = layoutFields(text);
-  if (fields.slice(14).some(value => !value.trim())) throw new Error('QR 藥品欄位有空白。');
+  for (let i = 14; i < fields.length; i += 5) if (!fields[i].trim()) throw new Error('QR 藥品健保碼空白。');
   return { fields, encoding };
 }
 function prescriptionFields(text: string): { fields: string[]; date: string } {
