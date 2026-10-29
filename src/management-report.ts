@@ -121,15 +121,15 @@ const deadCells = (row: SlotRow) => [...slotCells(row), disposition(row)];
 /** The self-pay lines printed after the dead stock, cells as on the dead-stock list; their handling is left to a person. */
 export const selfPayRows = (data: Derived) => data.selfPay.map(row => [...slotCells(row), SELF_PAY_DISPOSITION]);
 /**
- * Cells printed in red heavy type, on the safety list only: stock above 4 months of use (OVERSTOCK_MONTHS), and 待採量
+ * Cells printed in red, on the safety list only: the name of a 缺貨 code, stock above 4 months of use (OVERSTOCK_MONTHS), and 待採量
  * worth more than LARGE_ORDER at 健保價, which never applies to a (管3)/(管4) controlled drug.
  */
 export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
   if (kind !== 'safety') return listRows(kind, data).map(cells => cells.map(() => false));
-  return (data.safety?.rows ?? []).map(row => [false, false, overstock(row), false, false, false, largeOrder(row)]);
+  return (data.safety?.rows ?? []).map(row => [false, row.shortage, overstock(row), false, false, false, largeOrder(row)]);
 }
 /** The footer line explaining the red cells of the safety list. */
-export const SAFETY_ALERT_NOTE = `紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > ${formatFrac(LARGE_ORDER)} 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。`;
+export const SAFETY_ALERT_NOTE = `紅色：品名保有「缺貨」前綴（供應商缺貨）；紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > ${formatFrac(LARGE_ORDER)} 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。`;
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;

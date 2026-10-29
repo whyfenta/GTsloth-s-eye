@@ -97,13 +97,14 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     // 000206: 1,990 > 4 × 1,072.5 is false; 000083: 368 ≤ 4 × 300; 000009/000010 have no stock line.
     assert.deepEqual(listAlerts('safety',result).map(row=>row[2]),[false,false,false,false]);
     assert.deepEqual(listAlerts('safety',result).map(row=>row[6]),large,'待採量 is red when worth more than 1,000 at 健保價');
-    assert.deepEqual(listAlerts('safety',result).map(row=>row.filter(Boolean).length),large.map(Number),'no other cell is marked');
+    assert.deepEqual(listAlerts('safety',result).map(row=>row[1]),[false,true,false,false],'the name of a 缺貨 code is red');
+    assert.deepEqual(listAlerts('safety',result).map(row=>row.filter(Boolean).length),large.map((v,i)=>Number(v)+Number(i===1)),'no other cell is marked');
     assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
     assert.equal(spec.title,`安全量調整及採購建議清單 · ${name}（係數 ${range}）`);
     assert.equal(spec.note,SAFETY_ALERT_NOTE,'the footer repeats no formula');
-    assert.equal(SAFETY_ALERT_NOTE,'紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > 1,000 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。');
+    assert.equal(SAFETY_ALERT_NOTE,'紅色：品名保有「缺貨」前綴（供應商缺貨）；紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > 1,000 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。');
     assert.deepEqual(spec.columns.map(c=>c.label),['六編碼','品名','現有庫存量','調劑頻率(/月)','均月銷','建議安全量','待採量']);
     const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
     for(const text of [name,range,'待採量',...values,...toOrder.filter(v=>v!=='—')])assert.ok(printed.includes(text),`printed ${strategy}: ${text}`);
