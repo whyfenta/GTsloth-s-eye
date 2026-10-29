@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { parsePrescription, parsePrescriptionLayout, splitFields } from '../src/prescription-qr';
-import { SampleLog, ageBand, deidentify, failureLine, scanKey } from '../src/prescription-sample';
+import { SampleLog, ageBand, deidentify, deidentifyDrugs, failureLine, scanKey } from '../src/prescription-sample';
 
 // Synthetic placeholders only, never a real prescription. Field numbers count from 1, as in the README.
 const fields = ['0000000000', '1', '12', '測試', 'A123456789', '0500101', '345', '1150101', '0099', '7', 'Z9', 'TESTDX.1#TESTDX2#', '0000000000',
@@ -136,4 +136,32 @@ assert.deepEqual(reloaded.record(await scanKey(later), later), { state: 'added',
 assert.deepEqual(reloaded.record(await scanKey(later), later), { state: 'duplicate', index: 4 });
 reloaded.clear();
 assert.deepEqual([reloaded.text(), reloaded.collected], ['', 0]);
+// A prescription with many drugs has a drugs-only second QR: it joins the line before it, counted per institution.
+const drugsQR = 'TESTCODE03;1;;PO;28;TESTCODE04;X1;QD;OU;1;';
+assert.equal(deidentifyDrugs(drugsQR), drugsQR);
+assert.equal(deidentifyDrugs(qr()), undefined);
+assert.throws(() => deidentifyDrugs(';1;QD;PO;28;'));
+const multi = new SampleLog();
+const drugsKey = await scanKey(drugsQR);
+assert.deepEqual(multi.record(drugsKey, drugsQR), { state: 'failed', index: 0 });
+assert.match(multi.lines()[0], /^失敗：只有藥品的第 2 個 QR，但前一張不是成功收下的處方，欄位數 10$/);
+multi.clear();
+assert.deepEqual(multi.record(key, qr()), { state: 'added', index: 0 });
+assert.deepEqual(multi.record(drugsKey, drugsQR), { state: 'appended', index: 0, drugs: 2 });
+assert.deepEqual(multi.record(drugsKey, drugsQR), { state: 'duplicate', index: 0 });
+assert.equal(multi.lines()[0], expected + drugsQR);
+assert.equal(parsePrescriptionLayout(multi.lines()[0]).fields.length, fields.length + 10);
+const otherClinic = qr({ 1: '1111111111', 13: '1111111111' });
+assert.deepEqual(multi.record(await scanKey(otherClinic), otherClinic), { state: 'added', index: 1 });
+assert.deepEqual(multi.record(await scanKey(later), later), { state: 'added', index: 2 });
+assert.deepEqual([multi.collected, multi.multi], [3, 1]);
+assert.deepEqual(multi.institutions(), [{ institution: '0000000000', prescriptions: 2, multi: 1 }]);
+// After a reload the QR counts come back with the lines; rescans of either QR are still duplicates.
+const multiReloaded = new SampleLog();
+multiReloaded.restore(multi.lines(), multi.qrs());
+assert.deepEqual(multiReloaded.institutions(), multi.institutions());
+assert.deepEqual(multiReloaded.record(key, qr()), { state: 'duplicate', index: 0 });
+const lastOne = new SampleLog();
+lastOne.restore(multi.lines().slice(0, 1), multi.qrs().slice(0, 1));
+assert.deepEqual(lastOne.record(drugsKey, drugsQR), { state: 'duplicate', index: 0 });
 console.log('prescription sample duplicate checks passed');

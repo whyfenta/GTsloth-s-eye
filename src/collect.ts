@@ -1,6 +1,6 @@
 import './collect.css';
 import { taiwanToday } from './arithmetic-model';
-import { SampleLog, scanKey, type Recorded } from './prescription-sample';
+import { SampleLog, scanKey, type InstitutionCount, type Recorded } from './prescription-sample';
 import { SampleQueue } from './sample-queue';
 
 declare const __APP_VERSION__: string;
@@ -11,6 +11,9 @@ const list = element<HTMLOListElement>('lines');
 const copy = element<HTMLButtonElement>('copy');
 const download = element<HTMLButtonElement>('download');
 const clear = element<HTMLButtonElement>('clear');
+const multiBox = element('multi');
+const multiList = element<HTMLUListElement>('multi-list');
+const copyMulti = element<HTMLButtonElement>('copy-multi');
 element('version').textContent = __APP_VERSION__;
 
 /** Holds the de-identified lines only, so a closed tab does not lose a shift's work. The scanned text is never written anywhere. */
@@ -29,7 +32,7 @@ function say(text: string, tone: 'ok' | 'warn' | 'error' = 'ok') {
 }
 function save(): boolean {
   try {
-    if (log.entries.length) localStorage.setItem(STORAGE, JSON.stringify({ version: 1, lines: log.lines() }));
+    if (log.entries.length) localStorage.setItem(STORAGE, JSON.stringify({ version: 2, lines: log.lines(), qrs: log.qrs() }));
     else localStorage.removeItem(STORAGE);
     return true;
   } catch { return false; }
@@ -37,9 +40,13 @@ function save(): boolean {
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
-    if (saved?.version === 1 && Array.isArray(saved.lines) && saved.lines.every((line: unknown) => typeof line === 'string')) log.restore(saved.lines);
+    // Version 1 has no QR counts: every line was then one QR.
+    const lines = Array.isArray(saved?.lines) && saved.lines.every((line: unknown) => typeof line === 'string') ? saved.lines as string[] : undefined;
+    const qrs = saved?.version === 2 && Array.isArray(saved.qrs) && saved.qrs.length === lines?.length && saved.qrs.every((n: unknown) => Number.isInteger(n) && (n as number) >= 1) ? saved.qrs as number[] : undefined;
+    if (lines && (saved.version === 1 || qrs)) log.restore(lines, qrs);
   } catch { /* Start empty. */ }
 }
+const multiText = (count: InstitutionCount) => `醫事機構代碼 ${count.institution}：${count.multi} 張有第 2 個 QR（此院所共收 ${count.prescriptions} 張）`;
 function render(highlight?: number) {
   list.replaceChildren(...log.entries.map((entry, i) => {
     const item = document.createElement('li');
@@ -57,6 +64,14 @@ function render(highlight?: number) {
   element('lines-empty').hidden = !!log.entries.length;
   element('collected').textContent = String(log.collected);
   element('failed').textContent = log.failed ? `，失敗 ${log.failed} 次` : '';
+  const institutions = log.institutions();
+  multiBox.hidden = !institutions.length;
+  element('multi-total').textContent = String(log.multi);
+  multiList.replaceChildren(...institutions.map(count => {
+    const item = document.createElement('li');
+    item.textContent = multiText(count);
+    return item;
+  }));
   for (const button of [copy, download, clear]) button.disabled = !log.entries.length;
   if (highlight !== undefined) list.children[highlight]?.scrollIntoView({ block: 'nearest' });
 }
@@ -82,6 +97,7 @@ async function record(text: string, isCurrent: () => boolean) {
   render(result.index);
   const at = `第 ${result.index + 1} 行`;
   if (result.state === 'added') say(`已加入${at}，共 ${log.collected} 張。${unsaved}`, unsaved ? 'warn' : 'ok');
+  else if (result.state === 'appended') say(`這是只有藥品的第 2 個 QR，已把 ${result.drugs} 個藥接在${at}。它沒有病人與日期，只會接在上一張；如果不是同一張處方，請記下第 ${result.index + 1} 行告知藥師。${unsaved}`, unsaved ? 'warn' : 'ok');
   else if (result.state === 'duplicate') say(`重複：這張處方已在${at}，不重複加入。${unsaved}`, 'warn');
   else say(`無法解析，已在${at}記下原因與欄位數（不含原文）。請確認掃到的是處方 QR。${unsaved}`, 'error');
 }
@@ -157,6 +173,17 @@ download.addEventListener('click', () => {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
     say(`已下載 ${log.entries.length} 行。`);
+  });
+  scan.focus();
+});
+copyMulti.addEventListener('click', () => {
+  finishScan();
+  void queue.enqueue(async isCurrent => {
+    const text = [`有第 2 個 QR 的處方 ${log.multi} 張（共收 ${log.collected} 張）`, ...log.institutions().map(multiText)].join('\n') + '\n';
+    try {
+      await navigator.clipboard.writeText(text);
+      if (isCurrent()) say('已複製第 2 個 QR 的院所統計。');
+    } catch { if (isCurrent()) say('無法複製統計，請直接抄寫畫面上的院所代碼。', 'error'); }
   });
   scan.focus();
 });

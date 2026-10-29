@@ -20,10 +20,10 @@ class Element {
   focus() {}
   click() { this.listeners.get('click')?.({}); }
 }
-function page() {
+function page(stored: Record<string, string> = {}) {
   const elements = new Map<string, Element>();
   const get = (id: string) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id)!; };
-  const saved = new Map<string, string>();
+  const saved = new Map<string, string>(Object.entries(stored));
   const copied: string[] = [], downloads: Blob[] = [];
   const digests: { resolve: (value: ArrayBuffer) => void; reject: (error: Error) => void }[] = [];
   let serial = 0;
@@ -94,4 +94,24 @@ cleared.digests.shift()!.reject(new Error('synthetic digest failure')); await fl
 assert.equal(cleared.get('scan-status').textContent, '已清除。');
 cleared.paste(qr('1150107')); await flush(); await cleared.resolve();
 assert.equal(cleared.get('collected').textContent, '1');
+
+// A drugs-only second QR joins the line before it; the saved lines keep each line's QR count for the institution summary.
+const STORAGE = 'gtsloth-qr-samples';
+const multi = page();
+multi.paste(qr('1150101')); await flush(); await multi.resolve();
+multi.paste('TESTCODE02;1;QD;PO;14;'); await flush(); await multi.resolve();
+assert.match(multi.get('scan-status').textContent, /^這是只有藥品的第 2 個 QR，已把 1 個藥接在第 1 行/);
+assert.equal(multi.get('collected').textContent, '1');
+assert.equal(multi.get('multi').hidden, false);
+assert.equal(multi.get('multi-total').textContent, '1');
+assert.deepEqual(multi.get('multi-list').children.map(item => item.textContent), ['醫事機構代碼 0000000000：1 張有第 2 個 QR（此院所共收 1 張）']);
+const stored = JSON.parse(multi.saved.get(STORAGE)!);
+assert.deepEqual([stored.version, stored.qrs, stored.lines[0].endsWith(';TESTCODE;1;BID;PO;14;TESTCODE02;1;QD;PO;14;')], [2, [2], true]);
+multi.get('copy-multi').click(); await flush();
+assert.equal(multi.copied[0], '有第 2 個 QR 的處方 1 張（共收 1 張）\n醫事機構代碼 0000000000：1 張有第 2 個 QR（此院所共收 1 張）\n');
+const reopened = page({ [STORAGE]: multi.saved.get(STORAGE)! });
+assert.deepEqual([reopened.get('collected').textContent, reopened.get('multi-total').textContent], ['1', '1']);
+// Lines saved before QR counts existed come back as one QR each.
+const older = page({ [STORAGE]: JSON.stringify({ version: 1, lines: stored.lines }) });
+assert.deepEqual([older.get('collected').textContent, older.get('multi').hidden], ['1', true]);
 console.log('collection queue and export regression checks passed');

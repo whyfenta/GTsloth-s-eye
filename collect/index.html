@@ -21,9 +21,10 @@
           <h2 id="scan-title">掃描處方 QR</h2>
           <label for="scan">處方 QR</label>
           <input id="scan" type="text" placeholder="點這裡，再用掃碼機刷處方 QR" aria-describedby="scan-help scan-status" autocomplete="off" spellcheck="false" maxlength="32769" autofocus />
-          <p id="scan-help" class="hint">可以連續刷，每刷一張右側加一行；同一張重刷不會重複加入。掃碼機要在英數模式，中文輸入法請先按 Shift 切換。</p>
+          <p id="scan-help" class="hint">可以連續刷，每刷一張右側加一行；同一張重刷不會重複加入。處方有兩個 QR 時，先刷第 1 個、再刷第 2 個，第 2 個的藥品會接在同一行。掃碼機要在英數模式，中文輸入法請先按 Shift 切換。</p>
           <p id="scan-status" class="scan-status" role="status" aria-live="polite"></p>
           <p class="collect-count">已收 <strong id="collected">0</strong> 張<span id="failed"></span></p>
+          <div id="multi" class="collect-multi" hidden><h3>有第 2 個 QR 的院所（<span id="multi-total">0</span> 張）</h3><p class="hint">藥品多的處方會另印只有藥品的第 2 個 QR，接在上一張處方的同一行。</p><ul id="multi-list"></ul><button type="button" id="copy-multi">複製統計</button></div>
           <div class="form-actions"><button type="button" class="primary" id="copy">複製全部</button><button type="button" id="download">下載 .txt</button><button type="button" class="collect-clear" id="clear">清除</button></div>
           <p class="hint">這台電腦的瀏覽器只保存去識別化後的結果，誤關分頁重開仍在；掃碼原文解析後即丟棄，不保存、不送出。</p>
         </section>

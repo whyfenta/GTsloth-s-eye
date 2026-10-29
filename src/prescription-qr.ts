@@ -81,6 +81,15 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
     idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7])) };
 }
+/** The layout of a drugs-only QR, as parsePrescriptionLayout for a first QR: a code for every drug, the other four fields may be blank. */
+export function parseDrugsLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } | undefined {
+  const { text, encoding } = repairByteText(scanned, scannedAs);
+  const fields = splitFields(text);
+  if (/^\d{10}$/.test(fields[0]?.trim() ?? '') || !fields.length || fields.length % 5 !== 0) return undefined;
+  if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
+  for (let i = 0; i < fields.length; i += 5) if (!fields[i].trim()) throw new Error('QR 藥品健保碼空白。');
+  return { fields, encoding };
+}
 /** The drugs of a prescription's follow-up QR, for one prescribing more drugs than its first QR holds. */
 export interface DrugsQR { drugs: { code: string; total: string }[]; rx: RxFacts['drugs']; encoding: string }
 /**
@@ -88,10 +97,9 @@ export interface DrugsQR { drugs: { code: string; total: string }[]; rx: RxFacts
  * first QR saying another follows. Returns undefined for any other scan, which starts with the 10-digit institution code instead.
  */
 export function parsePrescriptionDrugs(scanned: string, scannedAs = '文字輸入'): DrugsQR | undefined {
-  const { text, encoding } = repairByteText(scanned, scannedAs);
-  const fields = splitFields(text);
-  if (/^\d{10}$/.test(fields[0]?.trim() ?? '') || !fields.length || fields.length % 5 !== 0) return undefined;
-  if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
+  const layout = parseDrugsLayout(scanned, scannedAs);
+  if (!layout) return undefined;
+  const { fields, encoding } = layout;
   checkDrugs(fields, 0);
   const f = fields.map(value => value.trim());
   const drugs = [], rx = [];
