@@ -121,7 +121,7 @@ const deadCells = (row: SlotRow) => [...slotCells(row), disposition(row)];
 /** The self-pay lines printed after the dead stock, cells as on the dead-stock list; their handling is left to a person. */
 export const selfPayRows = (data: Derived) => data.selfPay.map(row => [...slotCells(row), SELF_PAY_DISPOSITION]);
 /**
- * Cells printed in red, on the safety list only: the name of a 缺貨 code, stock above 4 months of use (OVERSTOCK_MONTHS), and 待採量
+ * Cells printed in red, on the safety list only: the 缺貨 prefix of a 缺貨 code's name, stock above 4 months of use (OVERSTOCK_MONTHS), and 待採量
  * worth more than LARGE_ORDER at 健保價, which never applies to a (管3)/(管4) controlled drug.
  */
 export function listAlerts(kind: ListKind, data: Derived): boolean[][] {

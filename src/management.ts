@@ -335,7 +335,7 @@ function renderLists() {
     let preview = '';
     if (spec) {
       const alerts = spec.alerts ?? [];
-      const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
+      const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] && /^[-\d,.]+$/.test(cell) ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>').replace(alerts[row]?.[i] ? /^缺貨/ : /(?!)/, '<span class="mg-alert">缺貨</span>')}</td>`).join('')}</tr>`).join('');
       preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}${kind === 'safety' ? `<p class="preview-note">${escape(SAFETY_ALERT_NOTE)}</p>` : ''}</details>`;
     }
     return `<article class="mg-list ${available ? chosen ? 'mg-selected' : '' : 'mg-disabled'} ${kind === 'safety' && chosen ? 'mg-list-expanded' : ''}" aria-labelledby="list-title-${kind}">

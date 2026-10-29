@@ -36,7 +36,7 @@ test('a list without rows still prints a page that says why',async()=>{
 test('column widths must fill the 190 mm table',async()=>{
   await assert.rejects(generateListPDF({...spec([]),columns:[{label:'六碼',width:20}]},font),/190 mm/);
 });
-test('alert numbers print in red Helvetica-Bold; a marked name prints (coloured, regular font) instead of being rejected',async()=>{
+test('alert numbers print in red Helvetica-Bold; a marked name prints, only its leading 缺貨 in red, instead of being rejected',async()=>{
   const rows=[['000001','品一','5,000','10','100','350','0'],['000002','品二','100','10','100','350','250']];
   const result=await generateListPDF({...spec(rows),alerts:[[false,false,true,false,false,false,false],[]]},font);
   const fonts=async(bytes:Uint8Array)=>(await PDFDocument.load(bytes)).context.enumerateIndirectObjects().flatMap(([,o])=>o instanceof PDFDict&&o.get(PDFName.of('BaseFont'))?[String(o.get(PDFName.of('BaseFont')))]:[]);
@@ -44,6 +44,8 @@ test('alert numbers print in red Helvetica-Bold; a marked name prints (coloured,
   assert.ok((await pdfText(result.bytes))[0].text.includes('5,000'));
   const named=await generateListPDF({...spec(rows),alerts:[[false,true]]},font);
   assert.ok((await pdfText(named.bytes))[0].text.includes('品一'));
+  const short=await generateListPDF({...spec([['000003','缺貨 品三','100','10','100','350','250']]),alerts:[[false,true]]},font);
+  const text=(await pdfText(short.bytes))[0].text; assert.ok(text.includes('缺貨')&&text.includes('品三'),'the red prefix and the rest of the name are both printed');
 });
 
 test('stale warnings are enlarged and bold on the first page, above the table',async()=>{

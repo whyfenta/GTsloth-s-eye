@@ -5,13 +5,15 @@ import { embedNoto, mm, wrapText } from './pdf-common';
 export type ListColumn = { label: string; width: number; align?: 'left' | 'right' };
 /**
  * rows hold the printed cell text; a "\n" in a cell starts a new line (used for the 負庫存異常 mark).
- * alerts marks cells printed in red, row by row like rows; a plain number is also set in heavy type, other text (a name) stays in the regular font.
+ * alerts marks cells printed in red, row by row like rows: a plain number in heavy type, a name only at its leading 缺貨 (regular font).
  */
 export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; warning?: string; note: string; empty: string; subject?: string;
   /** Rows printed after the list in grey, under a heading that spans the table (the self-pay lines after the dead stock). */
   tail?: { heading: string; rows: string[][] } };
 export type ListResult = { bytes: Uint8Array; pageCount: number; rowCount: number };
 const ALERT = rgb(.78, .07, .07);
+/** The part of a marked name printed in red. */
+export const ALERT_WORD = '缺貨';
 /** One step lighter than the black body text: set apart, still easy to read. */
 const MUTED = rgb(.45, .45, .45);
 export const LIST_PRINT = { size: 10, leading: 13, padding: 1.8, top: 262, bottom: 25, header: 7 };
@@ -21,7 +23,7 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   if (Math.abs(total - 190) > .01) throw new Error(`欄寬合計須為 190 mm（目前 ${total} mm）`);
   const document = await PDFDocument.create();
   const font = await embedNoto(document, notoBytes);
-  // The embedded Noto has one weight; a marked number uses the standard Helvetica-Bold, which needs no embedding. Marked text is only coloured.
+  // The embedded Noto has one weight; a marked number uses the standard Helvetica-Bold, which needs no embedding. In a marked name only the leading ALERT_WORD is coloured.
   const heavy = (cell: string, alert: boolean) => alert && /^[-\d,.]+$/.test(cell);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   document.setTitle(spec.title); document.setAuthor('樹懶的管理'); document.setSubject(spec.subject ?? '在瀏覽器產生的 A4 管理清單');
@@ -93,7 +95,12 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
         if (item.stripe) page.drawRectangle({ x: xs[0], y: next, width: mm(190), height: item.height, color: rgb(.92, .95, .93) });
         item.lines.forEach((cellLines, column) => cellLines.forEach((text, i) => {
           const right = spec.columns[column].align === 'right'; const face = heavy(text, item.alerts[column]) ? bold : font;
-          page.drawText(text, { x: right ? xs[column + 1] - pad - face.widthOfTextAtSize(text, size) : xs[column] + pad, y: y - pad - size * .88 - i * leading, size, font: face, color: item.alerts[column] ? ALERT : item.muted ? MUTED : undefined });
+          const x = right ? xs[column + 1] - pad - face.widthOfTextAtSize(text, size) : xs[column] + pad; const base = y - pad - size * .88 - i * leading;
+          if (item.alerts[column] && face === font) {
+            const word = i === 0 && text.startsWith(ALERT_WORD) ? ALERT_WORD : '';
+            if (word) page.drawText(word, { x, y: base, size, font, color: ALERT });
+            page.drawText(text.slice(word.length), { x: x + font.widthOfTextAtSize(word, size), y: base, size, font, color: item.muted ? MUTED : undefined });
+          } else page.drawText(text, { x, y: base, size, font: face, color: item.alerts[column] ? ALERT : item.muted ? MUTED : undefined });
         }));
         for (const x of xs) line(page, x, y, x, next);
       }

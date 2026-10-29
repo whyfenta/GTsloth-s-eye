@@ -97,7 +97,7 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     // 000206: 1,990 > 4 × 1,072.5 is false; 000083: 368 ≤ 4 × 300; 000009/000010 have no stock line.
     assert.deepEqual(listAlerts('safety',result).map(row=>row[2]),[false,false,false,false]);
     assert.deepEqual(listAlerts('safety',result).map(row=>row[6]),large,'待採量 is red when worth more than 1,000 at 健保價');
-    assert.deepEqual(listAlerts('safety',result).map(row=>row[1]),[false,true,false,false],'the name of a 缺貨 code is red');
+    assert.deepEqual(listAlerts('safety',result).map(row=>row[1]),[false,true,false,false],'a 缺貨 code is marked at its name');
     assert.deepEqual(listAlerts('safety',result).map(row=>row.filter(Boolean).length),large.map((v,i)=>Number(v)+Number(i===1)),'no other cell is marked');
     assert.deepEqual(listRows('safety',result).map(row=>row[6]),toOrder,'待採量 = 建議安全量 − 現有庫存量, 0 at least, — without a stock line');
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
