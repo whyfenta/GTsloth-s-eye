@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { addDays, autoCalculate, rangeDays, calculate, dayNumber, inferVisit, rocDate, sameOutcome, taiwanToday, visitAfter } from '../src/arithmetic-model';
-import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionSlip } from '../src/prescription-qr';
+import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionDrugs, parsePrescriptionSlip } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
 assert.equal(taiwanToday(new Date('2026-10-23T15:59:59Z')), '2026-10-23');
@@ -90,6 +90,13 @@ assert.deepEqual([parsePrescriptionSlip(big5Fields.join(';') + ';').name, parseP
 // Text that cannot be read back as bytes stays as scanned.
 big5Fields[3] = 'Zoë';
 assert.equal(parsePrescriptionSlip(big5Fields.join(';') + ';').name, 'Zoë');
+// A prescription with many drugs has a second QR of drug fields only, with nothing in the first saying it follows.
+assert.deepEqual(parsePrescriptionDrugs('TESTCODE02;1;qd;po;30;TESTCODE03;1;QD;PO;30;'), { drugs: [{ code: 'TESTCODE02', total: '30' }, { code: 'TESTCODE03', total: '30' }],
+  rx: [{ code: 'TESTCODE02', frequency: 'QD', route: 'PO' }, { code: 'TESTCODE03', frequency: 'QD', route: 'PO' }], encoding: '文字輸入' });
+assert.equal(parsePrescriptionDrugs('\uFEFFTESTCODE02;1;QD;PO;30;')?.drugs.length, 1);
+for (const other of [sample, slipFields.join(';') + ';', 'TESTCODE02;1;QD;PO;', '4710000000000']) assert.equal(parsePrescriptionDrugs(other), undefined);
+assert.throws(() => parsePrescriptionDrugs('TESTCODE02;1;QD;;30;'));
+assert.throws(() => parsePrescriptionDrugs('TESTCODE02;1;QD;PO;0;'));
 for (const size of [1, 2, 3, 5]) {
   const text = [...fields.slice(0, 14), ...Array.from({ length: size }, () => fields.slice(14)).flat()].join(';') + ';';
   assert.equal(parsePrescription(text).drugCount, size);

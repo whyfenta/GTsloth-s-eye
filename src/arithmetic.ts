@@ -1,7 +1,7 @@
 import './arithmetic.css';
 import { autoCalculate, rangeDays, sameOutcome, shortDate, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
-import { parsePrescription, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
-import { addPrescription } from './slip-ui';
+import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
+import { addDrugs, addPrescription } from './slip-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -203,13 +203,24 @@ function finishScan(moveFocus = true) {
     date.value = '';
     let next: HTMLElement | undefined;
     try {
-      const added = addPrescription(parsePrescriptionSlip(text));
+      // A prescription with many drugs has a second QR of drugs only; it joins the prescription scanned before it.
+      const more = parsePrescriptionDrugs(text);
+      const added = more ? addDrugs(more) : addPrescription(parsePrescriptionSlip(text));
       status.textContent = added.message;
       next = added.focus;
     }
     catch (error) { status.textContent = `${(error as Error).message} 請重新掃碼。`; }
     // An added prescription goes on to its refill count; a rejected or repeated scan stays here for the next try.
     if (moveFocus) (next ?? date).focus();
+    return;
+  }
+  // The dates are all in the first QR; a scan of the drugs-only second QR leaves the form as it is.
+  let drugsOnly: boolean;
+  try { drugsOnly = !!parsePrescriptionDrugs(text); } catch { drugsOnly = true; }
+  if (drugsOnly) {
+    date.value = '';
+    status.textContent = '這張 QR 只有藥品，是處方的第 2 個 QR；試算只需要第 1 個 QR 的日期與天數。';
+    if (moveFocus) date.focus();
     return;
   }
   date.value = '';

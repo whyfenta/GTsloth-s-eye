@@ -52,13 +52,16 @@ function prescriptionFields(text: string): { fields: string[]; date: string } {
   if (!/^\d{10}$/.test(fields[0]) || fields[1] !== '2') throw new Error('目前支援此格式的連續處方 QR，請確認掃到正確的碼。');
   const date = rocDate(fields[7]);
   if (!/^\d+$/.test(fields[9]) || ![28, 29, 30].includes(Number(fields[9]))) throw new Error('QR 給藥日份不在目前支援的 28、29、30 天內，請手動核對。');
+  checkDrugs(fields, 14);
+  return { fields, date };
+}
+function checkDrugs(fields: string[], start: number) {
   const decimal = /^(?:\d+(?:\.\d+)?|\.\d+)$/;
-  for (let i = 14; i < fields.length; i += 5) {
+  for (let i = start; i < fields.length; i += 5) {
     // Nothing reads the dose and hospitals write it their own way (an eye clinic writes X1), so only the total's format is checked.
     const [code, dose, frequency, route, total] = fields.slice(i, i + 5);
     if (![code, dose, frequency, route, total].every(v => v.trim()) || !decimal.test(total) || !/[1-9]/.test(total)) throw new Error('QR 藥品欄位缺漏或數量格式不支援，請核對後手動輸入。');
   }
-  return { fields, date };
 }
 /** Only non-identifying fields needed for date calculation leave this parser. */
 export function parsePrescription(scanned: string, scannedAs = '文字輸入'): PrescriptionQR {
@@ -77,6 +80,26 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   for (let i = 14; i < fields.length; i += 5) drugs.push({ code: fields[i].trim(), total: fields[i + 4].trim() });
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
     idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7])) };
+}
+/** The drugs of a prescription's follow-up QR, for one prescribing more drugs than its first QR holds. */
+export interface DrugsQR { drugs: { code: string; total: string }[]; rx: RxFacts['drugs']; encoding: string }
+/**
+ * A prescription with many drugs can come with a second QR of drug fields only: 5 per drug, no 14 fixed fields, and nothing in the
+ * first QR saying another follows. Returns undefined for any other scan, which starts with the 10-digit institution code instead.
+ */
+export function parsePrescriptionDrugs(scanned: string, scannedAs = '文字輸入'): DrugsQR | undefined {
+  const { text, encoding } = repairByteText(scanned, scannedAs);
+  const fields = splitFields(text);
+  if (/^\d{10}$/.test(fields[0]?.trim() ?? '') || !fields.length || fields.length % 5 !== 0) return undefined;
+  if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
+  checkDrugs(fields, 0);
+  const f = fields.map(value => value.trim());
+  const drugs = [], rx = [];
+  for (let i = 0; i < f.length; i += 5) {
+    drugs.push({ code: f[i], total: f[i + 4] });
+    rx.push({ code: f[i].toUpperCase(), frequency: f[i + 2].toUpperCase(), route: f[i + 3].toUpperCase() });
+  }
+  return { drugs, rx, encoding };
 }
 /** A birth date that cannot be read is described by its shape, never its value: digits become 9, letters A, any other character outside printable ASCII X, symbols stay; past 12 characters only the length. */
 export function birthShape(value: string): string {

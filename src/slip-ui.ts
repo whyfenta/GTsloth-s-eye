@@ -1,6 +1,6 @@
 import { addDays, taiwanToday, type DateRange } from './arithmetic-model';
 import { loadRoster, ROSTER_SOURCE, unknownInstitution } from './institutions';
-import type { SlipQR } from './prescription-qr';
+import type { DrugsQR, SlipQR } from './prescription-qr';
 import { loadProducts } from './products';
 import type { RxFacts } from './rx-check';
 import { rxCheckOn } from './rx-check-config';
@@ -12,7 +12,8 @@ import { printSlip } from './slip-print';
 // Every scanned prescription joins the slip; identifying fields live only in these objects and the inputs below.
 // products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
-interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+// more: the follow-up QRs of drugs only, so a rescan of one is not added twice.
+interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
   drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[] }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
@@ -78,7 +79,16 @@ function segmented(caption: string, options: [number, string][], onChange: (valu
     radio.type = 'radio'; radio.name = name; radio.value = String(value);
     // 'input' runs before the panel re-renders on the same event; on 'change' the re-render would undo the choice.
     radio.addEventListener('input', () => { if (radio.checked) onChange(value); });
-    radio.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); onEnter(); } });
+    radio.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); onEnter(); }
+      // A scan started before Enter came back here (a prescription's second QR right after its first) goes to the scan field.
+      else if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        scanField.focus();
+        scanField.value += event.key;
+        scanField.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
     const option = make('label');
     option.append(radio, make('span', '', text));
     group.append(option);
@@ -268,7 +278,7 @@ function drugRow(drug: Drug): HTMLElement {
   row.append(label, detail);
   return row;
 }
-const listDrugs = (item: Item) => item.drugList.replaceChildren(make('legend', '', '尚差藥品（預設不缺，有缺才勾選）'), ...item.drugs.map(drugRow));
+const listDrugs = (item: Item) => item.drugList.replaceChildren(make('legend', '', `尚差藥品（預設不缺，有缺才勾選${item.more.length ? `；含藥品 QR 加入的 ${item.drugs.length - item.firstDrugs} 個藥` : ''}）`), ...item.drugs.map(drugRow));
 function fillItem(item: Item) {
   const li = item.element;
   const head = make('div', 'slip-item-head');
@@ -347,7 +357,7 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
   const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
-    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), rx: qr.rx,
+    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
     drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [] };
   item.check.hidden = !rxOn;
@@ -369,6 +379,24 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
   scannedAt = performance.now();
   return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 2 次、本次第幾次依日期推算：以方向鍵選擇，Enter 確認後回到掃碼欄。`
     + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), focus: item.counts.find(radio => radio.checked) };
+}
+
+/** A follow-up QR has no patient or date, so it joins the prescription scanned last; nothing in the first QR says one follows. */
+export function addDrugs(qr: DrugsQR): { message: string; focus?: HTMLElement } {
+  const item = items.at(-1);
+  if (!item || printed) return { message: '這張 QR 只有藥品，是處方的第 2 個 QR。請先掃同一張處方的第 1 個 QR（有姓名與日期的那個），再掃這個。' };
+  const index = items.length;
+  const key = qr.drugs.map(drug => `${drug.code}:${drug.total}`).join('|');
+  if (item.more.includes(key)) return { message: `這個藥品 QR 已加入第 ${index} 張，不重複加入。` };
+  item.more.push(key);
+  const drugs: Drug[] = qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] }));
+  drugs.forEach(identify);
+  item.drugs.push(...drugs);
+  item.rx.drugs.push(...qr.rx);
+  listDrugs(item);
+  showCheck(item);
+  update();
+  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的尚差藥品。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除」後重掃。` };
 }
 
 panel.addEventListener('input', update);
