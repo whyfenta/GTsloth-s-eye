@@ -107,8 +107,13 @@ assert.equal(multi.get('multi-total').textContent, '1');
 assert.deepEqual(multi.get('multi-list').children.map(item => item.textContent), ['醫事機構代碼 0000000000：1 張有第 2 個 QR（此院所共收 1 張）']);
 const stored = JSON.parse(multi.saved.get(STORAGE)!);
 assert.deepEqual([stored.version, stored.qrs, stored.lines[0].endsWith(';TESTCODE;1;BID;PO;14;TESTCODE02;1;QD;PO;14;')], [2, [2], true]);
+const summary = '有第 2 個 QR 的處方 1 張（共收 1 張）\n醫事機構代碼 0000000000：1 張有第 2 個 QR（此院所共收 1 張）\n';
 multi.get('copy-multi').click(); await flush();
-assert.equal(multi.copied[0], '有第 2 個 QR 的處方 1 張（共收 1 張）\n醫事機構代碼 0000000000：1 張有第 2 個 QR（此院所共收 1 張）\n');
+assert.equal(multi.copied[0], summary);
+// The download keeps the sample file to prescription lines and saves the summary as a second file.
+multi.get('download').click(); await flush();
+assert.equal(multi.downloads.length, 2);
+assert.deepEqual([await multi.downloads[0].text(), await multi.downloads[1].text()], [stored.lines[0] + '\n', summary]);
 const reopened = page({ [STORAGE]: multi.saved.get(STORAGE)! });
 assert.deepEqual([reopened.get('collected').textContent, reopened.get('multi-total').textContent], ['1', '1']);
 // Lines saved before QR counts existed come back as one QR each.

@@ -163,25 +163,31 @@ copy.addEventListener('click', () => {
   });
   scan.focus();
 });
+function saveFile(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+const multiSummary = () => [`有第 2 個 QR 的處方 ${log.multi} 張（共收 ${log.collected} 張）`, ...log.institutions().map(multiText)].join('\n') + '\n';
 download.addEventListener('click', () => {
   finishScan();
   void queue.enqueue(() => {
-    const url = URL.createObjectURL(new Blob([log.text()], { type: 'text/plain;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `處方QR去識別化_${taiwanToday().replaceAll('-', '')}_${log.collected}張.txt`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    say(`已下載 ${log.entries.length} 行。`);
+    const name = `處方QR去識別化_${taiwanToday().replaceAll('-', '')}_${log.collected}張`;
+    saveFile(`${name}.txt`, log.text());
+    // The sample file holds prescription lines only, as the pharmacist's checker reads every other line as one; the institution summary goes in its own file.
+    if (log.multi) saveFile(`${name}_統計.txt`, multiSummary());
+    say(`已下載 ${log.entries.length} 行${log.multi ? '，第 2 個 QR 的院所統計另存一個檔（瀏覽器詢問是否允許下載多個檔案時，請按允許）' : ''}。`);
   });
   scan.focus();
 });
 copyMulti.addEventListener('click', () => {
   finishScan();
   void queue.enqueue(async isCurrent => {
-    const text = [`有第 2 個 QR 的處方 ${log.multi} 張（共收 ${log.collected} 張）`, ...log.institutions().map(multiText)].join('\n') + '\n';
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(multiSummary());
       if (isCurrent()) say('已複製第 2 個 QR 的院所統計。');
     } catch { if (isCurrent()) say('無法複製統計，請直接抄寫畫面上的院所代碼。', 'error'); }
   });
