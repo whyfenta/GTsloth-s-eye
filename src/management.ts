@@ -320,7 +320,7 @@ function renderLists() {
   const strategyOptions = `<div id="safety-options" class="mg-list-options"><fieldset class="mg-strategies" aria-describedby="strategy-help" ${busy() ? 'disabled' : ''}><legend>安全量策略</legend>
     <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為平衡派。</p>
     <div class="mg-strategy-grid">${strategyCards}</div>
-    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；健保碼為 A 開頭的品項，係數 × ${formatFrac(NHI_A_FACTOR)}（非 A 開頭或查無健保碼者維持原量）；品名保有「缺貨」前綴的品項，係數再 +1（缺貨的 +1 在最外層：先乘完上述係數再 +1）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}。</p>
+    <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；健保碼為 A 開頭的品項，係數 × ${formatFrac(NHI_A_FACTOR)}（非 A 開頭或查無健保碼者維持原量）；品名保有「缺貨」前綴的品項，係數再 +1（先乘完上述係數再 +1，缺貨品名於清單以紅字標示）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}（冷藏在最外層：最後才乘，含缺貨的 +1）。</p>
     </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
     safety: '預防常用藥物臨時缺貨，建議您的安全及採購量',
@@ -335,7 +335,7 @@ function renderLists() {
     let preview = '';
     if (spec) {
       const alerts = spec.alerts ?? [];
-      const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>')}</td>`).join('')}</tr>`).join('');
+      const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] && /^[-\d,.]+$/.test(cell) ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>').replace(alerts[row]?.[i] ? /^缺貨/ : /(?!)/, '<span class="mg-alert">缺貨</span>')}</td>`).join('')}</tr>`).join('');
       preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}${kind === 'safety' ? `<p class="preview-note">${escape(SAFETY_ALERT_NOTE)}</p>` : ''}</details>`;
     }
     return `<article class="mg-list ${available ? chosen ? 'mg-selected' : '' : 'mg-disabled'} ${kind === 'safety' && chosen ? 'mg-list-expanded' : ''}" aria-labelledby="list-title-${kind}">
