@@ -31,8 +31,7 @@
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
-              <div class="field-row"><div><label for="previous-date">前次逾期領藥日</label><input id="previous-date" type="date" /></div></div>
-              <p class="hint">填好處方日期與給藥日份，右側就列出今天領第 1、2、3 次與今天不領藥的結果，依時間順序排在轉盤上，一開始停在依今天日期推算的這次（在區間內、延遲領藥，或提前交付預處理）。在轉盤上捲動滑鼠滾輪、按上下方向鍵或 ▲▼ 轉動，手機上下滑動。QR 不含可調劑次數，若 2、3 次結果不同會分別列出，實際次數已知時請選擇。前次逾期領藥時，在「前次逾期領藥日」填處方箋背面的前次調劑日期，本次起的區間會順延，推算也改依前次領藥日。</p>
+              <p class="hint">填好處方日期與給藥日份，右側轉盤依時間順序列出今天的可能情況：今日領第 1 次、第 2 次……（遲領時下一次從今天重算），最後一格是「今日不領」：已開始的最後一次已在別處領過，依正常方式預約下一次，最後一次領完則提示回診。轉盤一開始停在依今天日期推算的那格：今天在某次區間內停在那次；區間已過、下一次還沒開始時停在今日不領；最後一次的區間也過了則停在最後一次（遲領）。在轉盤上捲動滑鼠滾輪、按上下方向鍵或 ▲▼ 轉動，手機上下滑動。QR 不含可調劑次數，若 2、3 次結果不同會分別列出，實際次數已知時請選擇。已在別處領過、但當時逾期才領時，在今日不領那格填實際領藥日，下一次會依此順延。</p>
               <div class="form-actions"><button type="reset">清除重填</button></div>
             </div>
           </form>

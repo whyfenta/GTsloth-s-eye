@@ -201,31 +201,41 @@ assert.deepEqual(scenarios.map(s => s.result.schedule[1]), [{ start: '2026-02-25
 assert.ok(!sameOutcome(scenarios[0], scenarios[1]));
 console.log('arithmetic previous-pickup shift passed');
 
-// The dial lists every outcome in time order; not picking up today follows the visit inferred for today.
-const order = (d: ReturnType<typeof dial>) => d.slots.map(s => s.kind === 'idle' ? 'idle' : s.visit);
-let wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-01-25');
-assert.deepEqual(order(wheel), [1, 2, 'idle', 3]);
-assert.equal(wheel.start, 1);
-assert.deepEqual(wheel.slots.map(s => s.rows[0].result.state), ['late', 'normal', 'normal', 'early']);
-assert.deepEqual(wheel.slots.map(s => s.rows[0].inferred), [false, true, true, false]);
-wheel = dial({ date: '2026-01-01', days: 30 }, '2026-01-25'); // Counts differ in visit 2's result, visit 3 exists only for count 3.
-assert.deepEqual(wheel.slots.map(s => s.rows.map(r => r.count)), [[3], [2, 3], [3], [3]]);
-wheel = dial({ date: '2026-01-01', days: 30 }, '2026-01-03'); // Handed in early: the note points up the dial.
-assert.match(wheel.slots[wheel.start].rows[0].note!, /請往上轉到第 1 次/);
-wheel = dial({ date: '2026-01-01', days: 28 }, '2026-01-31'); // Count 2 infers a late visit 2, count 3 an early visit 3.
-assert.deepEqual(order(wheel), [1, 2, 3, 'idle']);
-assert.equal(wheel.start, 1);
-assert.deepEqual(wheel.slots[3].rows.map(r => [r.count, r.visit, r.result.state]), [[2, 2, 'late'], [3, 3, 'early']]);
-wheel = dial({ date: '2026-01-01', days: 30 }, '2026-03-10'); // Count 2 has expired.
+// The dial: today picks up one of the visits whose window has opened, or none (that one was picked up elsewhere) and books the next.
+const order = (d: ReturnType<typeof dial>) => d.slots.map((s, i) => { const name = s.kind === 'idle' ? 'idle' : i + 1; return i === d.start ? `*${name}` : name; });
+const idleRow = (d: ReturnType<typeof dial>, count?: number) => d.slots.at(-1)!.rows.find(r => !count || r.count === count)!;
+let wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-01-25'); // Inside visit 2's window.
+assert.deepEqual(order(wheel), [1, '*2', 'idle']);
+assert.deepEqual(wheel.slots.map(s => s.rows[0].result.state), ['late', 'normal', 'early']);
+assert.deepEqual([idleRow(wheel).visit, idleRow(wheel).result.schedule[2]], [3, { start: '2026-02-20', end: '2026-03-01' }]);
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-05'); // Past visit 2's window: visit 2 was picked up elsewhere.
+assert.deepEqual(order(wheel), [1, 2, '*idle']);
+assert.equal(wheel.slots[1].rows[0].result.state, 'late');
+wheel = dial({ date: '2026-01-01', days: 30 }, '2026-02-05'); // Count 2 would stay on a late visit 2, count 3 on idle: the later wins.
+assert.deepEqual(order(wheel), [1, 2, '*idle']);
+assert.deepEqual(wheel.slots[1].rows.map(r => [r.count, r.inferred]), [[2, true], [3, false]]);
+assert.deepEqual(wheel.slots[2].rows.map(r => [r.count, r.visit, r.inferred, r.result.state]), [[2, 3, false, 'invalid'], [3, 3, true, 'early']]);
+assert.deepEqual([idleRow(wheel, 2).result.message, idleRow(wheel, 2).result.returnDate], ['第 2 次（最後一次）已領，請回診，建議最早115/02/20。', '2026-02-20']);
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-01-03'); // Before visit 2 opens: book visit 2.
+assert.deepEqual(order(wheel), [1, '*idle']);
+assert.deepEqual([idleRow(wheel).visit, idleRow(wheel).result.state], [2, 'early']);
+assert.deepEqual(order(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-01-01')), ['*1', 'idle']);
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-25'); // Inside the last window; not picking up means it is done.
+assert.deepEqual(order(wheel), [1, 2, '*3', 'idle']);
+assert.equal(idleRow(wheel).result.returnDate, '2026-03-22');
+assert.deepEqual(order(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-03-03')), [1, 2, '*3', 'idle']); // Past the last window: a late pickup.
+wheel = dial({ date: '2026-01-01', days: 30 }, '2026-02-25'); // Visit 3 only exists for count 3.
+assert.deepEqual(wheel.slots.map(s => s.rows.map(r => r.count)), [[2, 3], [2, 3], [3], [2, 3]]);
+assert.equal(wheel.start, 2);
+// A late previous pickup moves only the idle slot.
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', '2026-02-05');
+assert.deepEqual([idleRow(wheel).result.state, idleRow(wheel).result.schedule[2], idleRow(wheel).result.shift?.previous], ['early', { start: '2026-02-25', end: '2026-03-06' }, '2026-02-05']);
+assert.equal(wheel.slots[1].rows[0].result.shift, undefined);
+assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', '2026-01-15')).result.message, /前次領藥日早於第 2 次可領藥區間/);
+assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-03-05', '2026-03-03')).result.message, /前次已是最後一次（第 3 次）領藥，請回診，建議最早115\/03\/23/);
+// Expired, or not yet valid: nothing to turn.
+wheel = dial({ date: '2026-01-01', days: 30 }, '2026-03-10');
 assert.deepEqual(wheel.dead.map(s => [s.count, s.result.message]), [[2, '處方已於115/03/02失效，請回診。']]);
 assert.ok(wheel.slots.every(s => s.rows.every(r => r.count === 3)));
 assert.deepEqual([dial({ date: '2026-01-01', days: 30 }, '2025-12-31').slots, dial({ date: '2026-01-01', days: 30 }, '2025-12-31').dead.length], [[], 2]);
-// After a previous pickup: visit 1 is gone, the visit after the last says to return, and visits the previous date contradicts are left out.
-wheel = dial({ date: '2026-01-01', days: 30, previous: '2026-02-05' }, '2026-02-22');
-assert.deepEqual(order(wheel), [2, 3, 'idle']);
-assert.deepEqual(wheel.slots[1].rows.map(r => [r.count, r.result.state]), [[2, 'invalid'], [3, 'early']]);
-assert.equal(wheel.slots[1].rows[0].result.returnDate, '2026-02-25');
-wheel = dial({ date: '2026-01-01', days: 30, count: 3, previous: '2026-02-21' }, '2026-03-05');
-assert.deepEqual(order(wheel), [2, 3, 4, 'idle']);
-assert.match(wheel.slots[2].rows[0].result.message, /前次已是最後一次（第 3 次）/);
 console.log('arithmetic dial passed');
