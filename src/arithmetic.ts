@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { autoCalculate, rangeDays, sameOutcome, shortDate, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
+import { dial, rangeDays, shortDate, taiwanToday, dayNumber, type AutoInput, type DateRange, type Scenario } from './arithmetic-model';
 import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
 import { addDrugs, addPrescription } from './slip-ui';
 
@@ -9,7 +9,6 @@ const form = element<HTMLFormElement>('prescription-form');
 const date = element<HTMLInputElement>('prescription-date');
 const days = element<HTMLSelectElement>('days');
 const count = element<HTMLSelectElement>('count');
-const visit = element<HTMLSelectElement>('visit');
 const previous = element<HTMLInputElement>('previous-date');
 const result = element('result');
 const status = element('qr-status');
@@ -33,7 +32,7 @@ function emptyResult() {
   result.replaceChildren();
   const p = document.createElement('p');
   p.className = 'empty-result';
-  p.textContent = '完成欄位後按「試算領藥日期」，查看最新建議。';
+  p.textContent = '填好處方日期與給藥日份，結果就會出現在這裡。';
   result.append(p);
 }
 function refreshDate() {
@@ -81,56 +80,191 @@ function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   box.append(label, dates);
   return [state, box];
 }
+/** Without a pickup today: the inferred visit's window, or for a late visit how long the prescription still holds. */
+function idleRecommendation(scenario: Scenario, prefix: string): HTMLElement[] {
+  const { result: value, visit } = scenario;
+  if (value.state === 'invalid') return recommendation(scenario, prefix);
+  const state = document.createElement('p');
+  state.className = 'result-status';
+  state.dataset.state = value.state;
+  state.textContent = prefix + (value.state === 'early' ? `第 ${visit} 次領藥區間尚未開始。`
+    : value.state === 'late' ? `第 ${visit} 次已逾原定區間，哪天來領都從那天重新計算。` : `第 ${visit} 次在區間內，區間內任一天都可以來領。`);
+  const box = document.createElement('div');
+  box.className = 'recommended';
+  box.classList.toggle('compressed', value.state === 'late');
+  const label = document.createElement('p');
+  const dates = document.createElement('strong');
+  const moved = value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : '';
+  label.textContent = value.state === 'late' ? '最晚可領至（處方失效日）' : `${moved}第 ${visit} 次可領藥區間`;
+  dates.textContent = value.state === 'late' ? fullDate(value.expiry) : rangeText(value.schedule[visit - 1]);
+  box.append(label, dates);
+  return [state, box];
+}
+interface DialEntry { tick: string; title: string; badge: string; body: HTMLElement[] }
+/** A meter-style dial: one result in a fixed window, its neighbours peeking above and below, turned by the wheel, arrow keys, ▲▼ or a swipe. */
+function createDial(entries: DialEntry[], start: number, onMove: (index: number) => void): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'dial';
+  root.tabIndex = 0;
+  root.setAttribute('role', 'group');
+  root.setAttribute('aria-roledescription', '轉盤');
+  root.setAttribute('aria-label', '今日領藥結果，以滑鼠滾輪或上下方向鍵轉動');
+  const ticks = document.createElement('ol');
+  ticks.className = 'dial-ticks';
+  const frame = document.createElement('div');
+  frame.className = 'dial-frame';
+  const view = document.createElement('div');
+  view.className = 'dial-window';
+  const track = document.createElement('div');
+  track.className = 'dial-track';
+  const step = (text: string, label: string, by: number) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.textContent = text;
+    button.setAttribute('aria-label', label);
+    button.addEventListener('click', () => go(current + by));
+    return button;
+  };
+  const up = step('▲', '上一格', -1), down = step('▼', '下一格', 1);
+  const steps = document.createElement('div');
+  steps.className = 'dial-steps';
+  steps.append(up, down);
+  const announce = document.createElement('p');
+  announce.className = 'dial-live';
+  announce.setAttribute('aria-live', 'polite');
+  const items = entries.map((entry, index) => {
+    const item = document.createElement('section');
+    item.className = 'dial-item';
+    const title = document.createElement('p');
+    title.className = 'dial-title';
+    title.textContent = entry.title;
+    if (entry.badge) {
+      const badge = document.createElement('span');
+      badge.className = 'dial-badge';
+      badge.textContent = entry.badge;
+      title.append(badge);
+    }
+    item.append(title, ...entry.body);
+    track.append(item);
+    const tick = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.textContent = entry.tick;
+    button.addEventListener('click', () => go(index));
+    tick.append(button);
+    ticks.append(tick);
+    return item;
+  });
+  let current = start;
+  function go(index: number) {
+    const next = Math.max(0, Math.min(entries.length - 1, index));
+    const moved = next !== current;
+    current = next;
+    items.forEach((item, i) => {
+      item.style.setProperty('--offset', String(i - current));
+      item.classList.toggle('current', i === current);
+      item.inert = i !== current;
+    });
+    for (const [i, tick] of [...ticks.querySelectorAll('button')].entries()) tick.toggleAttribute('aria-current', i === current);
+    up.disabled = current === 0;
+    down.disabled = current === entries.length - 1;
+    if (moved) announce.textContent = entries[current].title;
+    onMove(current);
+  }
+  // A notch of the wheel, or a trackpad swipe's worth of deltas, turns one step; at either end the page scrolls as usual.
+  let travel = 0, settle = 0;
+  root.addEventListener('wheel', event => {
+    const direction = Math.sign(event.deltaY);
+    if (!direction || current + direction < 0 || current + direction >= entries.length) { travel = 0; return; }
+    event.preventDefault();
+    if (event.timeStamp < settle) return;
+    travel += event.deltaMode ? direction * 40 : event.deltaY;
+    if (Math.abs(travel) < 40) return;
+    travel = 0;
+    settle = event.timeStamp + 180;
+    go(current + direction);
+  }, { passive: false });
+  root.addEventListener('keydown', event => {
+    const to = { ArrowUp: current - 1, ArrowDown: current + 1, PageUp: current - 1, PageDown: current + 1, Home: 0, End: entries.length - 1 }[event.key];
+    if (to === undefined) return;
+    event.preventDefault();
+    go(to);
+  });
+  let touchY: number | undefined;
+  view.addEventListener('pointerdown', event => { if (event.pointerType === 'touch') touchY = event.clientY; });
+  view.addEventListener('pointercancel', () => { touchY = undefined; });
+  view.addEventListener('pointerup', event => {
+    if (touchY === undefined) return;
+    const distance = event.clientY - touchY;
+    touchY = undefined;
+    if (Math.abs(distance) > 30) go(current + (distance < 0 ? 1 : -1));
+  });
+  view.append(track);
+  frame.append(view, steps);
+  root.append(ticks, frame, announce);
+  go(start);
+  return root;
+}
 function render(input: AutoInput) {
   result.replaceChildren();
   try {
-    const scenarios = autoCalculate(input, today);
+    const { slots, start, inferred, dead } = dial(input, today);
     lastInput = input;
-    const merged = scenarios.length === 2 && sameOutcome(scenarios[0], scenarios[1]);
-    const shown = merged ? [scenarios[1]] : scenarios;
-    for (const scenario of shown) {
-      if (scenario.inferred) {
-        const inferred = document.createElement('p');
-        inferred.className = 'inferred';
-        inferred.textContent = `依${input.previous ? '前次領藥日' : '今日'}判斷：第 ${scenario.visit} 次領藥${merged ? '（可調劑 2 或 3 次結果相同）' : ''}`;
-        result.append(inferred);
-      }
-      const countPrefix = !input.count && !merged ? `若可調劑 ${scenario.count} 次：` : '';
-      result.append(...recommendation(scenario, countPrefix));
-      if (scenario.note) {
+    const prefix = (count: number) => input.count ? '' : `若可調劑 ${count} 次：`;
+    for (const scenario of dead) result.append(...recommendation(scenario, prefix(scenario.count)));
+    if (!slots.length) return;
+    const guess = document.createElement('p');
+    guess.className = 'inferred';
+    const visits = [...new Set(inferred.map(s => s.visit))];
+    guess.textContent = `依${input.previous ? '前次領藥日' : '今日'}判斷：今日為${visits.length === 1 ? `第 ${visits[0]} 次領藥`
+      : inferred.map(s => `可調劑 ${s.count} 次的第 ${s.visit} 次`).join('、')}；轉動轉盤可看其他次數或今日不領藥。`;
+    const most = Math.max(...inferred.map(s => s.count));
+    const entries = slots.map((slot): DialEntry => {
+      const show = (row: Scenario, label: string) => {
+        const parts = (slot.kind === 'idle' ? idleRecommendation : recommendation)(row, label);
+        if (!row.note) return parts;
         const note = document.createElement('p');
         note.className = 'hint';
-        note.textContent = scenario.note;
-        result.append(note);
-      }
-    }
+        note.textContent = row.note;
+        return [...parts, note];
+      };
+      const text = (parts: HTMLElement[]) => parts.map(part => part.textContent).join('\n');
+      // Rows of both counts that read the same (say, two early rows whose later visits differ) are shown once without a count;
+      // a row only one count has, or one of two that differ, names its count.
+      const merged = slot.counts.length === 2 && (slot.rows.length === 1 || text(show(slot.rows[0], '')) === text(show(slot.rows[1], '')));
+      const body = merged ? show(slot.rows.at(-1)!, '') : slot.rows.flatMap(row => show(row, prefix(row.count)));
+      const guessed = slot.kind === 'visit' && slot.rows.some(row => row.inferred);
+      const partly = guessed && inferred.length === 2 && !merged && slot.rows.filter(row => row.inferred).length === 1;
+      if (slot.kind === 'idle') return { tick: '不領', title: '今日不領藥', badge: '只詢問', body };
+      if (slot.visit > most) return { tick: '回診', title: `前次已是第 ${slot.visit - 1} 次`, badge: guessed ? '推算' : '', body };
+      return { tick: `第 ${slot.visit} 次`, title: `今日領第 ${slot.visit} 次`, badge: guessed ? `推算${partly ? `・可調劑 ${slot.rows.find(row => row.inferred)!.count} 次` : ''}` : '', body };
+    });
     // Only where it could mislead: a refill "in the original window" right after a late pickup the tool was not told about.
-    const live = shown.filter(s => s.result.state !== 'invalid');
+    const live = inferred.filter(s => s.result.state !== 'invalid');
     const reminder = !input.previous ? (live.some(s => s.visit >= 2 && s.result.state === 'normal') ? '前次如逾期領藥，請填前次逾期領藥日重算。' : '')
       : live.length && live.every(s => !s.result.shift) ? '前次領藥日未造成順延，時程不變。' : '';
-    if (reminder) {
-      const hint = document.createElement('p');
-      hint.className = 'hint';
-      hint.textContent = reminder;
-      result.append(hint);
-    }
-    if (!live.length) return;
-    const longest = scenarios.at(-1)!.result;
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = reminder;
+    const longest = inferred.at(-1)!.result;
     const table = document.createElement('table');
     table.className = 'schedule';
     const caption = table.createCaption();
     caption.textContent = longest.shift ? '時程（依前次領藥日順延）' : '原定時程';
     const body = table.createTBody();
-    const suffix = (s: Scenario) => scenarios.length > 1 ? `（可調劑 ${s.count} 次）` : '';
+    const suffix = (s: Scenario) => inferred.length > 1 ? `（可調劑 ${s.count} 次）` : '';
     // Moved rows show the new dates first and the prescription's own dates after them.
     const was = (now: string, before?: string) => before && before !== now ? `原 ${before}` : '';
     const short = (range: DateRange) => range.start === range.end ? shortDate(range.start) : `${shortDate(range.start)}～${shortDate(range.end)}`;
+    const visitRows: HTMLTableRowElement[] = [];
     for (const [label, dates, before] of [
       ...(longest.shift?.original ?? longest.schedule).map((range, i) => {
         const now = longest.schedule[i];
         return [`第 ${i + 1} 次領藥`, now ? rangeText(now) : '已無（前次逾期）', longest.shift ? was(now ? short(now) : '', short(range)) : ''];
       }),
-      ...scenarios.flatMap(s => [[`最早回診日${suffix(s)}`, fullDate(s.result.earliestReturn), was(shortDate(s.result.earliestReturn), s.result.shift && shortDate(s.result.shift.originalReturn))],
+      ...inferred.flatMap(s => [[`最早回診日${suffix(s)}`, fullDate(s.result.earliestReturn), was(shortDate(s.result.earliestReturn), s.result.shift && shortDate(s.result.shift.originalReturn))],
         [`處方失效日${suffix(s)}`, fullDate(s.result.expiry), '']]),
     ]) {
       const row = body.insertRow();
@@ -147,8 +281,11 @@ function render(input: AutoInput) {
         cell.append(span);
       }
       if (label.startsWith('處方失效日')) cell.className = 'expiry-date';
+      if (label.endsWith('次領藥')) visitRows.push(row);
     }
-    result.append(table);
+    // The table follows the dial: the visit on show (or left pending, when not picking up) is marked.
+    const wheel = createDial(entries, start, index => visitRows.forEach((row, i) => row.classList.toggle('current', i === slots[index].visit - 1)));
+    result.append(guess, wheel, hint, table);
   } catch (error) {
     lastInput = undefined;
     const p = document.createElement('p');
@@ -176,11 +313,10 @@ function applyQR(data: PrescriptionQR, moveFocus = true) {
   date.setCustomValidity('');
   days.value = String(data.days);
   count.value = '';
-  visit.value = '';
   previous.value = '';
   emptyResult();
-  status.textContent = `已帶入 ${fullDate(data.date)}、${data.days} 天，並依今日判斷本次次數。請核對日期；如需指定可調劑次數或本次次數，請手動選擇。`;
-  submit(false);
+  status.textContent = `已帶入 ${fullDate(data.date)}、${data.days} 天，轉盤停在依今日推算的這次。請核對日期；可調劑次數已知時請選擇。`;
+  submit(true);
   // Stay on the entry field so the next prescription can be scanned right away.
   if (moveFocus) date.focus();
 }
@@ -227,7 +363,6 @@ function finishScan(moveFocus = true) {
   datePicker.value = '';
   days.value = '';
   count.value = '';
-  visit.value = '';
   previous.value = '';
   emptyResult();
   try { applyQR(parsePrescription(text), moveFocus); }
@@ -302,12 +437,14 @@ date.addEventListener('keydown', event => {
     if (performance.now() - imeAt < 1000) { status.textContent = imeWarning(); return; }
     if (mode === 'slip') { status.textContent = '憑單需要掃描處方 QR；只有日期時請切換到「試算」。'; return; }
     validateManualDate();
-    if (date.reportValidity()) days.focus();
+    if (!date.reportValidity()) return;
+    submit();
+    days.focus();
   }
 });
 date.addEventListener('blur', () => {
   if (scanBuffer) finishScan(false);
-  else if (mode === 'calc') validateManualDate();
+  else if (mode === 'calc') submit();
 });
 datePicker.addEventListener('click', event => {
   if (typeof datePicker.showPicker === 'function') {
@@ -320,16 +457,16 @@ datePicker.addEventListener('change', () => {
   date.value = datePicker.value ? fullDate(datePicker.value) : '';
   date.setCustomValidity('');
   status.textContent = '';
-  emptyResult();
+  submit();
 });
-function submit(report = true) {
+/** Results follow the fields as they change; there is no button. scroll: after a scan, bring the result into view on a phone. */
+function submit(scroll = false) {
   refreshDate();
   validateManualDate();
-  if (!(report ? form.reportValidity() : form.checkValidity())) return;
-  // Blank count or visit means "infer" (QR codes carry neither): from the previous pickup date when given, else from today.
-  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined, visit: Number(visit.value) || undefined,
-    previous: previous.value || undefined });
-  if (matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!form.checkValidity()) { emptyResult(); return; }
+  // Blank count means "infer" (QR codes do not carry it); the dial covers every visit, so the visit is never asked.
+  render({ date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined, previous: previous.value || undefined });
+  if (scroll && matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 form.addEventListener('submit', event => {
   event.preventDefault();
@@ -337,7 +474,12 @@ form.addEventListener('submit', event => {
   submit();
 });
 // Scans in 憑單 mode pass through the shared entry field; they must not clear the 試算 result.
-form.addEventListener('input', () => { if (mode === 'calc') emptyResult(); });
+// A typed date is checked once finished (Enter or leaving the field), and the calendar on its change.
+form.addEventListener('input', event => {
+  if (mode !== 'calc' || event.target === datePicker) return;
+  if (event.target === date) emptyResult();
+  else submit();
+});
 for (const radio of document.querySelectorAll<HTMLInputElement>('input[name=mode]')) radio.addEventListener('change', () => {
   mode = radio.value === 'slip' ? 'slip' : 'calc';
   grid.dataset.mode = mode;

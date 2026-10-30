@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#234d43" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <meta name="description" content="樹懶的算數，掃描處方 QR 或手動輸入，試算連處領藥與回診日期，並列印領藥憑單。" />
+  <meta name="description" content="樹懶的算數，掃描處方 QR 或手動輸入，以轉盤查看連處每次領藥與回診日期，並列印領藥憑單。" />
   <title>樹懶的算數 · 連處領藥試算</title>
 </head>
 <body>
@@ -31,14 +31,14 @@
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
-              <div class="field-row"><div><label for="visit">本次第幾次領藥</label><select id="visit"><option value="">自動判斷</option><option value="1">第 1 次</option><option value="2">第 2 次</option><option value="3">第 3 次</option></select></div><div><label for="previous-date">前次逾期領藥日</label><input id="previous-date" type="date" /></div></div>
-              <p class="hint">掃 QR 會帶入處方日期與給藥日份，並依今天日期自動判斷本次為第幾次：在區間內、延遲領藥，或提前交付預處理（顯示實際可來領藥的區間）；QR 不含可調劑次數，若 2、3 次結果不同會分別列出。實際次數已知時可手動選擇覆蓋。前次逾期領藥時，在「前次逾期領藥日」填處方箋背面的前次調劑日期，本次起的區間會順延，次數也改依前次領藥日判斷。</p>
-              <div class="form-actions"><button type="submit" class="primary">試算領藥日期</button><button type="reset">清除重填</button></div>
+              <div class="field-row"><div><label for="previous-date">前次逾期領藥日</label><input id="previous-date" type="date" /></div></div>
+              <p class="hint">填好處方日期與給藥日份，右側就列出今天領第 1、2、3 次與今天不領藥的結果，依時間順序排在轉盤上，一開始停在依今天日期推算的這次（在區間內、延遲領藥，或提前交付預處理）。在轉盤上捲動滑鼠滾輪、按上下方向鍵或 ▲▼ 轉動，手機上下滑動。QR 不含可調劑次數，若 2、3 次結果不同會分別列出，實際次數已知時請選擇。前次逾期領藥時，在「前次逾期領藥日」填處方箋背面的前次調劑日期，本次起的區間會順延，推算也改依前次領藥日。</p>
+              <div class="form-actions"><button type="reset">清除重填</button></div>
             </div>
           </form>
           <div class="slip-only slip-clear-row"><button type="button" id="slip-clear" class="slip-clear">清空憑單</button></div>
         </section>
-        <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好左側資料，就能查看本次狀態與下次日期。</p></div></section>
+        <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好處方日期與給藥日份，結果就會出現在這裡。</p></div></section>
         <section class="panel slip-panel" id="slip-panel" aria-labelledby="slip-title">
           <h2 id="slip-title">領藥憑單</h2>
           <p id="slip-empty" class="empty-result">掃描處方 QR 後，會在這裡列出憑單內容。</p>
