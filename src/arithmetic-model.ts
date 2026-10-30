@@ -101,7 +101,8 @@ export function calculate(input: PrescriptionInput, today = taiwanToday()): Calc
 /** QR codes omit the refill count and visit number; blank selections are inferred from the previous pickup date, else from today. */
 export interface AutoInput { date: string; days: number; count?: number; visit?: number; previous?: string }
 export interface Scenario { count: number; visit: number; inferred: boolean; note?: string; result: Calculation }
-export function inferVisit(date: string, days: number, count: number, today: string): { visit: number; note?: string } {
+/** fix: how the note tells the user to pick the late earlier visit instead. */
+export function inferVisit(date: string, days: number, count: number, today: string, fix = '手動選擇'): { visit: number; note?: string } {
   const elapsed = dayNumber(today) - dayNumber(date);
   if (elapsed <= 0) return { visit: 1 };
   // Each window's first day is the first allowed day: today is inside a window, late for the last visit, or early.
@@ -109,7 +110,7 @@ export function inferVisit(date: string, days: number, count: number, today: str
     const nextStart = days * visit - 10;
     if (elapsed >= nextStart && elapsed <= days * visit - 1) return { visit: visit + 1 };
     // Before the next window opens, the usual case is a prescription handed in early for pre-processing.
-    if (elapsed < nextStart) return { visit: visit + 1, note: `今日尚未到第 ${visit + 1} 次領藥區間，判斷為病患提前交付處方預處理；若實際為第 ${visit} 次延遲領藥，請手動選擇第 ${visit} 次。` };
+    if (elapsed < nextStart) return { visit: visit + 1, note: `今日尚未到第 ${visit + 1} 次領藥區間，判斷為病患提前交付處方預處理；若實際為第 ${visit} 次延遲領藥，請${fix}第 ${visit} 次。` };
   }
   return { visit: count };
 }
@@ -136,4 +137,42 @@ export function sameOutcome(a: Scenario, b: Scenario): boolean {
     && range(a.result.next) === range(b.result.next) && a.result.returnDate === b.result.returnDate
     // A moved window is cut by each count's own expiry.
     && range(a.result.schedule[a.visit - 1]) === range(b.result.schedule[b.visit - 1]);
+}
+
+/** One position of the dial: today picks up `visit`, or (idle) only asks and picks up nothing, which leaves the inferred visit pending. */
+export interface DialSlot { kind: 'visit' | 'idle'; visit: number; rows: Scenario[]; counts: number[] }
+/** inferred: each live refill count's result for the visit inferred for today; dead: one invalid result for each count no visit can satisfy (not yet valid, expired, previous date after today). */
+export interface Dial { slots: DialSlot[]; start: number; inferred: Scenario[]; dead: Scenario[] }
+/** With the date, days and refill count fixed, today's result depends only on which visit today is, if any: every outcome, in time order. */
+export function dial(input: Omit<AutoInput, 'visit'>, today = taiwanToday()): Dial {
+  const { date, days, previous } = input;
+  const counts = input.count ? [input.count] : [2, 3];
+  // After a previous pickup the first visit is gone, and the visit after the last one answers when to return.
+  const first = previous ? 2 : 1, extra = previous ? 1 : 0;
+  const dead: Scenario[] = [], live: { count: number; guess: number; rows: Scenario[] }[] = [];
+  for (const count of counts) {
+    const { visit: guess, note } = previous ? { visit: visitAfter(date, days, count, previous), note: undefined } : inferVisit(date, days, count, today, '往上轉到');
+    const all = Array.from({ length: count + extra - first + 1 }, (_, i) => first + i).map(visit =>
+      ({ count, visit, inferred: visit === guess, note: visit === guess ? note : undefined, result: calculate({ date, days, count, visit, previous }, today) }));
+    // An invalid result without a return date means the visit contradicts the input, as a previous pickup before that visit's window.
+    const rows = all.filter(row => row.result.state !== 'invalid' || row.result.returnDate);
+    if (rows.length) live.push({ count, guess, rows });
+    else dead.push(all.find(row => row.inferred) ?? all[0]);
+  }
+  if (!live.length) return { slots: [], start: 0, inferred: [], dead };
+  const slots: DialSlot[] = [];
+  const merge = (rows: Scenario[]) => rows.length === 2 && sameOutcome(rows[0], rows[1]) ? [{ ...rows[1], inferred: rows.some(r => r.inferred) }] : rows;
+  const guesses = live.map(c => c.guess), inferred = live.map(c => c.rows.find(row => row.inferred)!);
+  for (let visit = first; visit <= Math.max(...live.map(c => c.count)) + extra; visit++) {
+    const rows = live.flatMap(c => c.rows.filter(row => row.visit === visit));
+    if (rows.length) slots.push({ kind: 'visit', visit, rows: merge(rows), counts: rows.map(row => row.count) });
+    // Not picking up today follows the visit inferred for today; with two inferences, the later one.
+    if (visit === Math.max(...guesses)) slots.push({ kind: 'idle', visit, rows: mergeIdle(inferred), counts: inferred.map(row => row.count) });
+  }
+  return { slots, start: slots.findIndex(slot => slot.kind === 'visit' && slot.visit === Math.min(...guesses)), inferred, dead };
+}
+/** Without a pickup today only the inferred visit's window and state matter, not what follows it. */
+function mergeIdle(rows: Scenario[]): Scenario[] {
+  const key = (s: Scenario) => { const range = s.result.schedule[s.visit - 1]; return [s.visit, s.result.state, s.result.message, range?.start, range?.end].join(); };
+  return rows.length === 2 && key(rows[0]) === key(rows[1]) ? [rows[1]] : rows;
 }
