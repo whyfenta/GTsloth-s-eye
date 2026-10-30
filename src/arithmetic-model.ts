@@ -144,18 +144,22 @@ export interface DialSlot { kind: 'visit' | 'idle'; rows: Scenario[] }
 /** dead: one invalid result for each refill count no day of today can serve (not yet valid, expired). */
 export interface Dial { slots: DialSlot[]; start: number; dead: Scenario[] }
 /** With the date, days and refill count fixed, today picks up one of the visits whose window has opened, or none: every outcome, in time order.
- * previous: the actual date that last opened visit was picked up, when late; it only moves the idle slot. */
-export function dial(input: { date: string; days: number; count?: number }, today = taiwanToday(), previous?: string): Dial {
+ * previous: per slot, the actual date of the visit before it, when picked up late: keyed by the visit picked up today, or 'idle' for the last
+ * opened visit when not picking up. Each moves only its own slot. */
+export type DialPrevious = Partial<Record<number | 'idle', string>>;
+export function dial(input: { date: string; days: number; count?: number }, today = taiwanToday(), previous: DialPrevious = {}): Dial {
   const { date, days } = input;
   const dead: Scenario[] = [], live: { count: number; opened: number; start: number; rows: Scenario[]; idle: Scenario }[] = [];
   for (const count of input.count ? [input.count] : [2, 3]) {
     const first = calculate({ date, days, count, visit: 1 }, today);
     if (first.state === 'invalid') { dead.push({ count, visit: 1, inferred: false, result: first }); continue; }
     const opened = first.schedule.filter(range => range.start <= today).length;
-    const rows = Array.from({ length: opened }, (_, i): Scenario => ({ count, visit: i + 1, inferred: false, result: calculate({ date, days, count, visit: i + 1 }, today) }));
-    const last = rows[opened - 1].result;
+    const rows = Array.from({ length: opened }, (_, i): Scenario =>
+      ({ count, visit: i + 1, inferred: false, result: calculate({ date, days, count, visit: i + 1, previous: i ? previous[i + 1] : undefined }, today) }));
+    // Not picking up today ends the last opened visit as scheduled, whatever moved today's pickup of it.
+    const last = calculate({ date, days, count, visit: opened }, today);
     // Nothing is left to book after the last visit: say when to see the doctor again (moved by a late previous pickup, as calculate does).
-    const idle: Calculation = opened < count || previous ? calculate({ date, days, count, visit: opened + 1, previous }, today)
+    const idle: Calculation = opened < count || previous.idle ? calculate({ date, days, count, visit: opened + 1, previous: previous.idle }, today)
       : { ...last, state: 'invalid', message: `第 ${count} 次（最後一次）已領，請回診，建議最早${rocText(last.earliestReturn)}。`, next: undefined, returnDate: last.earliestReturn };
     // Inside the window today picks it up; past it, the usual case is a pickup made elsewhere, except after the last visit, when only a late pickup is left.
     const start = today <= first.schedule[opened - 1].end || opened === count ? opened - 1 : opened;

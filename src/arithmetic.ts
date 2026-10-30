@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialSlot, type Scenario } from './arithmetic-model';
+import { dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
 import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
 import { addDrugs, addPrescription } from './slip-ui';
 
@@ -23,8 +23,8 @@ let imeAt = -Infinity;
 let today = taiwanToday();
 type DialInput = Parameters<typeof dial>[0];
 let lastInput: DialInput | undefined;
-/** The actual date of the last opened visit's pickup, given on the idle slot; it belongs to the input it was given for, and a day change keeps it. */
-let previousDate = '';
+/** Per slot, the actual date of the pickup before it, when late; they belong to the input they were given for, and a day change keeps them. */
+let previousDates: DialPrevious = {};
 element('version').textContent = __APP_VERSION__;
 
 const fullDate = (value: string) => value.replaceAll('-', '/');
@@ -256,44 +256,46 @@ function scheduleTable(idleRows: Scenario[]): { table: HTMLTableElement; visitRo
   return { table, visitRows };
 }
 /** The actual date of the pickup made elsewhere, when it was late: only the idle slot asks for it, and it moves only that slot and the table. */
-function previousField(visits: number[], min: string, onChange: () => void): HTMLElement {
+function previousField(key: keyof DialPrevious, label: string, help: string, min: string, onChange: () => void): HTMLElement {
   const field = document.createElement('div');
   field.className = 'dial-previous';
-  const label = document.createElement('label');
+  const caption = document.createElement('label');
   const input = document.createElement('input');
   input.type = 'date';
-  input.id = 'previous-date';
+  input.id = `previous-date-${key}`;
   input.min = min;
   input.max = today;
-  input.value = previousDate;
-  label.htmlFor = input.id;
-  label.textContent = visits.length === 1 ? `第 ${visits[0] - 1} 次實際領藥日` : '前次實際領藥日';
+  input.value = previousDates[key] ?? '';
+  caption.htmlFor = input.id;
+  caption.textContent = label;
   const clear = document.createElement('button');
   clear.type = 'button';
   clear.textContent = '清除';
-  clear.hidden = !previousDate;
-  const help = document.createElement('p');
-  help.className = 'hint';
-  help.textContent = '逾期才領時填處方箋背面的調劑日期，下一次依此順延。';
+  clear.hidden = !input.value;
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = help;
   const update = () => {
     // A date typed segment by segment passes through dates before the prescription; wait for a whole one.
     const value = input.validity.valid ? input.value : '';
     clear.hidden = !input.value;
-    if (value === previousDate) return;
-    previousDate = value;
+    if (value === (previousDates[key] ?? '')) return;
+    if (value) previousDates[key] = value;
+    else delete previousDates[key];
     onChange();
   };
   input.addEventListener('input', update);
   clear.addEventListener('click', () => { input.value = ''; update(); input.focus(); });
   const row = document.createElement('div');
   row.append(input, clear);
-  field.append(label, row, help);
+  field.append(caption, row, note);
   return field;
 }
 function render(input: DialInput) {
   result.replaceChildren();
   try {
-    const { slots, start, dead } = dial(input, today, previousDate || undefined);
+    const { start, dead, ...computed } = dial(input, today, previousDates);
+    let { slots } = computed;
     lastInput = input;
     const prefix = (count: number) => input.count ? '' : `若可調劑 ${count} 次：`;
     for (const scenario of dead) result.append(...recommendation(scenario, prefix(scenario.count)));
@@ -305,39 +307,58 @@ function render(input: DialInput) {
       const merged = slot.rows.length === 2 && text(show(slot.rows[0], '')) === text(show(slot.rows[1], ''));
       return { merged, body: merged ? show(slot.rows[1], '') : slot.rows.flatMap(row => show(row, prefix(row.count))) };
     };
-    const idleSlot = slots.at(-1)!, done = [...new Set(idleSlot.rows.map(row => row.visit))];
-    // The idle slot and the table are redrawn in place when its previous pickup date changes, so the date field keeps focus.
-    const idleResult = document.createElement('div');
+    const last = slots.length - 1, keyOf = (index: number): keyof DialPrevious => index === last ? 'idle' : index + 1;
+    // Each slot's result and the table are redrawn in place when a previous pickup date changes, so the date field keeps focus.
+    const boxes = slots.map(() => document.createElement('div'));
     const tableBox = document.createElement('div');
     let visitRows: HTMLTableRowElement[] = [], current = start;
-    const mark = () => visitRows.forEach((row, i) => row.classList.toggle('current', i === (current < slots.length - 1 ? current : idleSlot.rows.at(-1)!.visit - 1)));
-    const fill = (slot: DialSlot) => {
-      const parts = draw(slot).body;
-      if (previousDate && slot.rows.every(row => row.result.state !== 'invalid' && !row.result.shift)) {
+    const fill = (index: number) => {
+      const slot = slots[index], { body } = draw(slot);
+      if (previousDates[keyOf(index)] && slot.rows.every(row => row.result.state !== 'invalid' && !row.result.shift)) {
         const hint = document.createElement('p');
         hint.className = 'hint';
         hint.textContent = '前次領藥日未造成順延，時程不變。';
-        parts.push(hint);
+        body.push(hint);
       }
-      idleResult.replaceChildren(...parts);
-      const drawn = scheduleTable(slot.rows);
+      boxes[index].replaceChildren(...body);
+    };
+    // The table follows the dial: each count's dates as the slot on show has them (a count it lacks, as the idle slot has them),
+    // with the visit picked up today, or when not picking up, the one to book, marked.
+    const table = () => {
+      const rows = slots[last].rows.map(idle => slots[current].rows.find(row => row.count === idle.count) ?? idle);
+      const drawn = scheduleTable(rows);
       visitRows = drawn.visitRows;
       tableBox.replaceChildren(drawn.table);
-      mark();
+      const marked = current < last ? current : slots[last].rows.at(-1)!.visit - 1;
+      visitRows.forEach((row, i) => row.classList.toggle('current', i === marked));
+    };
+    const changed = (index: number) => () => {
+      slots = dial(input, today, previousDates).slots;
+      fill(index);
+      table();
     };
     const entries = slots.map((slot, index): DialEntry => {
       const guessed = slot.rows.filter(row => row.inferred);
-      const { merged, body } = draw(slot);
-      const badge = !guessed.length ? '' : `推算${idleSlot.rows.length === 2 && guessed.length === 1 && !merged ? `・可調劑 ${guessed[0].count} 次` : ''}`;
-      if (slot.kind === 'visit') return { tick: `第 ${index + 1} 次`, title: `今日領第 ${index + 1} 次`, badge, body };
-      const field = previousField(done, input.date, () => fill(dial(input, today, previousDate || undefined).slots.at(-1)!));
-      return { tick: '不領', title: done.length === 1 ? `今日不領 · 第 ${done[0] - 1} 次已在別處領過` : '今日不領 · 已在別處領過', badge, body: [idleResult, field] };
+      const { merged } = draw(slot);
+      const badge = !guessed.length ? '' : `推算${slots[last].rows.length === 2 && guessed.length === 1 && !merged ? `・可調劑 ${guessed[0].count} 次` : ''}`;
+      fill(index);
+      if (slot.kind === 'visit') {
+        const visit = index + 1;
+        // The first visit has no previous pickup.
+        const body = visit === 1 ? [boxes[index]] : [boxes[index], previousField(visit, `第 ${visit - 1} 次實際領藥日`,
+          `第 ${visit - 1} 次逾期才領時，填處方箋背面的調劑日期，本次起依此順延。`, input.date, changed(index))];
+        return { tick: `第 ${visit} 次`, title: `今日領第 ${visit} 次`, badge, body };
+      }
+      const done = [...new Set(slot.rows.map(row => row.visit))];
+      const field = previousField('idle', done.length === 1 ? `第 ${done[0] - 1} 次實際領藥日` : '前次實際領藥日',
+        '逾期才領時填處方箋背面的調劑日期，下一次依此順延。', input.date, changed(index));
+      return { tick: '不領', title: done.length === 1 ? `今日不領 · 第 ${done[0] - 1} 次已在別處領過` : '今日不領 · 已在別處領過', badge, body: [boxes[index], field] };
     });
-    fill(idleSlot);
+    table();
     const guess = document.createElement('p');
     guess.className = 'inferred';
     guess.textContent = `依今日日期推算停在「${entries[start].title}」；轉動轉盤可看其他情況。`;
-    const wheel = createDial(entries, start, index => { current = index; mark(); });
+    const wheel = createDial(entries, start, index => { current = index; table(); });
     result.append(guess, wheel, tableBox);
   } catch (error) {
     lastInput = undefined;
@@ -519,7 +540,7 @@ function submit(scroll = false) {
   const input: DialInput = { date: normalizeDate(date.value), days: Number(days.value), count: Number(count.value) || undefined };
   // Leaving the date field unchanged (say, to click the dial) must not rebuild the dial under the pointer.
   if (lastInput && JSON.stringify(input) === JSON.stringify(lastInput)) return;
-  previousDate = '';
+  previousDates = {};
   render(input);
   if (scroll && matchMedia('(max-width: 700px)').matches) result.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

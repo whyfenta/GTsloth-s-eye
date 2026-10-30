@@ -228,11 +228,20 @@ wheel = dial({ date: '2026-01-01', days: 30 }, '2026-02-25'); // Visit 3 only ex
 assert.deepEqual(wheel.slots.map(s => s.rows.map(r => r.count)), [[2, 3], [2, 3], [3], [2, 3]]);
 assert.equal(wheel.start, 2);
 // A late previous pickup moves only the idle slot.
-wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', '2026-02-05');
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', { idle: '2026-02-05' });
 assert.deepEqual([idleRow(wheel).result.state, idleRow(wheel).result.schedule[2], idleRow(wheel).result.shift?.previous], ['early', { start: '2026-02-25', end: '2026-03-06' }, '2026-02-05']);
 assert.equal(wheel.slots[1].rows[0].result.shift, undefined);
-assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', '2026-01-15')).result.message, /前次領藥日早於第 2 次可領藥區間/);
-assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-03-05', '2026-03-03')).result.message, /前次已是最後一次（第 3 次）領藥，請回診，建議最早115\/03\/23/);
+assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-12', { idle: '2026-01-15' })).result.message, /前次領藥日早於第 2 次可領藥區間/);
+assert.match(idleRow(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-03-05', { idle: '2026-03-03' })).result.message, /前次已是最後一次（第 3 次）領藥，請回診，建議最早115\/03\/23/);
+// Each pickup slot from visit 2 has its own previous date: a late visit 2 moves today's visit 3 into pre-processing.
+assert.equal(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-22').slots[2].rows[0].result.state, 'normal');
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-22', { 3: '2026-02-05' });
+assert.deepEqual(order(wheel), [1, 2, '*3', 'idle']);
+assert.deepEqual([wheel.slots[2].rows[0].result.state, wheel.slots[2].rows[0].result.schedule[2]], ['early', { start: '2026-02-25', end: '2026-03-06' }]);
+assert.deepEqual([wheel.slots[1].rows[0].result.shift, idleRow(wheel).result.shift, idleRow(wheel).result.returnDate], [undefined, undefined, '2026-03-22']);
+wheel = dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-01-25', { 2: '2026-01-03' }); // A late visit 1 moves only today's visit 2.
+assert.deepEqual([wheel.slots[1].rows[0].result.state, wheel.slots[1].rows[0].result.schedule[1], idleRow(wheel).result.shift], ['normal', { start: '2026-01-23', end: '2026-02-01' }, undefined]);
+assert.match(dial({ date: '2026-01-01', days: 30, count: 3 }, '2026-02-22', { 3: '2026-01-15' }).slots[2].rows[0].result.message, /前次領藥日早於第 2 次可領藥區間/);
 // Expired, or not yet valid: nothing to turn.
 wheel = dial({ date: '2026-01-01', days: 30 }, '2026-03-10');
 assert.deepEqual(wheel.dead.map(s => [s.count, s.result.message]), [[2, '處方已於115/03/02失效，請回診。']]);
