@@ -2,7 +2,7 @@
 A10,降血糖藥,E08-E13,仿單,
 A10BA A10BG03,Metformin、Pioglitazone,R73.0 R73.9 E28.2,常見仿單外,糖尿病前期、多囊性卵巢
 A10BG03,Pioglitazone,K75.81 K76.0,常見仿單外,非酒精性脂肪肝炎
-A10BK,SGLT2 抑制劑,I50 N18,仿單,限 dapagliflozin、empagliflozin
+A10BK,SGLT2 抑制劑,I50 I11.0 I13.0 I13.2 N18,仿單,限 dapagliflozin、empagliflozin；I11.0、I13.0、I13.2 是含心衰竭的合併碼
 C10,調血脂藥,E78,仿單,
 C10,調血脂藥,I20-I25 I63-I67 I69 I70 G45 Z95.1 Z95.5 Z86.73,指引,動脈粥狀硬化心血管疾病次級預防
 C10,調血脂藥,E10-E13,指引,糖尿病一級預防（40–75 歲）
@@ -11,7 +11,8 @@ C02CA C03 C07 C08 C09,降血壓藥,I10-I16,仿單,
 C02CA C03 C07 C08 C09,降血壓藥,I63-I67 I69 G45,指引,腦血管疾病後的血壓控制
 C07 C08CA C08D,β 阻斷劑、鈣離子阻斷劑,I20 I25,仿單,心絞痛；lercanidipine 只有高血壓適應症
 C07 C08D C01B,心律控制,I47-I49,仿單,
-C03 C07 C09,利尿劑、β 阻斷劑、ACEI／ARB／ARNI,I50,仿單,心衰竭
+C01D,硝酸鹽類與 nicorandil,I20-I25,仿單,心絞痛、缺血性心臟病
+C03 C07 C09,利尿劑、β 阻斷劑、ACEI／ARB／ARNI,I50 I11.0 I13.0 I13.2,仿單,心衰竭；I11.0、I13.0、I13.2 是高血壓性心臟病或心腎病伴有心衰竭的合併碼
 C09,ACEI／ARB,N18 E10.2 E11.2 I21-I25,仿單,
 C07AA05,Propranolol,G43 G25.0 E05,仿單,偏頭痛預防、原發性顫抖、甲亢輔助
 C07AA05,Propranolol,R25.1 F40-F48 G25.7,常見,顫抖、焦慮的身體症狀、靜坐不能
@@ -19,6 +20,8 @@ C03,利尿劑,R60 E26 R18 K70-K74 N04 N18 E87.7,仿單,水腫、腹水、醛固�
 C02CA,Doxazosin,N40 R33 R39.1,仿單,攝護腺肥大
 B01AC,抗血小板,I20-I25 I63-I67 I69 I70-I74 G45 Z95 Z86.73,仿單,
 B01AC06,Aspirin,D45 D47.3,指引,真性紅血球增多症、原發性血小板增多症
+N02BA01,Aspirin（ATC 歸在 N02BA 的產品）,I20-I25 I63-I67 I69 I70-I74 G45 Z95 Z86.73,仿單,部分 aspirin 產品的 ATC 是 N02BA01，抗血小板用途同 B01AC
+N02BA01,Aspirin（ATC 歸在 N02BA 的產品）,D45 D47.3,指引,真性紅血球增多症、原發性血小板增多症
 B01AA B01AE B01AF,抗凝血劑,I48 I26 I80-I82 Z86.71 Z95.2 Z95.4 I05-I08 I34-I37 I63,仿單,心房顫動、靜脈栓塞、人工瓣膜
 A02BA A02BC A02BX,胃酸抑制與制酸,K20-K31 K92.0 K92.1 K92.2 R10.1 R12,仿單,
 A02BA A02BC,胃酸抑制,Z79.1 Z79.01 Z79.02 Z79.52,常見,長期 NSAID／抗凝血／抗血小板／類固醇的胃腸保護
@@ -49,6 +52,8 @@ P01BA02,Hydroxychloroquine,M05-M06 M32 M35.0,仿單,乾燥症為常見仿單外
 N07AX03,Cevimeline,M35.0,仿單,乾燥症
 L04AX01,Azathioprine,M05-M06 M30-M36 K50-K51 Z94,仿單,
 L04AX01,Azathioprine,D69.3 D59,常見仿單外,免疫性血小板低下、溶血
+L04AD,Calcineurin 抑制劑,Z94 N04 M05-M06 M32,仿單,器官移植、腎病症候群、類風濕、狼瘡
+L04AD01,Ciclosporin,L40 L20,仿單,乾癬、異位性皮膚炎
 B02BX05,Eltrombopag,D69.3 D61,仿單,
 L01XX05 L01XX35,Hydroxyurea、Anagrelide,D45 D47.1 D47.3 C92.1,仿單,骨髓增生性腫瘤
 L02B,荷爾蒙拮抗劑,C50 D05 Z85.3 C61 Z85.46,仿單,乳癌、攝護腺癌
@@ -83,6 +88,8 @@ S01XA,其他眼用製劑,H25-H26,仿單,白內障（pirenoxine）
 S01BA,眼用類固醇,H10 H15-H16 H18 H20,仿單,
 S01E,抗青光眼藥,H40-H42 Q15.0,仿單,
 R06A,口服抗組織胺,J30-J31 L20-L30 L50 L29 T78.4 H10.1,仿單,
+D05BB,Acitretin,L40 L43 L44 L85 L87 Q80 Q82.8,仿單,乾癬、角化異常
+D11AH,外用 calcineurin 抑制劑,L20,仿單,異位性皮膚炎
 R03,氣喘與 COPD 用藥,J41-J45 J47 R06.2,仿單,
 R05,咳嗽祛痰,J00-J47 R05 R06,仿單,
 C05BA,Heparinoid 外用,I80-I87 S00-T14 M79,仿單,
