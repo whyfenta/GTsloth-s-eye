@@ -43,6 +43,8 @@ export interface Calculation {
   expiry: string;
   earliestReturn: string;
   next?: DateRange;
+  /** After a late pickup, the windows of the visits after next, restarted from today as next is; expiry can leave fewer. */
+  later?: DateRange[];
   returnDate?: string;
   shift?: Shift;
 }
@@ -91,7 +93,13 @@ export function calculate(input: PrescriptionInput, today = taiwanToday()): Calc
     const start = addDays(today, days - 10);
     // Same strict boundary as the source sheet's H12: start must precede expiry.
     if (start >= expiry) return { ...base, state: 'late', message: '本次領藥延遲，下次請回診。', returnDate: start };
-    return { ...base, state: 'late', message: '本次領藥延遲，請使用修正日期。', next: windowAfter(today, days, 1, expiry) };
+    const later: DateRange[] = [];
+    for (let periods = 2; visit + periods <= count; periods++) {
+      const moved = windowAfter(today, days, periods, expiry);
+      if (moved.start >= expiry) break;
+      later.push(moved);
+    }
+    return { ...base, state: 'late', message: '本次領藥延遲，請使用修正日期。', next: windowAfter(today, days, 1, expiry), later };
   }
   const next = base.schedule[visit];
   return { ...base, state: 'normal', message: base.shift ? '本次在順延後的領藥區間內，可領藥。' : '本次在原定領藥日期內，可領藥。',
@@ -133,7 +141,8 @@ export function autoCalculate(input: AutoInput, today = taiwanToday()): Scenario
 export function sameOutcome(a: Scenario, b: Scenario): boolean {
   const range = (r?: DateRange) => r ? `${r.start}~${r.end}` : '';
   return a.visit === b.visit && (a.visit === a.count) === (b.visit === b.count) && a.note === b.note && a.result.state === b.result.state && a.result.message === b.result.message
-    && range(a.result.next) === range(b.result.next) && a.result.returnDate === b.result.returnDate
+    && range(a.result.next) === range(b.result.next) && (a.result.later ?? []).map(range).join() === (b.result.later ?? []).map(range).join()
+    && a.result.returnDate === b.result.returnDate
     // A moved window is cut by each count's own expiry.
     && range(a.result.schedule[a.visit - 1]) === range(b.result.schedule[b.visit - 1]);
 }

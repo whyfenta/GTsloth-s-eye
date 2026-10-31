@@ -1,5 +1,5 @@
 import './arithmetic.css';
-import { dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
+import { addDays, dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
 import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
 import { addDrugs, addPrescription } from './slip-ui';
 
@@ -49,6 +49,22 @@ setInterval(refreshDate, 15_000);
 document.addEventListener('visibilitychange', refreshDate);
 window.addEventListener('pageshow', refreshDate);
 
+function dateBox(text: string, dates: string, compressed: boolean): HTMLElement {
+  const box = document.createElement('div');
+  box.className = 'recommended';
+  box.classList.toggle('compressed', compressed);
+  const label = document.createElement('p');
+  label.textContent = text;
+  const strong = document.createElement('strong');
+  strong.textContent = dates;
+  box.append(label, strong);
+  return box;
+}
+/** recalculated: from a late pickup (today's, or the previous one), when expiry can clamp the window to fewer days than the normal 10. */
+function windowBox(text: string, range: DateRange, recalculated: boolean): HTMLElement {
+  const span = rangeDays(range), compressed = recalculated && span < 10;
+  return dateBox(`${text}${compressed ? `僅有${span}天` : ''}`, rangeText(range), compressed);
+}
 function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   const { result: value, visit, count } = scenario;
   const state = document.createElement('p');
@@ -56,30 +72,22 @@ function recommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   state.dataset.state = value.state;
   state.textContent = prefix + value.message;
   if (value.state === 'invalid') return [state];
-  const box = document.createElement('div');
-  box.className = 'recommended';
-  const label = document.createElement('p');
-  const dates = document.createElement('strong');
-  // A window recalculated from a late pickup (today's, or the previous one) and clamped by expiry leaves fewer days than the normal 10.
   const recalculated = value.state === 'late' || !!value.shift;
-  const show = (text: string, range: DateRange) => {
-    const span = rangeDays(range);
-    const compressed = recalculated && span < 10;
-    box.classList.toggle('compressed', compressed);
-    label.textContent = `${text}${compressed ? `僅有${span}天` : ''}`;
-    dates.textContent = rangeText(range);
-  };
   const moved = value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : '';
-  if (value.state === 'early') show(`${moved}本次可領藥區間`, value.schedule[visit - 1]);
-  else if (value.next) show(`${value.state === 'late' ? '延遲後修正 · ' : moved}${visit === count ? '下次回診區間' : '下次領藥區間'}`, value.next);
-  else {
-    // A late pickup that leaves no further window is as urgent as a compressed one.
-    box.classList.toggle('compressed', value.state === 'late');
-    label.textContent = value.state === 'late' ? '請回診 · 建議最早日期' : `${moved}本次為最後一次 · 最早回診日`;
-    dates.textContent = fullDate(value.returnDate!);
+  if (value.state === 'early') return [state, windowBox(`${moved}本次可領藥區間`, value.schedule[visit - 1], recalculated)];
+  // A late pickup that leaves no further window is as urgent as a compressed one.
+  if (!value.next) return [state, dateBox(value.state === 'late' ? '請回診 · 建議最早日期' : `${moved}本次為最後一次 · 最早回診日`, fullDate(value.returnDate!), value.state === 'late')];
+  if (value.state !== 'late' || visit === count) return [state, windowBox(`${value.state === 'late' ? '延遲後修正 · ' : moved}${visit === count ? '下次回診區間' : '下次領藥區間'}`, value.next, recalculated)];
+  // A late pickup restarts every visit after it from today, not only the next one.
+  const windows = [value.next, ...value.later ?? []];
+  const boxes = windows.map((range, i) => windowBox(`延遲後修正 · 第 ${visit + 1 + i} 次領藥區間`, range, true));
+  if (visit + windows.length < count) {
+    const gone = document.createElement('p');
+    gone.className = 'hint';
+    gone.textContent = `延遲後在處方失效日前已無第 ${visit + windows.length + 1} 次，第 ${visit + windows.length} 次領完請回診。`;
+    boxes.push(gone);
   }
-  box.append(label, dates);
-  return [state, box];
+  return [state, ...boxes];
 }
 /** Not picking up today: the last opened visit was picked up already, so book the next one, or after the last one, see the doctor again. */
 function idleRecommendation(scenario: Scenario, prefix: string): HTMLElement[] {
@@ -89,24 +97,13 @@ function idleRecommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   const state = document.createElement('p');
   state.className = 'result-status';
   state.dataset.state = value.state;
-  const box = document.createElement('div');
-  box.className = 'recommended';
-  const label = document.createElement('p');
-  const dates = document.createElement('strong');
   if (value.returnDate) {
     state.textContent = prefix + value.message;
-    label.textContent = '請回診 · 建議最早日期';
-    dates.textContent = fullDate(value.returnDate);
-  } else {
-    // Expiry can cut a window moved by a late previous pickup short.
-    const range = value.schedule[visit - 1], span = rangeDays(range), compressed = !!value.shift && span < 10;
-    state.textContent = `${prefix}第 ${visit - 1} 次已領，預約第 ${visit} 次。`;
-    box.classList.toggle('compressed', compressed);
-    label.textContent = `${value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : ''}第 ${visit} 次可領藥區間${compressed ? `僅有${span}天` : ''}`;
-    dates.textContent = rangeText(range);
+    return [state, dateBox('請回診 · 建議最早日期', fullDate(value.returnDate), false)];
   }
-  box.append(label, dates);
-  return [state, box];
+  state.textContent = `${prefix}第 ${visit - 1} 次已領，預約第 ${visit} 次。`;
+  // Expiry can cut a window moved by a late previous pickup short.
+  return [state, windowBox(`${value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : ''}第 ${visit} 次可領藥區間`, value.schedule[visit - 1], !!value.shift)];
 }
 interface DialEntry { tick: string; title: string; badge: string; body: HTMLElement[] }
 /** A meter-style dial: one result in a fixed window, its neighbours peeking above and below, turned by the wheel, arrow keys, ▲▼ or a swipe. */
@@ -195,7 +192,6 @@ function createDial(entries: DialEntry[], start: number, onMove: (index: number)
     go(current + direction);
   }, { passive: false });
   root.addEventListener('keydown', event => {
-    if (event.target instanceof HTMLInputElement) return;
     const to = { ArrowUp: current - 1, ArrowDown: current + 1, PageUp: current - 1, PageDown: current + 1, Home: 0, End: entries.length - 1 }[event.key];
     if (to === undefined) return;
     event.preventDefault();
@@ -255,40 +251,107 @@ function scheduleTable(idleRows: Scenario[]): { table: HTMLTableElement; visitRo
   }
   return { table, visitRows };
 }
-/** The actual date of the pickup made elsewhere, when it was late: only the idle slot asks for it, and it moves only that slot and the table. */
-function previousField(key: keyof DialPrevious, label: string, help: string, min: string, onChange: () => void): HTMLElement {
+/** Was the previous pickup later than this day? A small dial of the days from the end of that visit's window (the default: on time,
+ * nothing moves) to today. A later day is the actual pickup date; it moves only its own slot and the table. The wheel, arrow keys, ▲▼
+ * or a swipe on it turn only this dial, not the one around it; at either end the wheel scrolls the page. */
+function previousField(key: keyof DialPrevious, first: string, firstLabel: string, help: string, onChange: () => void): HTMLElement {
   const field = document.createElement('div');
   field.className = 'dial-previous';
-  const caption = document.createElement('label');
-  const input = document.createElement('input');
-  input.type = 'date';
-  input.id = `previous-date-${key}`;
-  input.min = min;
-  input.max = today;
-  input.value = previousDates[key] ?? '';
-  caption.htmlFor = input.id;
-  caption.textContent = label;
-  const clear = document.createElement('button');
-  clear.type = 'button';
-  clear.textContent = '清除';
-  clear.hidden = !input.value;
-  const note = document.createElement('p');
-  note.className = 'hint';
-  note.textContent = help;
-  const update = () => {
-    // A date typed segment by segment passes through dates before the prescription; wait for a whole one.
-    const value = input.validity.valid ? input.value : '';
-    clear.hidden = !input.value;
-    if (value === (previousDates[key] ?? '')) return;
+  const caption = document.createElement('p');
+  caption.className = 'dial-previous-label';
+  caption.id = `previous-label-${key}`;
+  caption.textContent = '前次領藥比這天晚嗎？';
+  const dates = Array.from({ length: dayNumber(today) - dayNumber(first) + 1 }, (_, i) => addDays(first, i));
+  const tag = (i: number) => [i ? `晚 ${i} 天` : firstLabel, ...dates[i] === today ? ['今天'] : []].join(' · ');
+  const root = document.createElement('div');
+  root.className = 'date-wheel';
+  root.tabIndex = 0;
+  root.setAttribute('role', 'group');
+  root.setAttribute('aria-roledescription', '轉盤');
+  root.setAttribute('aria-labelledby', caption.id);
+  const view = document.createElement('div');
+  view.className = 'date-wheel-window';
+  view.setAttribute('aria-hidden', 'true');
+  const items = dates.map((value, i) => {
+    const item = document.createElement('div');
+    item.className = 'date-wheel-item';
+    const small = document.createElement('small');
+    small.textContent = tag(i);
+    item.append(fullDate(value), small);
+    item.addEventListener('click', () => go(i));
+    view.append(item);
+    return item;
+  });
+  const step = (text: string, label: string, by: number) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.textContent = text;
+    button.setAttribute('aria-label', label);
+    button.addEventListener('click', () => go(index + by));
+    return button;
+  };
+  const up = step('▲', '早一天', -1), down = step('▼', '晚一天', 1);
+  const steps = document.createElement('div');
+  steps.className = 'dial-steps';
+  steps.append(up, down);
+  const announce = document.createElement('p');
+  announce.className = 'dial-live';
+  announce.id = `previous-value-${key}`;
+  announce.setAttribute('aria-live', 'polite');
+  root.setAttribute('aria-describedby', announce.id);
+  // A date kept from before is always one of these days: render drops any other.
+  let index = Math.max(0, dates.indexOf(previousDates[key] ?? ''));
+  function go(to: number) {
+    index = Math.max(0, Math.min(dates.length - 1, to));
+    items.forEach((item, i) => {
+      item.style.setProperty('--offset', String(i - index));
+      item.classList.toggle('current', i === index);
+    });
+    up.disabled = index === 0;
+    down.disabled = index === dates.length - 1;
+    announce.textContent = `${fullDate(dates[index])}，${tag(index)}`;
+    const value = index ? dates[index] : undefined;
+    if (value === previousDates[key]) return;
     if (value) previousDates[key] = value;
     else delete previousDates[key];
     onChange();
-  };
-  input.addEventListener('input', update);
-  clear.addEventListener('click', () => { input.value = ''; update(); input.focus(); });
-  const row = document.createElement('div');
-  row.append(input, clear);
-  field.append(caption, row, note);
+  }
+  // One day a notch, as fast as the wheel turns, so a long stretch of days is quick to cross.
+  let travel = 0;
+  root.addEventListener('wheel', event => {
+    event.stopPropagation();
+    const direction = Math.sign(event.deltaY);
+    if (!direction || index + direction < 0 || index + direction >= dates.length) { travel = 0; return; }
+    event.preventDefault();
+    travel += event.deltaMode ? direction * 40 : event.deltaY;
+    if (Math.abs(travel) < 40) return;
+    travel = 0;
+    go(index + direction);
+  }, { passive: false });
+  root.addEventListener('keydown', event => {
+    const to = { ArrowUp: index - 1, ArrowDown: index + 1, PageUp: index - 7, PageDown: index + 7, Home: 0, End: dates.length - 1 }[event.key];
+    if (to === undefined) return;
+    event.preventDefault();
+    event.stopPropagation();
+    go(to);
+  });
+  let touchY: number | undefined;
+  root.addEventListener('pointerdown', event => { event.stopPropagation(); if (event.pointerType === 'touch') touchY = event.clientY; });
+  root.addEventListener('pointercancel', () => { touchY = undefined; });
+  root.addEventListener('pointerup', event => {
+    if (touchY === undefined) return;
+    // A longer swipe turns more days.
+    const turned = Math.trunc((touchY - event.clientY) / 30);
+    touchY = undefined;
+    if (turned) go(index + turned);
+  });
+  root.append(view, steps);
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = help;
+  field.append(caption, root, announce, note);
+  go(index);
   return field;
 }
 function render(input: DialInput) {
@@ -300,6 +363,15 @@ function render(input: DialInput) {
     const prefix = (count: number) => input.count ? '' : `若可調劑 ${count} 次：`;
     for (const scenario of dead) result.append(...recommendation(scenario, prefix(scenario.count)));
     if (!slots.length) return;
+    const last = slots.length - 1, keyOf = (index: number): keyof DialPrevious => index === last ? 'idle' : index + 1;
+    // A previous pickup is late after the end of its visit's window (the earlier one, when the two counts' previous visits differ).
+    const onTime = slots.map(slot => slot.rows.map(row => (row.result.shift?.original ?? row.result.schedule)[row.visit - 2]?.end).filter(Boolean).sort()[0]);
+    // A day change can move the idle slot on to a later visit, leaving a date kept for the one before it that its dial cannot show: drop it.
+    const stale = slots.map((_, index) => keyOf(index)).filter((key, index) => previousDates[key] && !(onTime[index]! < previousDates[key]! && previousDates[key]! <= today));
+    if (stale.length) {
+      for (const key of stale) delete previousDates[key];
+      slots = dial(input, today, previousDates).slots;
+    }
     const draw = (slot: DialSlot) => {
       const show = slot.kind === 'idle' ? idleRecommendation : recommendation;
       const text = (parts: HTMLElement[]) => parts.map(part => part.textContent).join('\n');
@@ -307,7 +379,6 @@ function render(input: DialInput) {
       const merged = slot.rows.length === 2 && text(show(slot.rows[0], '')) === text(show(slot.rows[1], ''));
       return { merged, body: merged ? show(slot.rows[1], '') : slot.rows.flatMap(row => show(row, prefix(row.count))) };
     };
-    const last = slots.length - 1, keyOf = (index: number): keyof DialPrevious => index === last ? 'idle' : index + 1;
     // Each slot's result and the table are redrawn in place when a previous pickup date changes, so the date field keeps focus.
     const boxes = slots.map(() => document.createElement('div'));
     const tableBox = document.createElement('div');
@@ -337,6 +408,14 @@ function render(input: DialInput) {
       fill(index);
       table();
     };
+    // Only a window that ended before today can have been picked up late; the first visit has no previous one.
+    const field = (index: number, previous: number | undefined, after: string) => {
+      const first = onTime[index];
+      if (!first || first >= today) return [];
+      const which = previous ? `第 ${previous} 次` : '';
+      return [previousField(keyOf(index), first, previous === 1 ? '第 1 次領藥日' : `${which}區間末日`,
+        `${which}晚於這天才領時，轉到處方箋背面的調劑日期，${after}起依此順延。`, changed(index))];
+    };
     const entries = slots.map((slot, index): DialEntry => {
       const guessed = slot.rows.filter(row => row.inferred);
       const { merged } = draw(slot);
@@ -344,15 +423,11 @@ function render(input: DialInput) {
       fill(index);
       if (slot.kind === 'visit') {
         const visit = index + 1;
-        // The first visit has no previous pickup.
-        const body = visit === 1 ? [boxes[index]] : [boxes[index], previousField(visit, `第 ${visit - 1} 次實際領藥日`,
-          `第 ${visit - 1} 次逾期才領時，填處方箋背面的調劑日期，本次起依此順延。`, input.date, changed(index))];
-        return { tick: `第 ${visit} 次`, title: `今日領第 ${visit} 次`, badge, body };
+        return { tick: `第 ${visit} 次`, title: `今日領第 ${visit} 次`, badge, body: [boxes[index], ...field(index, visit - 1, '本次')] };
       }
       const done = [...new Set(slot.rows.map(row => row.visit))];
-      const field = previousField('idle', done.length === 1 ? `第 ${done[0] - 1} 次實際領藥日` : '前次實際領藥日',
-        '逾期才領時填處方箋背面的調劑日期，下一次依此順延。', input.date, changed(index));
-      return { tick: '不領', title: done.length === 1 ? `今日不領 · 第 ${done[0] - 1} 次已在別處領過` : '今日不領 · 已在別處領過', badge, body: [boxes[index], field] };
+      return { tick: '不領', title: done.length === 1 ? `今日不領 · 第 ${done[0] - 1} 次已在別處領過` : '今日不領 · 已在別處領過', badge,
+        body: [boxes[index], ...field(index, done.length === 1 ? done[0] - 1 : undefined, '下一次')] };
     });
     table();
     const guess = document.createElement('p');

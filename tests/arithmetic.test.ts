@@ -137,6 +137,16 @@ const clamped = calculate({ date: '2026-08-23', days: 28, count: 3, visit: 2 }, 
 assert.deepEqual(clamped, { start: '2026-11-11', end: '2026-11-15' });
 assert.equal(rangeDays(clamped), 5);
 assert.equal(rangeDays(calculate(input, '2026-01-01').next!), 10);
+// A late pickup restarts every visit after it from today: late visit 1 on 10/31 moves visit 2 and visit 3, which expiry cuts to 5 days.
+result = calculate({ date: '2026-09-27', days: 28, count: 3, visit: 1 }, '2026-10-31');
+assert.deepEqual([result.state, result.next, result.later], ['late', { start: '2026-11-18', end: '2026-11-27' }, [{ start: '2026-12-16', end: '2026-12-20' }]]);
+assert.deepEqual(calculate({ date: '2026-09-27', days: 28, count: 2, visit: 1 }, '2026-10-31').later, []);
+assert.deepEqual(calculate({ ...input, visit: 2 }, '2026-02-05').later, []);
+// Too late for visit 3 to start before expiry: only visit 2 is left.
+result = calculate({ date: '2026-09-27', days: 28, count: 3, visit: 1 }, '2026-11-05');
+assert.deepEqual([result.next, result.later], [{ start: '2026-11-23', end: '2026-12-02' }, []]);
+const pair = autoCalculate({ date: '2026-09-27', days: 28, visit: 1 }, '2026-10-31');
+assert.ok(!sameOutcome(pair[0], pair[1]));
 console.log('arithmetic visit inference passed');
 
 // A late previous pickup restarts its period: visit 3 moves from 2/20～3/1 to 2/25～3/6 after visit 2 on 2/5.

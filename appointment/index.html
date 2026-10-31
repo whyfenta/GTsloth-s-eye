@@ -30,12 +30,12 @@
             <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">點此欄位掃描處方 QR，每掃一張就加入憑單；同時交付多科或家人的處方請連續掃入。掃入後游標移到可調劑次數（預設 2 次），再到本次第幾次（依日期推算），都以方向鍵選擇、Enter 確認，確認後回到這裡等下一張。憑單需要 QR 的完整資料，不接受手動日期。</span></p>
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
-              <div class="field-row"><div><label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select></div><div><label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select></div></div>
-              <p class="hint">填好處方日期與給藥日份，右側轉盤依時間順序列出今天的可能情況：今日領第 1 次、第 2 次……（遲領時下一次從今天重算），最後一格是「今日不領」：已開始的最後一次已在別處領過，依正常方式預約下一次，最後一次領完則提示回診。轉盤一開始停在依今天日期推算的那格：今天在某次區間內停在那次；區間已過、下一次還沒開始時停在今日不領；最後一次的區間也過了則停在最後一次（遲領）。在轉盤上捲動滑鼠滾輪、按上下方向鍵或 ▲▼ 轉動，手機上下滑動。QR 不含可調劑次數，若 2、3 次結果不同會分別列出，實際次數已知時請選擇。前一次逾期才領時，在今日領第 2 次以後的格子填前一次的實際領藥日，本次起依此順延（可能改為預包）；今日不領格填已在別處領的那次的實際領藥日，下一次依此順延。</p>
-              <div class="form-actions"><button type="reset">清除重填</button></div>
+              <label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select>
+              <label for="count">可調劑次數</label><select id="count"><option value="">自動判斷</option><option value="2">2 次</option><option value="3">3 次</option></select>
+              <div class="clear-row"><button type="reset" class="clear-button">清除重填</button></div>
             </div>
           </form>
-          <div class="slip-only slip-clear-row"><button type="button" id="slip-clear" class="slip-clear">清空憑單</button></div>
+          <div class="slip-only clear-row"><button type="button" id="slip-clear" class="clear-button">清空憑單</button></div>
         </section>
         <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好處方日期與給藥日份，結果就會出現在這裡。</p></div></section>
         <section class="panel slip-panel" id="slip-panel" aria-labelledby="slip-title">
