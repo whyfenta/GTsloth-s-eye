@@ -8,16 +8,18 @@ import { csvRows } from './csv';
 export type Level = '紅' | '黃' | '灰';
 /** An explained drug: by a diagnosis, by another drug on the prescription, by the department, or as a low-risk drug. */
 export type Layer = '適應症' | '同處方' | '科別常用' | '低風險';
-/** What the check reads from a QR: diagnoses upper-cased without dots, the 2-character 就醫科別 or '', and the age band. Page memory only. */
-export interface RxFacts { dx: string[]; dept: string; age: string; drugs: { code: string; frequency: string; route: string }[] }
+/** M or F from the ID number's second digit; '' when it is not 1 or 2 (other ID formats) or there is no ID. */
+export type Sex = 'M' | 'F' | '';
+/** What the check reads from a QR: diagnoses upper-cased without dots, the 2-character 就醫科別 or '', the age band and sex. Page memory only. */
+export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; drugs: { code: string; frequency: string; route: string }[] }
 export interface DrugInfo { atc: string; ingredients: string }
 export interface Note { level: Level; text: string }
 /** A drug's verdict and one-line reason, then the cautions it triggers. info is missing for a code outside the NHI drug list. */
 export interface DrugCheck { code: string; frequency: string; route: string; info?: DrugInfo; verdict: Layer | Level; reason: string; notes: Note[] }
 /** notes: the prescription's own, a missing diagnosis first and repeated ingredients last. */
 export interface RxCheck { drugs: DrugCheck[]; notes: Note[] }
-/** How a reason names diagnoses: the prototype prints bare codes joined by spaces; the page adds the Chinese name. */
-export interface Labels { dx: (code: string) => string; join: string }
+/** How a reason names diagnoses and other drugs' ATC codes: the prototype prints bare codes joined by spaces; the page adds names. */
+export interface Labels { dx: (code: string) => string; atc: (code: string) => string; join: string }
 
 /** 健保就醫科別 (TW Core IG, 健保署譯碼簿 2022/8/2): the codes the prototype names. */
 export const DEPARTMENTS: Record<string, string> = { '00': '不分科', '01': '家醫科', '02': '內科', '03': '外科', '04': '兒科', '05': '婦產科',
@@ -39,7 +41,10 @@ const COLUMNS: Record<RuleFile, string[]> = {
 };
 interface Indication { atc: string[]; dx: string[]; basis: string }
 interface CoDrug { atc: string[]; partners: string[]; basis: string; note: string }
-interface Caution { id: string; atc: string[]; keyword: string; kind: '診斷' | '年齡' | '同處方'; condition: string[]; level: Level; message: string }
+/** One condition of a caution; key is its type and written value, to tell when one caution has all of another's conditions. */
+type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | { kind: '年齡'; below: boolean; years: number } | { kind: '性別'; sex: 'M' | 'F' }
+  | { kind: '同處方'; partners: { atc: string; frequency: string }[] });
+interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
   repeated: Level; byDepartment: boolean }
@@ -127,16 +132,34 @@ export function compileRules(tables: RuleTables): Rules {
   const coDrugs = read('co-drugs', (cell, fail) => ({ atc: list(cell('ATC'), 'ATC', why => fail('ATC', why)),
     partners: list(cell('可由同處方的ATC解釋'), 'ATC', why => fail('可由同處方的ATC解釋', why)), basis: cell('依據'), note: cell('備註') }));
   const cautions = read('cautions', (cell, fail): Caution => {
-    const kind = cell('條件類型');
     const atc = list(cell('ATC'), 'ATC', why => fail('ATC', why), true);
     const keyword = cell('成分關鍵字');
     if (!/^[A-Z0-9 -]*$/.test(keyword) || keyword !== keyword.trim()) fail('成分關鍵字', '只能是大寫英文、數字與空格，前後不留空白。');
     if (!atc.length && !keyword) fail('ATC', 'ATC 與成分關鍵字至少要填一個。');
-    const condition = kind === '診斷' ? list(cell('條件'), 'ICD', why => fail('條件', why))
-      : kind === '同處方' ? list(cell('條件'), 'ATC', why => fail('條件', why))
-      : kind === '年齡' ? /^>=\d+$/.test(cell('條件')) ? [cell('條件').slice(2)] : fail('條件', '年齡條件寫成 >=65 這樣。')
-      : fail('條件類型', '要是診斷、年齡或同處方。');
-    return { id: cell('編號'), atc, keyword, kind: kind as Caution['kind'], condition, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
+    // Several conditions must all hold: 條件類型 年齡+同處方 with 條件 >=65;G04CA, one ;-separated part per type.
+    const kinds = cell('條件類型').split('+').map(kind => kind.trim()), parts = cell('條件').split(';').map(part => part.trim());
+    if (new Set(kinds).size < kinds.length) fail('條件類型', '同一種條件只能寫一次。');
+    if (parts.length !== kinds.length) fail('條件', `要有 ${kinds.length} 段，以 ; 分隔，順序和條件類型相同。`);
+    const conditions = kinds.map((kind, i): Condition => {
+      const part = parts[i], key = `${kind}:${tokens(part).join(' ')}`, bad = (why: string) => fail('條件', why);
+      if (kind === '診斷') return { key, kind, icd: list(part, 'ICD', bad) };
+      if (kind === '年齡') {
+        const match = /^(>=|<)(\d+)$/.exec(part);
+        return match ? { key, kind, below: match[1] === '<', years: Number(match[2]) } : bad('年齡條件寫成 >=65 或 <50 這樣。');
+      }
+      if (kind === '性別') return part === '男' || part === '女' ? { key, kind, sex: part === '男' ? 'M' : 'F' } : bad('性別條件寫成男或女。');
+      if (kind === '同處方') {
+        if (!tokens(part).length) bad('不能空白。');
+        // ATC@HS: that drug counts only when its frequency contains HS (HS, QHS, HSPRN …).
+        return { key, kind, partners: tokens(part).map(token => {
+          const [atc, frequency = '', extra] = token.split('@');
+          if (extra !== undefined || !ATC.test(atc) || (token.includes('@') && !/^[A-Z]+$/.test(frequency))) bad(`「${token}」不是 ATC 前綴，寫成 C08、C08CA01，或 C08@HS（這個藥的頻率含 HS 才算）這樣。`);
+          return { atc, frequency };
+        }) };
+      }
+      return fail('條件類型', '要是診斷、年齡、性別或同處方，多種條件以 + 連接。');
+    });
+    return { id: cell('編號'), atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
   });
   const specialty = new Map<string, string[]>();
   read('specialty', (cell, fail) => {
@@ -162,24 +185,31 @@ export function compileRules(tables: RuleTables): Rules {
     byDepartment: setting('科別常用', ['保留', '停用']) === '保留' };
 }
 
-const PLAIN: Labels = { dx: code => code, join: ' ' };
+const PLAIN: Labels = { dx: code => code, atc: code => code, join: ' ' };
+/** A caution with all of another's conditions and more, for the same drugs (C17 is C09 plus another drug), replaces it. */
+const covers = (wide: Caution, narrow: Caution) => wide.conditions.length > narrow.conditions.length && wide.keyword === narrow.keyword
+  && wide.atc.join(' ') === narrow.atc.join(' ') && narrow.conditions.every(c => wide.conditions.some(d => d.key === c.key));
 /**
  * Each drug in turn, stopping at the first layer that explains it: an indication for one of the diagnoses, another drug on the
  * prescription, a drug the department often prescribes, a low-risk drug. Otherwise a high-alert drug is yellow, any other grey.
- * Cautions (diagnosis, age, another drug) are checked whatever the verdict; a code outside the NHI drug list is low risk.
+ * Cautions (diagnosis, age, sex, another drug) are checked whatever the verdict; a code outside the NHI drug list is low risk.
  */
 export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rules: Rules, labels: Labels = PLAIN): RxCheck {
-  const { dx, dept, age } = rx;
+  const { dx, dept, age, sex } = rx;
   const dxText = (codes: string[]) => codes.map(labels.dx).join(labels.join);
-  // One ATC per distinct code: the same code twice on a prescription does not explain itself.
-  const atcs = new Map<string, string>();
-  for (const { code } of rx.drugs) { const info = drugs.get(code); if (info && !atcs.has(code)) atcs.set(code, info.atc); }
+  // One ATC per distinct code: the same code twice on a prescription does not explain itself. A code keeps every frequency it is given at.
+  const atcs = new Map<string, string>(), frequencies = new Map<string, string[]>();
+  for (const { code, frequency } of rx.drugs) {
+    const info = drugs.get(code);
+    if (info && !atcs.has(code)) atcs.set(code, info.atc);
+    frequencies.set(code, [...frequencies.get(code) ?? [], frequency]);
+  }
   const notes: Note[] = dx.length ? [] : [{ level: '灰', text: '處方沒有診斷碼，無法解釋的藥不另提示' }];
   const checked = rx.drugs.map(({ code, frequency, route }): DrugCheck => {
     const info = drugs.get(code);
     if (!info) return { code, frequency, route, verdict: '低風險', reason: '不在健保用藥品項（可能是特材）', notes: [] };
     const { atc } = info;
-    const others = [...atcs].filter(([other]) => other !== code).map(([, value]) => value);
+    const others = [...atcs].filter(([other]) => other !== code);
     const verdict = (): Pick<DrugCheck, 'verdict' | 'reason'> => {
       for (const rule of rules.indications) {
         if (!atcHit(atc, rule.atc)) continue;
@@ -188,8 +218,8 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
       }
       for (const rule of rules.coDrugs) {
         if (!atcHit(atc, rule.atc)) continue;
-        const partner = others.find(other => atcHit(other, rule.partners));
-        if (partner) return { verdict: '同處方', reason: `同處方 ${partner}：${rule.note}（${rule.basis}）` };
+        const partner = others.find(([, other]) => atcHit(other, rule.partners));
+        if (partner) return { verdict: '同處方', reason: `同處方 ${labels.atc(partner[1])}：${rule.note}（${rule.basis}）` };
       }
       const usual = rules.specialty.get(dept);
       if (rules.byDepartment && usual && atcHit(atc, usual)) return { verdict: '科別常用', reason: `本次診斷無對應，${DEPARTMENTS[dept] ?? dept}常開` };
@@ -197,24 +227,35 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
       if (atcHit(atc, rules.highAlert) && dx.length) return { verdict: '黃', reason: '高警訊藥，本次診斷與科別都無法解釋' };
       return { verdict: '灰', reason: dx.length ? '本次診斷與科別都無法解釋（預設收合）' : '處方沒有診斷碼' };
     };
-    const cautions: Note[] = [];
+    // Each condition holds, fails, or cannot be judged (undefined, with why); details join in the note's brackets.
+    const judge = (condition: Condition): { hit: boolean | undefined; detail: string; why?: string } => {
+      switch (condition.kind) {
+        case '診斷': { const hits = icdHits(dx, condition.icd); return { hit: hits.length > 0, detail: `本次：${dxText(hits)}` }; }
+        case '年齡': {
+          const atLeast = ageAtLeast(age, condition.years);
+          // A band that straddles the threshold says so; no band, or a birth date in an unknown format (AGE?…), cannot be read.
+          return { hit: atLeast === undefined ? undefined : atLeast !== condition.below, detail: age,
+            why: /^AGE\d/.test(age) ? `無法判斷：${age} 跨過 ${condition.years} 歲` : '無法讀取年齡' };
+        }
+        case '性別': return { hit: sex ? sex === condition.sex : undefined, detail: sex === 'F' ? '女性' : '男性', why: '無法取得性別資料' };
+        case '同處方': {
+          const hits = others.filter(([other, value]) => condition.partners.some(partner => value.startsWith(partner.atc)
+            && (!partner.frequency || frequencies.get(other)!.some(frequency => frequency.includes(partner.frequency))))).map(([, value]) => value);
+          return { hit: hits.length > 0, detail: `同處方：${hits.map(labels.atc).join(labels.join)}` };
+        }
+      }
+    };
+    const fired: { caution: Caution; note: Note }[] = [];
     const ingredients = info.ingredients.toUpperCase();
     for (const caution of rules.cautions) {
       if (!(atcHit(atc, caution.atc) || (caution.keyword && ingredients.includes(caution.keyword)))) continue;
-      const head = `${caution.id} ${caution.message}`;
-      if (caution.kind === '診斷') {
-        const hits = icdHits(dx, caution.condition);
-        if (hits.length) cautions.push({ level: caution.level, text: `${head}（本次：${dxText(hits)}）` });
-      } else if (caution.kind === '年齡') {
-        const [years] = caution.condition;
-        const hit = ageAtLeast(age, Number(years));
-        if (hit) cautions.push({ level: caution.level, text: `${head}（${age}）` });
-        else if (hit === undefined) cautions.push({ level: '灰', text: `${caution.id} 無法判斷：${age ? `${age} 跨過 ${years} 歲` : '沒有年齡'}` });
-      } else {
-        const hits = others.filter(other => atcHit(other, caution.condition));
-        if (hits.length) cautions.push({ level: caution.level, text: `${head}（同處方：${hits.join(' ')}）` });
-      }
+      const outcomes = caution.conditions.map(judge);
+      if (outcomes.some(outcome => outcome.hit === false)) continue;
+      const unknown = outcomes.find(outcome => outcome.hit === undefined);
+      fired.push({ caution, note: unknown ? { level: '灰', text: `${caution.id} ${unknown.why}` }
+        : { level: caution.level, text: `${caution.id} ${caution.message}（${outcomes.map(outcome => outcome.detail).join('；')}）` } });
     }
+    const cautions = fired.filter(({ caution }) => !fired.some(other => covers(other.caution, caution))).map(({ note }) => note);
     return { code, frequency, route, info, ...verdict(), notes: cautions };
   });
   // Each distinct code counts an ingredient once, so a repeated code is not a repeated ingredient.

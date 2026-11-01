@@ -1,10 +1,10 @@
 import { rocDate } from './arithmetic-model';
-import { normCode, type RxFacts } from './rx-check';
+import { normCode, type RxFacts, type Sex } from './rx-check';
 
 export interface PrescriptionQR { date: string; days: number; drugCount: number; encoding: string }
 /**
- * Identifying fields printed on the pickup slip, and what the prescription check reads (diagnoses, 就醫科別, age band, each drug's
- * frequency and route). They stay in page memory only: never stored, logged or sent.
+ * Identifying fields printed on the pickup slip, and what the prescription check reads (diagnoses, 就醫科別, age band, sex, each
+ * drug's frequency and route). They stay in page memory only: never stored, logged or sent.
  */
 export interface SlipQR extends PrescriptionQR { institution: string; name: string; idNumber: string; birth: string; drugs: { code: string; total: string }[]; rx: RxFacts }
 export function decodePrescriptionBytes(bytes: Uint8Array): { text: string; encoding: string } {
@@ -79,7 +79,7 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   const drugs = [];
   for (let i = 14; i < fields.length; i += 5) drugs.push({ code: fields[i].trim(), total: fields[i + 4].trim() });
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
-    idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7])) };
+    idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7]), sexOf(idNumber)) };
 }
 /** The layout of a drugs-only QR, as parsePrescriptionLayout for a first QR: a code for every drug, the other four fields may be blank. */
 export function parseDrugsLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } | undefined {
@@ -128,17 +128,25 @@ export function ageBand(birthRoc: string, visitRoc: string): string {
   const low = age - age % 10;
   return `AGE${low}-${low + 9}`;
 }
+/** Sex from a 身分證字號's second digit, 1 male and 2 female; other ID formats (some foreign residents') and malformed IDs are unknown. */
+export function sexOf(idNumber: string): Sex {
+  const id = idNumber.trim().toUpperCase();
+  return /^[A-Z][12]\d{8}$/.test(id) ? id[1] === '1' ? 'M' : 'F' : '';
+}
+/** A de-identified sample keeps only the sex in field 5, as SEXM or SEXF (blank when unknown), never the ID number. */
+export const sexMark = (sex: Sex) => sex && `SEX${sex}`;
+export const markedSex = (field: string): Sex => ({ SEXM: 'M', SEXF: 'F' } as const)[field.trim().toUpperCase()] ?? '';
 /**
  * What the prescription check reads, each field trimmed and upper-cased as hospitals write either case: field 12's #-separated
  * diagnoses without dots, field 7's 就醫科別, each drug's code, frequency and route. The 就醫科別 has 2 characters, or 4 when a
  * hospital pads it (AB00, 0100); any other length is the hospital's own code (146, 0NB) and leaves the department unknown.
  */
-export function rxFacts(fields: string[], age: string): RxFacts {
+export function rxFacts(fields: string[], age: string, sex: Sex): RxFacts {
   const f = fields.map(value => value.trim().toUpperCase());
   const dept = f[6].length === 2 || (f[6].length === 4 && f[6].endsWith('00')) ? f[6].slice(0, 2) : '';
   const drugs = [];
   for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3] });
-  return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, drugs };
+  return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, sex, drugs };
 }
 export function parsePrescriptionBytes(bytes: Uint8Array): PrescriptionQR {
   const { text, encoding } = decodePrescriptionBytes(bytes);

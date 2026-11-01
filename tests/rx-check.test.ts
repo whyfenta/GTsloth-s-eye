@@ -13,7 +13,8 @@ const tables = (changes: Partial<RuleTables> = {}): RuleTables => ({
   'co-drugs': csv('ATC,可由同處方的ATC解釋,依據,備註', 'A02BC,B01AC,常見,胃腸保護'),
   cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
     'T01,C07AA,,診斷,J45 J44,紅,測試提示甲,', 'T02,,METFORMIN,診斷,N18.4,紅,測試提示乙,', 'T03,N05BA,,年齡,>=65,灰,測試提示丙,',
-    'T04,N02A,,同處方,N05BA,黃,測試提示丁,', 'T05,N05BA,,年齡,>=67,黃,測試提示戊,'),
+    'T04,N02A,,同處方,N05BA,黃,測試提示丁,', 'T05,N05BA,,年齡,>=67,黃,測試提示戊,', 'T06,N05BA,,年齡+同處方,>=65;G04CA C08@HS,黃,測試提示己,',
+    'T07,G04CB,,性別+年齡,女;<50,紅,測試提示庚,'),
   specialty: csv('科別代碼,科別,該科常開的ATC', 'AB,心臟血管內科,C10'),
   'drug-classes': csv('ATC,類型,說明', 'A06,低風險,', 'N05A N02A,高警訊,'),
   settings: csv('設定,值,可選的值,說明', '同成分重複,黃,紅 黃 灰,', '科別常用,保留,保留 停用,'),
@@ -27,6 +28,8 @@ const drugs = new Map<string, DrugInfo>(Object.entries({
   TESTQUET01: { atc: 'N05AH04', ingredients: 'QUETIAPINE FUMARATE 25 MG' }, TESTPROP01: { atc: 'C07AA05', ingredients: 'PROPRANOLOL HCL 10 MG' },
   TESTALPR01: { atc: 'N05BA12', ingredients: 'ALPRAZOLAM 0.5 MG' }, TESTTRAM01: { atc: 'N02AX02', ingredients: 'TRAMADOL HCL 37.5 MG+ACETAMINOPHEN 325 MG' },
   TESTACET01: { atc: 'N02BE01', ingredients: 'ACETAMINOPHEN 500 MG' }, TESTOTHR01: { atc: 'R01AD05', ingredients: 'BUDESONIDE 64 MCG' },
+  TESTTAMS01: { atc: 'G04CA02', ingredients: 'TAMSULOSIN HCL 0.2 MG' }, TESTAMLO01: { atc: 'C08CA01', ingredients: 'AMLODIPINE BESYLATE 5 MG' },
+  TESTDUTA01: { atc: 'G04CB02', ingredients: 'DUTASTERIDE 0.5 MG' },
 }));
 // A QR as a hospital prints it: 14 fixed fields, then code, dose, frequency, route and total for each drug.
 const qr = (dx: string, drugCodes: string[], changes: Record<number, string> = {}) => {
@@ -39,10 +42,12 @@ const verdicts = (rx: RxFacts, use = rules) => checkPrescription(rx, drugs, use)
 
 // The QR fields the check reads: case, spaces and dots do not matter; a padded 就醫科別 is read, a hospital's own one is not.
 let rx = qr('e11.9#i10#', ['testmetf01 ', 'TESTCLOP01'], { 7: 'ab00' });
-assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', drugs: [{ code: 'TESTMETF01', frequency: 'BID', route: 'PO' }, { code: 'TESTCLOP01', frequency: 'BID', route: 'PO' }] });
+assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', sex: 'M', drugs: [{ code: 'TESTMETF01', frequency: 'BID', route: 'PO' }, { code: 'TESTCLOP01', frequency: 'BID', route: 'PO' }] });
 for (const [dept, read] of [['AB', 'AB'], ['01', '01'], ['0100', '01'], ['AB01', ''], ['146', ''], ['0NB', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 7: dept }).dept, read, dept);
 assert.deepEqual(qr('', ['TESTSTAT01']).dx, []);
 assert.deepEqual(qr(' # E11 ##', ['TESTSTAT01']).dx, ['E11']);
+// Sex from the ID number's second digit: 1 or 2; another digit (a resident certificate) or no ID is unknown.
+for (const [id, sex] of [['A123456789', 'M'], ['B234567890', 'F'], ['A823456789', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 5: id }).sex, sex, id);
 
 // Layers in order: a diagnosis, another drug, the department, a low-risk drug; then high-alert yellow, anything else grey.
 assert.deepEqual(verdicts(qr('E11.9', ['TESTMETF01'])), ['適應症 E119（仿單）']);
@@ -73,10 +78,22 @@ assert.deepEqual(notes(qr('E11.9#N18.30', ['TESTMETF01'])), []);
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '0450101' })), ['TESTALPR01 灰 T03 測試提示丙（AGE70-79）', 'TESTALPR01 黃 T05 測試提示戊（AGE70-79）']);
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '0550101' })), [], 'AGE60-64 is under both');
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'])), ['TESTALPR01 灰 T03 測試提示丙（AGE65-69）', 'TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲']);
-assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '' })), ['TESTALPR01 灰 T03 無法判斷：沒有年齡', 'TESTALPR01 灰 T05 無法判斷：沒有年齡']);
-assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '50/01/01' })), ['TESTALPR01 灰 T03 無法判斷：AGE?99/99/99 跨過 65 歲', 'TESTALPR01 灰 T05 無法判斷：AGE?99/99/99 跨過 67 歲']);
+assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '' })), ['TESTALPR01 灰 T03 無法讀取年齡', 'TESTALPR01 灰 T05 無法讀取年齡']);
+assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '50/01/01' })), ['TESTALPR01 灰 T03 無法讀取年齡', 'TESTALPR01 灰 T05 無法讀取年齡']);
 assert.deepEqual(notes(qr('M54.5#F41.1', ['TESTTRAM01', 'TESTALPR01'], { 6: '0550101' })), ['TESTTRAM01 黃 T04 測試提示丁（同處方：N05BA12）']);
 assert.deepEqual(notes(qr('I10#J45.909', ['TESTSPEC01'])), [], 'a code outside the NHI list has no cautions');
+// Several conditions must all hold. One that has another's conditions and more, for the same drugs, replaces it: T06 is T03 plus another
+// drug. C08@HS counts amlodipine only at a frequency containing HS (fields 20–24 are the second drug).
+assert.deepEqual(notes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01'])), ['TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', 'TESTALPR01 黃 T06 測試提示己（AGE65-69；同處方：G04CA02）']);
+assert.deepEqual(notes(qr('F41.1#I10', ['TESTALPR01', 'TESTAMLO01'])), ['TESTALPR01 灰 T03 測試提示丙（AGE65-69）', 'TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲']);
+assert.deepEqual(notes(qr('F41.1#I10', ['TESTALPR01', 'TESTAMLO01'], { 22: 'QDHS' })), ['TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', 'TESTALPR01 黃 T06 測試提示己（AGE65-69；同處方：C08CA01）']);
+assert.deepEqual(notes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01'], { 6: '0550101' })), [], 'AGE60-64: T06 fails on age even with the other drug');
+// Sex and age: a woman under 50; unknown sex (a resident certificate) or an unreadable age is grey only while the other condition holds.
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '0750101' })), ['TESTDUTA01 紅 T07 測試提示庚（女性；AGE40-49）']);
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 6: '0750101' })), [], 'a man');
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A823456789', 6: '0750101' })), ['TESTDUTA01 灰 T07 無法取得性別資料']);
+assert.deepEqual(notes(qr('N40', ['TESTDUTA01'], { 5: 'A823456789' })), [], 'unknown sex, but AGE65-69 is not under 50');
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '' })), ['TESTDUTA01 灰 T07 無法讀取年齡']);
 
 // Repeated ingredients, compared without strength, brackets or salt; a repeated code is not one.
 assert.deepEqual(ingredientBases('METFORMIN HCL 500 MG'), ['METFORMIN']);
@@ -99,8 +116,13 @@ assert.equal(dxLabel('E1165', icd), 'E11 測試類別名（查無 E1165，此為
 assert.equal(dxLabel('I1590', icd), 'I15.90 測試舊碼名（舊碼，2014 版已刪除）');
 assert.equal(dxLabel('Z999', icd), 'Z999（查無此碼）');
 const labelled = checkPrescription(qr('E11.9#I10', ['TESTMETF01']), drugs, compileRules(tables({ indications: csv('ATC,藥理類別,可解釋的ICD-10,依據,備註', 'A10,測試類別,E11 I10,仿單,') })),
-  { dx: code => dxLabel(code, icd), join: '、' });
+  { dx: code => dxLabel(code, icd), atc: code => code, join: '、' });
 assert.equal(labelled.drugs[0].reason, 'E11.9 測試完整碼名、I10 測試名稱（仿單）');
+// The page also names the other drug a reason or caution points to.
+const named = { dx: (code: string) => code, atc: (code: string) => `測試藥名（${code}）`, join: '、' };
+assert.equal(checkPrescription(qr('I10', ['TESTPPI001', 'TESTCLOP01']), drugs, rules, named).drugs[0].reason, '同處方 測試藥名（B01AC04）：胃腸保護（常見）');
+assert.deepEqual(checkPrescription(qr('M54.5#F41.1', ['TESTTRAM01', 'TESTALPR01'], { 6: '0550101' }), drugs, rules, named).drugs[0].notes,
+  [{ level: '黃', text: 'T04 測試提示丁（同處方：測試藥名（N05BA12））' }]);
 
 // A mistyped table stops `npm run rx-assets` with the file, row and column.
 const broken = (file: keyof RuleTables, header: string, row: string) => () => compileRules(tables({ [file]: csv(header, row) }));
@@ -108,6 +130,10 @@ assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,體重,>=65,黃,測試,'), /「條件類型」/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡,65,黃,測試,'), />=65/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,,,診斷,J45,黃,測試,'), /至少要填一個/);
+assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+同處方,>=65,黃,測試,'), /要有 2 段/);
+assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+年齡,>=65;<50,黃,測試,'), /只能寫一次/);
+assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,性別,F,黃,測試,'), /男或女/);
+assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,同處方,C08@hs,黃,測試,'), /C08@HS/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C1O,測試,I10,仿單,'), /不是 ATC 前綴/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C10,測試,I10-I1,仿單,'), /範圍兩端的碼長相同/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C10,測試,I16-I10,仿單,'), /前小後大/);

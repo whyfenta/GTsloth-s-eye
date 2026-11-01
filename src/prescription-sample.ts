@@ -1,4 +1,4 @@
-import { ageBand, parseDrugsLayout, parsePrescriptionLayout, splitFields } from './prescription-qr';
+import { ageBand, parseDrugsLayout, parsePrescriptionLayout, sexMark, sexOf, splitFields } from './prescription-qr';
 
 export { ageBand, birthShape } from './prescription-qr';
 
@@ -15,6 +15,8 @@ export function deidentify(scanned: string, scannedAs?: string): string {
   for (const n of kept) if (/[^\x20-\x7E]/.test(fields[n - 1])) throw new Error(`第 ${n} 欄出現中文或全形字，可能是不同院所的 QR 格式。`);
   const line = fields.map((value, i) => i >= 14 || kept.includes(i + 1) ? value : '');
   for (const n of [3, 7, 11]) line[n - 1] = shortCode(fields[n - 1]);
+  // Field 5, the ID number, leaves only the sex its second digit gives (SEXM, SEXF, or blank); field 6, the birth date, its age band.
+  line[4] = sexMark(sexOf(fields[4]));
   line[5] = ageBand(fields[5], fields[7]);
   line[12] = fields[12] === fields[0] ? fields[12] : '';
   // Field 14 joins codes and the free-text allergy history with commas; only the allergy part stays, cut at its first comma.

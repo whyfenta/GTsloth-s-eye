@@ -7,13 +7,19 @@ const fields = ['0000000000', '1', '12', '測試', 'A123456789', '0500101', '345
   '9,TESTNOTE01,過敏史:藥物甲,TESTVISIT02', 'TESTCODE01', '1', 'BID', 'PO', '14', 'TESTCODE02', 'X1', 'QID', 'OS', '1'];
 const qr = (changes: Record<number, string> = {}) => fields.map((value, i) => changes[i + 1] ?? value).join(';') + ';';
 const field = (text: string, n: number) => splitFields(deidentify(text))[n - 1];
-const expected = '0000000000;1;12;;;AGE65-69;345;1150101;;7;Z9;TESTDX.1#TESTDX2#;0000000000;過敏史:藥物甲;TESTCODE01;1;BID;PO;14;TESTCODE02;X1;QID;OS;1;';
+const expected = '0000000000;1;12;;SEXM;AGE65-69;345;1150101;;7;Z9;TESTDX.1#TESTDX2#;0000000000;過敏史:藥物甲;TESTCODE01;1;BID;PO;14;TESTCODE02;X1;QID;OS;1;';
 assert.equal(deidentify(qr()), expected);
 // Nothing moves: the line reads back as the same 14 + 5n layout.
 assert.equal(parsePrescriptionLayout(expected).fields.length, fields.length);
 assert.equal(deidentify('﻿' + qr()), expected);
 // Fields 4, 5 and 9 are cleared whatever they hold.
 for (const n of [4, 5, 9]) for (const value of ['', '1', 'TESTVALUE', '測驗']) assert.equal(field(qr({ [n]: value }), n), '', `第 ${n} 欄 ${value}`);
+// Field 5 keeps only the sex from a 身分證字號's second digit, 1 or 2; other ID formats (居留證 8 or 9, the older A–D) are unknown.
+for (const [id, kept] of [['A123456789', 'SEXM'], ['b234567890', 'SEXF'], [' C134567890 ', 'SEXM'], ['A823456789', ''], ['A923456789', ''], ['AC23456789', ''],
+  ['A12345678', ''], ['A1234567890', ''], ['1123456789', '']]) {
+  assert.equal(field(qr({ 5: id }), 5), kept, id);
+  assert.ok(!deidentify(qr({ 5: id })).includes(id.trim().slice(2)), `${id} 字號不可輸出`);
+}
 // Fields 3, 7 and 11 keep up to 4 letters or digits.
 for (const [value, kept] of [['', ''], ['1', '1'], ['AB12', 'AB12'], ['ab9', 'ab9'], ['ABCDE', ''], ['12345', ''], ['12-3', ''], [' 12', ''], ['測', ''], ['１２', '']]) {
   for (const n of [3, 7, 11]) assert.equal(field(qr({ [n]: value }), n), kept, `第 ${n} 欄 ${value}`);
@@ -110,7 +116,7 @@ console.log('prescription sample failure lines passed');
 const key = await scanKey(qr());
 assert.match(key, /^[0-9a-f]{64}$/);
 assert.equal(await scanKey(qr()), key);
-const other = qr({ 4: '測驗', 5: 'B234567890' });
+const other = qr({ 4: '測驗', 5: 'C134567890' });
 assert.equal(deidentify(other), expected);
 assert.notEqual(await scanKey(other), key);
 const log = new SampleLog();
@@ -124,7 +130,7 @@ assert.deepEqual([log.collected, log.failed, log.entries.length], [2, 1, 3]);
 const failure = '失敗：不是支援的處方 QR 格式，或藥品欄位不完整，欄位數 18';
 assert.equal(log.text(), `${expected}\n${expected}\n${failure}\n`);
 assert.deepEqual(log.lines(), [expected, expected, failure]);
-for (const secret of ['測試', '測驗', 'A123456789', 'B234567890', '0500101', '0099', 'TESTNOTE01', 'TESTVISIT02', key]) assert.ok(!log.text().includes(secret), secret);
+for (const secret of ['測試', '測驗', 'A123456789', 'C134567890', '0500101', '0099', 'TESTNOTE01', 'TESTVISIT02', key]) assert.ok(!log.text().includes(secret), secret);
 // Saved lines carry no key: after a reload a rescan is matched by its de-identified line, and a failure cannot be matched.
 const reloaded = new SampleLog();
 reloaded.restore(log.lines());
