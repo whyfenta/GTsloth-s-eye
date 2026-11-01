@@ -105,6 +105,30 @@ function idleRecommendation(scenario: Scenario, prefix: string): HTMLElement[] {
   // Expiry can cut a window moved by a late previous pickup short.
   return [state, windowBox(`${value.shift ? `依前次 ${shortDate(value.shift.previous)} 逾期領藥順延 · ` : ''}第 ${visit} 次可領藥區間`, value.schedule[visit - 1], !!value.shift)];
 }
+/** turn: take one wheel event in this direction; false at either end, where there is nothing to turn. */
+type WheelTurn = (event: WheelEvent, direction: number) => boolean;
+/** The wheel or page a wheel gesture started on (no root: the page), and when its last event came. */
+let gesture: { root?: HTMLElement; turn?: WheelTurn; at: number } | undefined;
+window.addEventListener('wheel', event => { gesture = { at: event.timeStamp }; }, { passive: true });
+/** As a browser keeps a scroll on the box it began in, a wheel gesture stays with what it started on until the wheel rests for half a
+ * second: a spin that turns a dial to either end does not run on into the page, or into the date wheel of the card turned in; a page
+ * scroll that brings a dial under the pointer keeps scrolling the page. A fresh gesture at either end scrolls the page as usual. */
+function onWheel(root: HTMLElement, turn: WheelTurn) {
+  root.addEventListener('wheel', event => {
+    // Handled once, by the innermost wheel: the date wheel sits inside the result dial.
+    event.stopPropagation();
+    const direction = Math.sign(event.deltaY);
+    if (!direction) return;
+    const held = gesture && event.timeStamp - gesture.at < 500 ? gesture : undefined;
+    // The page keeps its scroll (as does one begun on a wheel since redrawn).
+    if (held && !held.root?.isConnected) { held.at = event.timeStamp; return; }
+    const owner = held ?? { root, turn };
+    if (owner.turn!(event, direction) || held) {
+      event.preventDefault();
+      gesture = { ...owner, at: event.timeStamp };
+    } else gesture = { at: event.timeStamp };
+  }, { passive: false });
+}
 interface DialEntry { tick: string; title: string; badge: string; body: HTMLElement[] }
 /** A meter-style dial: one result in a fixed window, its neighbours peeking above and below, turned by the wheel, arrow keys, ▲▼ or a swipe. */
 function createDial(entries: DialEntry[], start: number, onMove: (index: number) => void): HTMLElement {
@@ -178,19 +202,18 @@ function createDial(entries: DialEntry[], start: number, onMove: (index: number)
     if (moved) announce.textContent = entries[current].title;
     onMove(current);
   }
-  // A notch of the wheel, or a trackpad swipe's worth of deltas, turns one step; at either end the page scrolls as usual.
+  // A notch of the wheel, or a trackpad swipe's worth of deltas, turns one step; at either end a fresh gesture scrolls the page.
   let travel = 0, settle = 0;
-  root.addEventListener('wheel', event => {
-    const direction = Math.sign(event.deltaY);
-    if (!direction || current + direction < 0 || current + direction >= entries.length) { travel = 0; return; }
-    event.preventDefault();
-    if (event.timeStamp < settle) return;
+  onWheel(root, (event, direction) => {
+    if (current + direction < 0 || current + direction >= entries.length) { travel = 0; return false; }
+    if (event.timeStamp < settle) return true;
     travel += event.deltaMode ? direction * 40 : event.deltaY;
-    if (Math.abs(travel) < 40) return;
+    if (Math.abs(travel) < 40) return true;
     travel = 0;
     settle = event.timeStamp + 180;
     go(current + direction);
-  }, { passive: false });
+    return true;
+  });
   root.addEventListener('keydown', event => {
     const to = { ArrowUp: current - 1, ArrowDown: current + 1, PageUp: current - 1, PageDown: current + 1, Home: 0, End: entries.length - 1 }[event.key];
     if (to === undefined) return;
@@ -253,7 +276,7 @@ function scheduleTable(idleRows: Scenario[]): { table: HTMLTableElement; visitRo
 }
 /** Was the previous pickup later than this day? A small dial of the days from the end of that visit's window (the default: on time,
  * nothing moves) to today. A later day is the actual pickup date; it moves only its own slot and the table. The wheel, arrow keys, ▲▼
- * or a swipe on it turn only this dial, not the one around it; at either end the wheel scrolls the page. */
+ * or a swipe on it turn only this dial, not the one around it; at either end a fresh wheel gesture scrolls the page. */
 function previousField(key: keyof DialPrevious, first: string, firstLabel: string, help: string, onChange: () => void): HTMLElement {
   const field = document.createElement('div');
   field.className = 'dial-previous';
@@ -319,16 +342,14 @@ function previousField(key: keyof DialPrevious, first: string, firstLabel: strin
   }
   // One day a notch, as fast as the wheel turns, so a long stretch of days is quick to cross.
   let travel = 0;
-  root.addEventListener('wheel', event => {
-    event.stopPropagation();
-    const direction = Math.sign(event.deltaY);
-    if (!direction || index + direction < 0 || index + direction >= dates.length) { travel = 0; return; }
-    event.preventDefault();
+  onWheel(root, (event, direction) => {
+    if (index + direction < 0 || index + direction >= dates.length) { travel = 0; return false; }
     travel += event.deltaMode ? direction * 40 : event.deltaY;
-    if (Math.abs(travel) < 40) return;
+    if (Math.abs(travel) < 40) return true;
     travel = 0;
     go(index + direction);
-  }, { passive: false });
+    return true;
+  });
   root.addEventListener('keydown', event => {
     const to = { ArrowUp: index - 1, ArrowDown: index + 1, PageUp: index - 7, PageDown: index + 7, Home: 0, End: dates.length - 1 }[event.key];
     if (to === undefined) return;
@@ -434,7 +455,12 @@ function render(input: DialInput) {
     guess.className = 'inferred';
     guess.textContent = `依今日日期推算停在「${entries[start].title}」；轉動轉盤可看其他情況。`;
     const wheel = createDial(entries, start, index => { current = index; table(); });
-    result.append(guess, wheel, tableBox);
+    // On a wide panel the table sits beside the dial, so its dates follow the turns in view and nothing below draws the page on.
+    const layout = document.createElement('div');
+    layout.className = 'dial-layout';
+    tableBox.className = 'dial-schedule';
+    layout.append(wheel, tableBox);
+    result.append(guess, layout);
   } catch (error) {
     lastInput = undefined;
     const p = document.createElement('p');
