@@ -73,8 +73,8 @@ assert.deepEqual(notes(qr('E11.9#N18.30', ['TESTMETF01'])), []);
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '0450101' })), ['TESTALPR01 灰 T03 測試提示丙（AGE70-79）', 'TESTALPR01 黃 T05 測試提示戊（AGE70-79）']);
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '0550101' })), [], 'AGE60-64 is under both');
 assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'])), ['TESTALPR01 灰 T03 測試提示丙（AGE65-69）', 'TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲']);
-assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '' })), ['TESTALPR01 灰 T03 無法判斷：沒有年齡', 'TESTALPR01 灰 T05 無法判斷：沒有年齡']);
-assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '50/01/01' })), ['TESTALPR01 灰 T03 無法判斷：AGE?99/99/99 跨過 65 歲', 'TESTALPR01 灰 T05 無法判斷：AGE?99/99/99 跨過 67 歲']);
+assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '' })), ['TESTALPR01 灰 T03 無法讀取年齡', 'TESTALPR01 灰 T05 無法讀取年齡']);
+assert.deepEqual(notes(qr('F41.1', ['TESTALPR01'], { 6: '50/01/01' })), ['TESTALPR01 灰 T03 無法讀取年齡', 'TESTALPR01 灰 T05 無法讀取年齡']);
 assert.deepEqual(notes(qr('M54.5#F41.1', ['TESTTRAM01', 'TESTALPR01'], { 6: '0550101' })), ['TESTTRAM01 黃 T04 測試提示丁（同處方：N05BA12）']);
 assert.deepEqual(notes(qr('I10#J45.909', ['TESTSPEC01'])), [], 'a code outside the NHI list has no cautions');
 

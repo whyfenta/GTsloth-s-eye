@@ -209,7 +209,8 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
         const [years] = caution.condition;
         const hit = ageAtLeast(age, Number(years));
         if (hit) cautions.push({ level: caution.level, text: `${head}（${age}）` });
-        else if (hit === undefined) cautions.push({ level: '灰', text: `${caution.id} 無法判斷：${age ? `${age} 跨過 ${years} 歲` : '沒有年齡'}` });
+        // A band that straddles the threshold says so; no band, or a birth date in an unknown format (AGE?…), cannot be read.
+        else if (hit === undefined) cautions.push({ level: '灰', text: /^AGE\d/.test(age) ? `${caution.id} 無法判斷：${age} 跨過 ${years} 歲` : `${caution.id} 無法讀取年齡` });
       } else {
         const hits = others.filter(other => atcHit(other, caution.condition));
         if (hits.length) cautions.push({ level: caution.level, text: `${head}（同處方：${hits.join(' ')}）` });
