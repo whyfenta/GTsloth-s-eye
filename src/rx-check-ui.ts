@@ -23,19 +23,26 @@ function list(lines: Line[]): HTMLUListElement {
 
 /**
  * One prescription's check under its card on the 憑單 page; the slip itself never prints it. Red and yellow are shown, grey and
- * the drugs a layer explains are folded away. One line each, diagnoses with their Chinese names. names: each drug as the card
- * shows it ('' when the product lookup has none, then its NHI ingredients stand in).
+ * the drugs a layer explains are folded away. One line each, diagnoses with their Chinese names and other drugs with theirs.
+ * names: each drug as the card shows it ('' when the product lookup has none, then its NHI ingredients stand in).
  */
 export function renderRxCheck(box: HTMLElement, rx: RxFacts, names: string[], data: RxData) {
   const label = (code: string) => dxLabel(code, data.icd);
-  const result = checkPrescription(rx, data.drugs, data.rules, { dx: label, join: '、' });
+  const titles = rx.drugs.map(({ code }, i) => {
+    const info = data.drugs.get(code), name = names[i] || info?.ingredients || code;
+    return info ? `${name}（${info.atc}）` : name;
+  });
+  // Another drug named in a reason by its ATC: the first drug on the prescription with that ATC.
+  const atcTitle = (atc: string) => titles[rx.drugs.findIndex(({ code }) => data.drugs.get(code)?.atc === atc)] ?? atc;
+  const result = checkPrescription(rx, data.drugs, data.rules, { dx: label, atc: atcTitle, join: '、' });
   const lines: Line[] = result.notes.map(note => ({ ...note, drug: '' }));
   const explained: Line[] = [];
   result.drugs.forEach((drug, i) => {
-    const name = names[i] || drug.info?.ingredients || drug.code;
-    const title = drug.info ? `${name}（${drug.info.atc}）` : name;
-    // Without a diagnosis every unexplained drug is grey; the prescription's one note says so instead.
-    if (drug.verdict === '紅' || drug.verdict === '黃' || (drug.verdict === '灰' && rx.dx.length)) lines.push({ level: drug.verdict, drug: title, text: drug.reason });
+    const title = titles[i];
+    // Without a diagnosis every unexplained drug is grey; the prescription's one note says so instead. A drug given for another
+    // drug (a stomach protector with an antiplatelet) is a grey hint, not just explained: the pharmacist asked to see it.
+    if (drug.verdict === '同處方') lines.push({ level: '灰', drug: title, text: drug.reason });
+    else if (drug.verdict === '紅' || drug.verdict === '黃' || (drug.verdict === '灰' && rx.dx.length)) lines.push({ level: drug.verdict, drug: title, text: drug.reason });
     else if (drug.verdict !== '灰') explained.push({ level: drug.verdict, drug: title, text: drug.reason });
     lines.push(...drug.notes.map(note => ({ ...note, drug: title })));
   });
@@ -45,6 +52,7 @@ export function renderRxCheck(box: HTMLElement, rx: RxFacts, names: string[], da
   const dx = rx.dx.length ? rx.dx.map(label).join('、') : '沒有診斷碼';
   const details = make('details');
   details.append(make('summary', '', `灰色提示 ${folded.length} 則・已解釋 ${explained.length} 個藥`), list([...folded, ...explained]));
-  box.replaceChildren(make('p', 'rx-title', '處方警示（規則草稿，待藥師審核；不印在憑單上）'), make('p', 'hint', `${dept} · ${rx.age || '年齡不明'} · 診斷：${dx}`),
+  const sex = rx.sex === 'M' ? '男' : rx.sex === 'F' ? '女' : '性別不明';
+  box.replaceChildren(make('p', 'rx-title', '處方警示（規則草稿，待藥師審核；不印在憑單上）'), make('p', 'hint', `${dept} · ${sex} · ${rx.age || '年齡不明'} · 診斷：${dx}`),
     shown.length ? list(shown) : make('p', 'rx-none', '沒有紅色或黃色警示。'), details);
 }

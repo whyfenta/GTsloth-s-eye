@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { rxFacts, splitFields } from '../src/prescription-qr';
+import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { checkPrescription, dxLabel, RULE_FILES } from '../src/rx-check';
 import { readRxData } from '../src/rx-data';
 
@@ -57,7 +57,7 @@ test('every drug of the local samples gets the prototype check_rules.py verdict,
   const differ: string[] = [];
   lines.forEach((line, i) => {
     const fields = splitFields(line);
-    const rx = rxFacts(fields, fields[5].trim().toUpperCase());
+    const rx = rxFacts(fields, fields[5].trim().toUpperCase(), markedSex(fields[4]));
     const result = checkPrescription(rx, data.drugs, data.rules);
     const ours: Row[] = [
       ...result.notes.filter(note => !note.text.startsWith('同成分重複')).map((note): Row => ['', '', '', note.level, note.text]),
