@@ -6,15 +6,20 @@ import type { RxFacts } from './rx-check';
 import { rxCheckOn } from './rx-check-config';
 import { renderRxCheck } from './rx-check-ui';
 import { loadRxData, type RxData } from './rx-data';
+import { failureLine } from './prescription-sample';
+import { MAX_FAILED, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
+import { SAMPLE_ENDPOINT, samplesOn } from './sample-config';
 import { buildSlip, planSlip, prescriptionAhead, MISSING_ROWS, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
 
+declare const __APP_VERSION__: string;
 // Every scanned prescription joins the slip; identifying fields live only in these objects and the inputs below.
 // products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
-// more: the follow-up QRs of drugs only, so a rescan of one is not added twice.
+// more: the follow-up QRs of drugs only, so a rescan of one is not added twice. sample: the de-identified line sent when the
+// slip is printed (only with samples on), and sent once that request has gone out.
 interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
-  drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[] }
+  drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -39,6 +44,11 @@ let catalog: Map<string, Product[]> | undefined;
 /** 處方警示: off unless switched on (src/rx-check-config.ts); its rules and lookups load on the first scan. */
 const rxOn = rxCheckOn(location.search);
 let rxData: RxData | undefined;
+/** 處方樣本: on whenever src/sample-config.ts has an address (?samples=0 turns it off). The check summary needs the rule data too. */
+const samples = samplesOn(location.search);
+/** Failure lines of scans the slip turned down, sent with the next printed slip. */
+let rejected: string[] = [];
+element('slip-sample-note').hidden = !samples;
 /** The calculated trips, and dates agreed with the patient in their place; base is the window they replaced. */
 let plan: SlipPlan | undefined;
 let agreed: Partial<Record<Row, { base: Trip; range: DateRange }>> = {};
@@ -347,8 +357,15 @@ export function clearSlip() {
   status.textContent = '';
   update(); // 承辦人員 stays for the next patient; it is not patient data.
 }
-/** Adds a scanned prescription; returns the message for the scan field and, when added, the control to type into next. */
-export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElement } {
+/** A scan the slip turned down is kept as the collector's failure line, its reason and field count only. */
+export function rejectScan(scanned: string, error: unknown) {
+  if (samples && scanned.includes(';') && rejected.length < MAX_FAILED) rejected.push(failureLine(scanned, error));
+}
+/**
+ * Adds a scanned prescription; returns the message for the scan field and, when added, the control to type into next.
+ * scanned: the QR text, read here for the de-identified sample only and not kept.
+ */
+export function addPrescription(qr: SlipQR, scanned = ''): { message: string; focus?: HTMLElement } {
   const restarted = printed;
   if (printed) clearSlip();
   status.textContent = '';
@@ -359,7 +376,8 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
   const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
     drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
-    drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [] };
+    drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
+    ...(samples && scanned ? { sample: sampleOf(scanned) } : {}) };
   item.check.hidden = !rxOn;
   item.drugs.forEach(identify);
   fillItem(item);
@@ -367,7 +385,7 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
   list.append(item.element);
   lookup(item);
   showCheck(item);
-  if (rxOn && !rxData) loadRxData().then(loaded => { rxData = loaded; items.forEach(showCheck); })
+  if ((rxOn || samples) && !rxData) loadRxData().then(loaded => { rxData = loaded; items.forEach(showCheck); })
     .catch((error: Error) => { if (!rxData) for (const other of items) other.check.replaceChildren(make('p', 'error', error.message)); });
   if (!catalog) loadProducts().then(loaded => {
     if (catalog) return;
@@ -382,7 +400,7 @@ export function addPrescription(qr: SlipQR): { message: string; focus?: HTMLElem
 }
 
 /** A follow-up QR has no patient or date, so it joins the prescription scanned last; nothing in the first QR says one follows. */
-export function addDrugs(qr: DrugsQR): { message: string; focus?: HTMLElement } {
+export function addDrugs(qr: DrugsQR, scanned = ''): { message: string; focus?: HTMLElement } {
   const item = items.at(-1);
   if (!item || printed) return { message: '這張 QR 只有藥品，是處方的第 2 個 QR。請先掃同一張處方的第 1 個 QR（有姓名與日期的那個），再掃這個。' };
   const index = items.length;
@@ -393,6 +411,11 @@ export function addDrugs(qr: DrugsQR): { message: string; focus?: HTMLElement } 
   drugs.forEach(identify);
   item.drugs.push(...drugs);
   item.rx.drugs.push(...qr.rx);
+  if (item.sample && scanned) {
+    const joined = withDrugs(item.sample, scanned);
+    item.sample = joined.sample;
+    if (joined.failed && rejected.length < MAX_FAILED) rejected.push(joined.failed);
+  }
   listDrugs(item);
   showCheck(item);
   update();
@@ -410,8 +433,32 @@ element('slip-print').addEventListener('click', async () => {
     status.textContent = '準備列印…';
     await printSlip(sheet, data);
     printed = true;
-    status.textContent = '已送出列印。下一張處方掃入時會自動開始新的憑單；需要重印請再按「列印憑單」。';
+    const printedText = status.textContent = '已送出列印。下一張處方掃入時會自動開始新的憑單；需要重印請再按「列印憑單」。';
+    const shared = await shareSamples();
+    if (shared && status.textContent === printedText) status.textContent = `${printedText}${shared}`;
   } catch (error) { status.textContent = (error as Error).message; }
 });
+/**
+ * After printing, the slip's prescriptions not yet sent go to the sample sheet with the failures since the last print. The check
+ * summary needs the rule data; when it cannot load the lines go without it. A failed request is tried again on the next print.
+ */
+async function shareSamples(): Promise<string> {
+  if (!samples) return '';
+  const fresh = items.filter(item => item.sample && !item.sent);
+  if (!fresh.length && !rejected.length) return '';
+  const failed = rejected;
+  rejected = [];
+  for (const item of fresh) item.sent = true;
+  let data = rxData;
+  if (!data) try { data = rxData = await loadRxData(); } catch { /* Sent without the check summary. */ }
+  try {
+    await sendSamples(sampleRecords(fresh.map(item => item.sample!), failed, data, __APP_VERSION__, new Date().toISOString()), SAMPLE_ENDPOINT);
+    return fresh.length ? `已送出 ${fresh.length} 張處方的去識別化樣本。` : '';
+  } catch {
+    for (const item of fresh) item.sent = false;
+    rejected = [...failed, ...rejected].slice(0, MAX_FAILED);
+    return '去識別化樣本沒有送出（網路問題），不影響憑單；重印時會再送一次。';
+  }
+}
 window.addEventListener('pagehide', clearSlip);
 clearSlip();

@@ -1,7 +1,7 @@
 import './arithmetic.css';
 import { addDays, dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
 import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
-import { addDrugs, addPrescription } from './slip-ui';
+import { addDrugs, addPrescription, rejectScan } from './slip-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -512,11 +512,14 @@ function finishScan(moveFocus = true) {
     try {
       // A prescription with many drugs has a second QR of drugs only; it joins the prescription scanned before it.
       const more = parsePrescriptionDrugs(text);
-      const added = more ? addDrugs(more) : addPrescription(parsePrescriptionSlip(text));
+      const added = more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text);
       status.textContent = added.message;
       next = added.focus;
     }
-    catch (error) { status.textContent = `${(error as Error).message} 請重新掃碼。`; }
+    catch (error) {
+      rejectScan(text, error);
+      status.textContent = `${(error as Error).message} 請重新掃碼。`;
+    }
     // An added prescription goes on to its refill count; a rejected or repeated scan stays here for the next try.
     if (moveFocus) (next ?? date).focus();
     return;
