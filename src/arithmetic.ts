@@ -393,9 +393,9 @@ function render(input: DialInput) {
     const draw = (slot: DialSlot) => {
       const show = slot.kind === 'idle' ? idleRecommendation : recommendation;
       const text = (parts: HTMLElement[]) => parts.map(part => part.textContent).join('\n');
-      // Rows of both counts that read the same are shown once without a count; a row only one count has, or one of two that differ, names its count.
+      // Rows of both counts that read the same are shown once, naming both counts; a row only one count has, or one of two that differ, names its count.
       const merged = slot.rows.length === 2 && text(show(slot.rows[0], '')) === text(show(slot.rows[1], ''));
-      return { merged, body: merged ? show(slot.rows[1], '') : slot.rows.flatMap(row => show(row, prefix(row.count))) };
+      return { merged, body: merged ? show(slot.rows[1], '若可調劑 2 次或 3 次：') : slot.rows.flatMap(row => show(row, prefix(row.count))) };
     };
     // Each slot's result and the table are redrawn in place when a previous pickup date changes, so the date field keeps focus.
     const boxes = slots.map(() => document.createElement('div'));
