@@ -107,26 +107,23 @@ function idleRecommendation(scenario: Scenario, prefix: string): HTMLElement[] {
 }
 /** turn: take one wheel event in this direction; false at either end, where there is nothing to turn. */
 type WheelTurn = (event: WheelEvent, direction: number) => boolean;
-/** The wheel or page a wheel gesture started on (no root: the page), and when its last event came. */
-let gesture: { root?: HTMLElement; turn?: WheelTurn; at: number } | undefined;
-window.addEventListener('wheel', event => { gesture = { at: event.timeStamp }; }, { passive: true });
-/** As a browser keeps a scroll on the box it began in, a wheel gesture stays with what it started on until the wheel rests for half a
- * second: a spin that turns a dial to either end does not run on into the page, or into the date wheel of the card turned in; a page
- * scroll that brings a dial under the pointer keeps scrolling the page. A fresh gesture at either end scrolls the page as usual. */
+/** The wheel a gesture last turned, and when its last event came. */
+let gesture: { root: HTMLElement; turn: WheelTurn; at: number } | undefined;
+/** A wheel gesture that turned a wheel stays with it until the wheel rests for half a second: a spin that turns a dial to either end
+ * does not run on into the page, or into the date wheel of the card turned in. Only a gesture that turned something is held; a page
+ * scroll is not, so a wheel under the pointer turns at once, and a fresh gesture at either end scrolls the page as usual. */
 function onWheel(root: HTMLElement, turn: WheelTurn) {
   root.addEventListener('wheel', event => {
     // Handled once, by the innermost wheel: the date wheel sits inside the result dial.
     event.stopPropagation();
     const direction = Math.sign(event.deltaY);
     if (!direction) return;
-    const held = gesture && event.timeStamp - gesture.at < 500 ? gesture : undefined;
-    // The page keeps its scroll (as does one begun on a wheel since redrawn).
-    if (held && !held.root?.isConnected) { held.at = event.timeStamp; return; }
+    const held = gesture?.root.isConnected && event.timeStamp - gesture.at < 500 ? gesture : undefined;
     const owner = held ?? { root, turn };
-    if (owner.turn!(event, direction) || held) {
+    if (owner.turn(event, direction) || held) {
       event.preventDefault();
       gesture = { ...owner, at: event.timeStamp };
-    } else gesture = { at: event.timeStamp };
+    } else gesture = undefined;
   }, { passive: false });
 }
 interface DialEntry { tick: string; title: string; badge: string; body: HTMLElement[] }
