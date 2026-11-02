@@ -4,7 +4,7 @@ C02,C07AA,,診斷,J45 J44,紅,非選擇性 β 阻斷劑＋氣喘／COPD：可能
 C03,N07AB,,診斷,N13 K56,黃,Bethanechol＋泌尿道或腸道阻塞：機械性阻塞時禁用，請確認不是阻塞造成,仿單禁忌
 C04,N07AB,,診斷,J45 I20-I25 K25-K27 G40 G20 E05,黃,Bethanechol＋氣喘／冠心病／消化性潰瘍／癲癇／巴金森／甲亢：仿單禁忌疾病,仿單禁忌
 C06,,METFORMIN,診斷,N18.4 N18.5 N18.6,紅,Metformin＋慢性腎病第 4–5 期：eGFR<30 禁用,仿單禁忌
-C07,M01A,,診斷,N18 K25-K28 I50,黃,NSAID＋慢性腎病／消化性潰瘍／心衰竭,仿單警語
+C07,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,診斷,N18 K25-K28 I50,黃,NSAID＋慢性腎病／消化性潰瘍／心衰竭,仿單警語
 C08,N04BA,,診斷,H40.2,黃,Levodopa＋隅角閉鎖性青光眼,仿單禁忌
 C09,N05BA N05CD N05CF N03AE01,,年齡,>=65,灰,65 歲以上使用 BZD／Z-drug：跌倒與認知風險（老人用藥提醒，預設收合）,Beers 2023 建議避免
 C10,N05A,,診斷,F01-F03 G30,黃,抗精神病藥＋失智症：死亡率增加,仿單黑框警語
@@ -16,3 +16,26 @@ C15,H01BA02,,年齡,>=65,黃,65 歲以上使用 desmopressin 治療夜尿：低�
 C16,N02A,,同處方,N05BA N05CD N05CF N03AE01,黃,鴉片類＋BZD／Z-drug 同時使用：呼吸抑制,FDA 黑框警語
 C17,N05BA N05CD N05CF N03AE01,,年齡+同處方,>=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS,黃,65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高,藥師審核意見（C09 升一級）
 C18,G04CB,,性別+年齡,女;<50,紅,50 歲以下女性的處方有 5α 還原酶抑制劑：可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌；藥師審核意見
+C19,N02A,,同處方,N02BF,黃,鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）,FDA 2019 安全通訊；Beers 2023 表 5
+C20,,CLOPIDOGREL,同處方,A02BC01 A02BC05,灰,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等,仿單警語（Plavix）
+C21,J01MA,,同處方,H02AB,灰,Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加,FDA 黑框警語
+C22,J01MA,,年齡+同處方,>=60;H02AB,黃,60 歲以上使用 fluoroquinolone＋全身性類固醇：肌腱斷裂風險更高，請提醒腳跟或肌腱疼痛時停藥回診,FDA 黑框警語（C21 升一級）
+C23,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,同處方兩種以上 NSAID：腸胃道出血與腎毒性增加，療效沒有增加,仿單（naproxen、meloxicam 等）
+C24,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,B01AA B01AE B01AF,黃,NSAID＋口服抗凝血劑：出血風險增加,仿單警語；Beers 2023 表 2
+C25,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,年齡+同處方,>=65;H02AB,黃,65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護,Beers 2023 表 2
+C26,B01AA03,,同處方,C01BD01 J01MA02 J01FA01 J01FA06 J01FA09 J01EE01 N06AB,黃,Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR,Beers 2023 表 5
+C27,R03DA04 R03DA05,,同處方,J01MA02 A02BA01,黃,Theophylline／aminophylline＋ciprofloxacin／cimetidine：theophylline 中毒（噁心、心悸、抽搐）,Beers 2023 表 5
+C28,N03AB02,,同處方,J01EE01,黃,Phenytoin＋TMP-SMX：phenytoin 中毒,Beers 2023 表 5
+C29,N05AN01,,同處方,C09A C09B C09C C09D C03C,黃,Lithium＋ACEI／ARB／ARNI／環利尿劑：lithium 中毒，需監測血中濃度,Beers 2023 表 5
+C30,C09A C09B,,同處方,C09C C09DA C09DB C09XA,黃,ACEI＋ARB／aliskiren 雙重 RAS 阻斷：高血鉀、急性腎損傷、低血壓,EMA 2014；FDA 2012（aliskiren）；Beers 2023 表 5
+C31,C09DX04,,同處方,C09A C09B,紅,Sacubitril/valsartan＋ACEI：禁止併用（血管性水腫），換藥須間隔 36 小時,仿單禁忌
+C32,G04BE,,同處方,C01DA C01DX16,紅,PDE5 抑制劑＋硝酸鹽類／nicorandil：嚴重低血壓,仿單禁忌
+C33,C10AA01 C10AA02 C10BA01 C10BA02,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 C10AB04 L04AD01,紅,Simvastatin／lovastatin＋強效 CYP3A4 抑制劑／gemfibrozil／ciclosporin：肌病變、橫紋肌溶解,仿單禁忌
+C34,M04AC01,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,黃,Colchicine＋P-gp／CYP3A4 抑制劑：colchicine 中毒（腹瀉、肌肉無力、骨髓抑制），需減量,仿單警語
+C35,M04AC01,,診斷+同處方,N18.3 N18.4 N18.5 N18.6 K70-K77;J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,紅,Colchicine＋P-gp／CYP3A4 抑制劑＋腎或肝功能不全：禁止併用，曾有致死案例,仿單禁忌（C34 升一級）
+C36,M03BX02,,同處方,J01MA02 N06AB08,紅,Tizanidine＋ciprofloxacin／fluvoxamine：禁止併用（tizanidine 濃度大增，低血壓、嗜睡）,仿單禁忌
+C37,A03FA03,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,Domperidone＋強效 CYP3A4 抑制劑或會延長 QT 的 macrolide：QT 延長、心律不整,EMA 2014 禁忌
+C38,N02CA,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,麥角生物鹼＋強效 CYP3A4 抑制劑：麥角中毒（血管痙攣、肢體缺血）,仿單禁忌（黑框）
+C39,M04AA03,,同處方,L04AX01 L01BB02,紅,Febuxostat＋azathioprine／mercaptopurine：骨髓抑制,仿單禁忌（美國）
+C40,M04AA01,,同處方,L04AX01 L01BB02,黃,Allopurinol＋azathioprine／mercaptopurine：骨髓抑制，azathioprine／mercaptopurine 需大幅減量,仿單警語（減量幅度未在網路上核對）
+C41,C02CA G04CA03,,性別+年齡+同處方,女;>=65;C03C,灰,65 歲以上女性 α1 阻斷劑＋環利尿劑：尿失禁,Beers 2023 表 5
