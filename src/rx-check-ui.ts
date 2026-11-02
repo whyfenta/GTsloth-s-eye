@@ -53,6 +53,6 @@ export function renderRxCheck(box: HTMLElement, rx: RxFacts, names: string[], da
   const details = make('details');
   details.append(make('summary', '', `灰色提示 ${folded.length} 則・已解釋 ${explained.length} 個藥`), list([...folded, ...explained]));
   const sex = rx.sex === 'M' ? '男' : rx.sex === 'F' ? '女' : '性別不明';
-  box.replaceChildren(make('p', 'rx-title', '處方警示（規則草稿，待藥師審核；不印在憑單上）'), make('p', 'hint', `${dept} · ${sex} · ${rx.age || '年齡不明'} · 診斷：${dx}`),
+  box.replaceChildren(make('p', 'rx-title', '處方警示（部分規則仍待藥師審核；不印在憑單上）'), make('p', 'hint', `${dept} · ${sex} · ${rx.age || '年齡不明'} · 診斷：${dx}`),
     shown.length ? list(shown) : make('p', 'rx-none', '沒有紅色或黃色警示。'), details);
 }
