@@ -145,9 +145,9 @@ assert.throws(broken('specialty', '科別代碼,科別,該科常開的ATC,出處
 assert.throws(broken('settings', '設定,值,可選的值,說明', '同成分重複,橙,紅 黃 灰,'), /settings\.csv 第 2 列「值」/);
 assert.throws(broken('settings', '設定,值,可選的值,說明', '同成分重複,黃,紅 黃 灰,'), /缺少「科別常用」/);
 
-// The switch: off by default until the rules are reviewed; the address turns it on or off for one page load.
-assert.equal(rxCheckOn(''), false);
-assert.equal(rxCheckOn('?rxcheck=1'), true);
+// The switch: on by default; the address turns it on or off for one page load.
+assert.equal(rxCheckOn(''), true);
+assert.equal(rxCheckOn('?rxcheck=1', false), true);
 assert.equal(rxCheckOn('?rxcheck=0', true), false);
 assert.equal(rxCheckOn('?other=1', true), true);
 
