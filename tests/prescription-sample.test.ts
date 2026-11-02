@@ -14,8 +14,9 @@ assert.equal(parsePrescriptionLayout(expected).fields.length, fields.length);
 assert.equal(deidentify('﻿' + qr()), expected);
 // Fields 4, 5 and 9 are cleared whatever they hold.
 for (const n of [4, 5, 9]) for (const value of ['', '1', 'TESTVALUE', '測驗']) assert.equal(field(qr({ [n]: value }), n), '', `第 ${n} 欄 ${value}`);
-// Field 5 keeps only the sex from a 身分證字號's second digit, 1 or 2; other ID formats (居留證 8 or 9, the older A–D) are unknown.
-for (const [id, kept] of [['A123456789', 'SEXM'], ['b234567890', 'SEXF'], [' C134567890 ', 'SEXM'], ['A823456789', ''], ['A923456789', ''], ['AC23456789', ''],
+// Field 5 keeps only the sex from an ID number's second character: 身分證 1 or 2, 統一證號 8 or 9, the older 統一證號 A, C or B, D.
+for (const [id, kept] of [['A123456789', 'SEXM'], ['b234567890', 'SEXF'], [' C134567890 ', 'SEXM'], ['A823456789', 'SEXM'], ['A923456789', 'SEXF'],
+  ['AA23456789', 'SEXM'], ['AB23456789', 'SEXF'], ['ac23456789', 'SEXM'], ['AD23456789', 'SEXF'], ['A323456789', ''], ['A723456789', ''], ['AE23456789', ''],
   ['A12345678', ''], ['A1234567890', ''], ['1123456789', '']]) {
   assert.equal(field(qr({ 5: id }), 5), kept, id);
   assert.ok(!deidentify(qr({ 5: id })).includes(id.trim().slice(2)), `${id} 字號不可輸出`);

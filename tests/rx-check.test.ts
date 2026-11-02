@@ -46,8 +46,9 @@ assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', sex: 'M
 for (const [dept, read] of [['AB', 'AB'], ['01', '01'], ['0100', '01'], ['AB01', ''], ['146', ''], ['0NB', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 7: dept }).dept, read, dept);
 assert.deepEqual(qr('', ['TESTSTAT01']).dx, []);
 assert.deepEqual(qr(' # E11 ##', ['TESTSTAT01']).dx, ['E11']);
-// Sex from the ID number's second digit: 1 or 2; another digit (a resident certificate) or no ID is unknown.
-for (const [id, sex] of [['A123456789', 'M'], ['B234567890', 'F'], ['A823456789', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 5: id }).sex, sex, id);
+// Sex from the ID number's second character: 身分證 1 or 2, 統一證號 8 or 9 and the older A–D; another character or no ID is unknown.
+for (const [id, sex] of [['A123456789', 'M'], ['B234567890', 'F'], ['A823456789', 'M'], ['A923456789', 'F'], ['AC23456789', 'M'], ['AD23456789', 'F'],
+  ['A323456789', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 5: id }).sex, sex, id);
 
 // Layers in order: a diagnosis, another drug, the department, a low-risk drug; then high-alert yellow, anything else grey.
 assert.deepEqual(verdicts(qr('E11.9', ['TESTMETF01'])), ['適應症 E119（仿單）']);
@@ -88,11 +89,13 @@ assert.deepEqual(notes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01'])), ['TESTALP
 assert.deepEqual(notes(qr('F41.1#I10', ['TESTALPR01', 'TESTAMLO01'])), ['TESTALPR01 灰 T03 測試提示丙（AGE65-69）', 'TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲']);
 assert.deepEqual(notes(qr('F41.1#I10', ['TESTALPR01', 'TESTAMLO01'], { 22: 'QDHS' })), ['TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', 'TESTALPR01 黃 T06 測試提示己（AGE65-69；同處方：C08CA01）']);
 assert.deepEqual(notes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01'], { 6: '0550101' })), [], 'AGE60-64: T06 fails on age even with the other drug');
-// Sex and age: a woman under 50; unknown sex (a resident certificate) or an unreadable age is grey only while the other condition holds.
+// Sex and age: a woman under 50, also by a 統一證號; unknown sex (an ID format without it) or an unreadable age is grey only while the other condition holds.
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '0750101' })), ['TESTDUTA01 紅 T07 測試提示庚（女性；AGE40-49）']);
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A923456789', 6: '0750101' })), ['TESTDUTA01 紅 T07 測試提示庚（女性；AGE40-49）']);
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 6: '0750101' })), [], 'a man');
-assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A823456789', 6: '0750101' })), ['TESTDUTA01 灰 T07 無法取得性別資料']);
-assert.deepEqual(notes(qr('N40', ['TESTDUTA01'], { 5: 'A823456789' })), [], 'unknown sex, but AGE65-69 is not under 50');
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A823456789', 6: '0750101' })), [], 'a man by a 統一證號');
+assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A323456789', 6: '0750101' })), ['TESTDUTA01 灰 T07 無法取得性別資料']);
+assert.deepEqual(notes(qr('N40', ['TESTDUTA01'], { 5: 'A323456789' })), [], 'unknown sex, but AGE65-69 is not under 50');
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '' })), ['TESTDUTA01 灰 T07 無法讀取年齡']);
 
 // Repeated ingredients, compared without strength, brackets or salt; a repeated code is not one.

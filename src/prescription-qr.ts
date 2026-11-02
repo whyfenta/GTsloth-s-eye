@@ -128,10 +128,12 @@ export function ageBand(birthRoc: string, visitRoc: string): string {
   const low = age - age % 10;
   return `AGE${low}-${low + 9}`;
 }
-/** Sex from a 身分證字號's second digit, 1 male and 2 female; other ID formats (some foreign residents') and malformed IDs are unknown. */
+/** The second character of an ID number by sex: 身分證 1 and 2, the 統一證號 issued since 2021 8 and 9, the older 統一證號 A and C, B and D. */
+const SEX_DIGIT: Record<string, Sex> = { 1: 'M', 2: 'F', 8: 'M', 9: 'F', A: 'M', B: 'F', C: 'M', D: 'F' };
+/** Sex from an ID number's second character; any other character and a malformed ID are unknown. Only the sex leaves: whether it was a 身分證 or a 統一證號 does not. */
 export function sexOf(idNumber: string): Sex {
   const id = idNumber.trim().toUpperCase();
-  return /^[A-Z][12]\d{8}$/.test(id) ? id[1] === '1' ? 'M' : 'F' : '';
+  return /^[A-Z][1289A-D]\d{8}$/.test(id) ? SEX_DIGIT[id[1]] : '';
 }
 /** A de-identified sample keeps only the sex in field 5, as SEXM or SEXF (blank when unknown), never the ID number. */
 export const sexMark = (sex: Sex) => sex && `SEX${sex}`;

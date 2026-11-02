@@ -1,6 +1,7 @@
 // 樹懶的管理: the review record sent to the feedback sheet when lists are generated, so recurring corrections can become
 // rules and tests. It keeps what shows where the parser or a warning was wrong, never the store's quantities: a changed
 // count, quantity, 健保價 or stock figure is recorded by field name only. The report files themselves are never sent.
+import { postAppsScript } from './apps-script';
 import type { PartnerCover, SafetyStrategy, StockRow, UsageRow } from './management-model';
 
 export const FEEDBACK_FORMAT = 'gtsloth-management-review';
@@ -61,11 +62,5 @@ export function feedbackRecord(input: FeedbackInput): FeedbackRecord {
 export const worthSending = (record: FeedbackRecord) => record.names.length + record.edits.length + record.confirmedAsIs.length + record.exclusions.length > 0;
 /** The same review is sent once, whenever lists are generated again; the send time does not make it new. */
 export const feedbackKey = (record: FeedbackRecord) => JSON.stringify({ ...record, sent: '' });
-/**
- * Posts the record to the Apps Script web app. text/plain keeps it a simple request (Apps Script answers no CORS
- * preflight), so the response is opaque: success cannot be read, only a network failure.
- */
-export async function sendFeedback(record: FeedbackRecord, endpoint: string, post: typeof fetch = fetch): Promise<void> {
-  const body = JSON.stringify(record);
-  await post(endpoint, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body, keepalive: body.length < 60_000 });
-}
+/** Posts the record to the Apps Script web app (docs/feedback-apps-script.gs). */
+export const sendFeedback = (record: FeedbackRecord, endpoint: string, post: typeof fetch = fetch): Promise<void> => postAppsScript(endpoint, record, post);
