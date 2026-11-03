@@ -4,12 +4,12 @@ import type { DrugsQR, SlipQR } from './prescription-qr';
 import { loadProducts } from './products';
 import type { RxFacts } from './rx-check';
 import { rxCheckOn } from './rx-check-config';
-import { renderRxCheck } from './rx-check-ui';
+import { renderPatient, renderRxCheck } from './rx-check-ui';
 import { loadRxData, type RxData } from './rx-data';
 import { failureLine } from './prescription-sample';
 import { MAX_FAILED, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
 import { SAMPLE_ENDPOINT, samplesOn } from './sample-config';
-import { buildSlip, planSlip, prescriptionAhead, MISSING_ROWS, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
+import { buildSlip, contactKind, planSlip, prescriptionAhead, MISSING_ROWS, type ContactKind, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
 
 declare const __APP_VERSION__: string;
@@ -17,9 +17,9 @@ declare const __APP_VERSION__: string;
 // products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
 // more: the follow-up QRs of drugs only, so a rescan of one is not added twice. sample: the de-identified line sent when the
-// slip is printed (only with samples on), and sent once that request has gone out.
+// slip is printed (only with samples on), and sent once that request has gone out. patient: the 科別, age band and diagnoses under the name.
 interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
-  drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
+  patient: HTMLTableElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -28,7 +28,6 @@ const body = element('slip-body');
 const empty = element('slip-empty');
 const list = element<HTMLOListElement>('slip-items');
 const preview = element('slip-plan');
-const others = element('slip-others');
 const status = element('slip-status');
 const sheet = element('slip-sheet');
 const phone = element<HTMLInputElement>('slip-phone');
@@ -56,10 +55,14 @@ let agreed: Partial<Record<Row, { base: Trip; range: DateRange }>> = {};
 let scannedAt = 0;
 /** After printing, the next scan starts a new slip so two patients are never merged by accident. */
 let printed = false;
+/** The kind of number in 聯絡人與電話 the notification ticks were last set for; a tick changed by hand stays until the kind changes. */
+let contact: ContactKind = '';
 
 const fullDate = (value: string) => value.replaceAll('-', '/');
 const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}`;
 const sameTrip = (a: Trip, b: Trip) => a.start === b.start && a.end === b.end && a.prescriptions === b.prescriptions;
+/** The date in 處方已於…失效 is set bold and larger: it is why the prescription cannot be dispensed. */
+const withExpiry = (text: string) => text.split(/(\d+\/\d{2}\/\d{2})(?=失效)/).map((part, index) => index % 2 ? make('strong', 'slip-expiry', part) : part);
 function make<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -130,7 +133,7 @@ function describe(item: Item) {
     const next = ahead.windows.map(window => `第 ${window.visit} 次 ${monthDay(window.range.start)}～${monthDay(window.range.end)}`).join('、');
     // A late last visit's corrected window is the return visit, which the slip leaves out.
     const message = ahead.result.state === 'late' && !next ? '本次領藥延遲。' : ahead.result.message;
-    item.state.textContent = `${item.visit ? '' : '依今日判斷'}第 ${ahead.visit} 次：${message}${next ? `接下來：${next}。` : ahead.result.state === 'invalid' ? '' : '已無下次領藥，下次請回診。'}`;
+    item.state.replaceChildren(...withExpiry(`${item.visit ? '' : '依今日判斷'}第 ${ahead.visit} 次：${message}${next ? `接下來：${next}。` : ahead.result.state === 'invalid' ? '' : '已無下次領藥，下次請回診。'}`));
   } catch (error) { item.state.textContent = (error as Error).message; }
 }
 function missingItems(): MissingItem[] {
@@ -233,7 +236,11 @@ function update() {
       ...data.notes,
     ].filter(Boolean);
     preview.append(...lines.map(line => make('p', '', line)));
-  } catch (error) { preview.append(make('p', 'error', (error as Error).message)); }
+  } catch (error) {
+    const line = make('p', 'error');
+    line.append(...withExpiry((error as Error).message));
+    preview.append(line);
+  }
 }
 
 /** A name filled in from the map follows the chosen 六碼; a typed name stays. */
@@ -288,13 +295,26 @@ function drugRow(drug: Drug): HTMLElement {
   row.append(label, detail);
   return row;
 }
-const listDrugs = (item: Item) => item.drugList.replaceChildren(make('legend', '', `尚差藥品（預設不缺，有缺才勾選${item.more.length ? `；含藥品 QR 加入的 ${item.drugs.length - item.firstDrugs} 個藥` : ''}）`), ...item.drugs.map(drugRow));
+/**
+ * 其他尚差品項 (self-paid items and the like) are the slip's, not one prescription's: their typed rows end the drug list of the
+ * prescription scanned last, and move along, as typed, when another is scanned or that one is removed.
+ */
+const extras = make('div', 'slip-extras');
+const others = make('div');
+const addOther = make('button', '', '＋其他品項');
+addOther.type = 'button';
+extras.append(make('p', 'slip-extras-label', '其他尚差品項（選填，如自費品項）'), others, addOther);
+const placeExtras = () => items.at(-1)?.drugList.append(extras);
+function listDrugs(item: Item) {
+  item.drugList.replaceChildren(make('legend', '', `藥品清單（如有缺藥可勾選${item.more.length ? `；含藥品 QR 加入的 ${item.drugs.length - item.firstDrugs} 個藥` : ''}）`), ...item.drugs.map(drugRow));
+  if (item === items.at(-1)) item.drugList.append(extras);
+}
 function fillItem(item: Item) {
   const li = item.element;
   const head = make('div', 'slip-item-head');
   const remove = make('button', '', '移除');
   remove.type = 'button';
-  remove.addEventListener('click', () => { items = items.filter(other => other !== item); li.remove(); status.textContent = ''; update(); });
+  remove.addEventListener('click', () => { items = items.filter(other => other !== item); li.remove(); placeExtras(); status.textContent = ''; update(); });
   head.append(item.heading, make('span', 'hint', `處方 ${fullDate(item.date)} · ${item.days} 天`), remove);
   const fields = make('div', 'slip-item-fields');
   const hospital = textInput(item.hospital, '查詢醫院名冊中…', value => { item.hospital = value; });
@@ -304,15 +324,22 @@ function fillItem(item: Item) {
     () => { if (performance.now() - scannedAt > 300) focusChoice(item.visits); });
   const visit = segmented('本次第幾次', [[1, '第 1 次'], [2, '第 2 次'], [3, '第 3 次']], value => { item.visit = value; }, () => scanField.focus());
   item.counts = count.radios; item.visits = visit.radios;
-  fields.append(
-    labelled('姓名', textInput(item.name, '', value => { item.name = value.trim(); })),
-    labelled('醫院名稱', hospital), count.field, visit.field);
+  // The sex from the ID number's second character follows the name inside its box; it is not part of the name on the slip.
+  const name = make('span', 'slip-name');
+  name.append(textInput(item.name, '', value => { item.name = value.trim(); }));
+  if (item.rx.sex) {
+    const sex = make('span', 'slip-sex', item.rx.sex);
+    sex.title = `${item.rx.sex === 'M' ? '男' : '女'}（依身分證字號第 2 碼）`;
+    name.append(sex);
+  }
+  fields.append(labelled('姓名', name), labelled('醫院名稱', hospital), count.field, visit.field);
   listDrugs(item);
-  li.append(head, fields, item.hospitalNote, item.state, item.drugList, item.check);
+  li.append(head, fields, item.patient, item.hospitalNote, item.state, item.drugList, item.check);
 }
-/** The card's 處方警示, never on the slip; drug names follow the product lookup once it has loaded. */
+/** The card's 處方警示, never on the slip; drug names follow the product lookup once it has loaded, diagnosis names the rule data. */
 function showCheck(item: Item) {
   if (!rxOn) return;
+  renderPatient(item.patient, item.rx, rxData);
   if (!rxData) { item.check.replaceChildren(make('p', 'hint', '處方警示資料載入中…')); return; }
   renderRxCheck(item.check, item.rx, item.drugs.map(drug => drug.product?.name ?? [...new Set(drug.products.map(product => product.name))].join('／')), rxData);
 }
@@ -337,7 +364,7 @@ function otherRow(): HTMLElement {
   row.append(textInput('', '品項編號'), textInput('', '品名（如自費品項）'), textInput('', '數量'), textInput('', '備註'), remove);
   return row;
 }
-element('slip-add-other').addEventListener('click', () => {
+addOther.addEventListener('click', () => {
   const used = items.reduce((sum, item) => sum + item.drugs.filter(drug => drug.missing).length, 0) + others.querySelectorAll('.slip-other').length;
   if (used >= MISSING_ROWS) {
     status.textContent = `憑單的尚差欄只有 ${MISSING_ROWS} 列，其餘請寫在備註。`;
@@ -354,6 +381,7 @@ export function clearSlip() {
   agreed = {};
   for (const input of [phone, note]) input.value = '';
   sms.checked = call.checked = false;
+  contact = '';
   status.textContent = '';
   update(); // 承辦人員 stays for the next patient; it is not patient data.
 }
@@ -376,13 +404,14 @@ export function addPrescription(qr: SlipQR, scanned = ''): { message: string; fo
   const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
     drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
-    drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
+    patient: make('table', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
     ...(samples && scanned ? { sample: sampleOf(scanned) } : {}) };
-  item.check.hidden = !rxOn;
+  item.check.hidden = item.patient.hidden = !rxOn;
   item.drugs.forEach(identify);
   fillItem(item);
   items.push(item);
   list.append(item.element);
+  placeExtras();
   lookup(item);
   showCheck(item);
   if ((rxOn || samples) && !rxData) loadRxData().then(loaded => { rxData = loaded; items.forEach(showCheck); })
@@ -419,9 +448,17 @@ export function addDrugs(qr: DrugsQR, scanned = ''): { message: string; focus?: 
   listDrugs(item);
   showCheck(item);
   update();
-  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的尚差藥品。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除」後重掃。` };
+  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除」後重掃。` };
 }
 
+// A mobile number ticks 簡訊發送, any other number 電話通知; this runs before the panel's update below.
+phone.addEventListener('input', () => {
+  const kind = contactKind(phone.value);
+  if (kind === contact) return;
+  contact = kind;
+  sms.checked = kind === 'mobile';
+  call.checked = kind === 'phone';
+});
 panel.addEventListener('input', update);
 panel.addEventListener('change', update);
 element('slip-clear').addEventListener('click', () => {

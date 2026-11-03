@@ -23,6 +23,19 @@ export interface Ahead { visit: number; result: Calculation; windows: { range: D
 /** The printed table has four rows. */
 export const MISSING_ROWS = 4;
 
+/** What the 聯絡人與電話 field holds: a mobile number, another number, or no number yet. */
+export type ContactKind = 'mobile' | 'phone' | '';
+/** A Taiwan mobile number: 09 and 8 more digits, or +886 9 and 8 more, with any spaces, dots, dashes or brackets between digits. */
+const MOBILE = /(?<!\d)(?:0|\+?886[\s-]*(?:\(0\))?[\s-]*)9(?:[\s.()-]*\d){8}(?!\d)/;
+/**
+ * The field may hold a contact name with the number (媽媽 0912-345-678), so a mobile number anywhere in it counts; any other digits
+ * are another number. Full-width digits and signs typed with the Chinese IME count the same.
+ */
+export function contactKind(value: string): ContactKind {
+  const text = value.normalize('NFKC');
+  return MOBILE.test(text) ? 'mobile' : /\d/.test(text) ? 'phone' : '';
+}
+
 const monthDay = (value: string) => `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}`;
 const fullDate = (value: string) => value.replaceAll('-', '/');
 const unique = (values: string[]) => [...new Set(values.map(value => value.trim()).filter(Boolean))];

@@ -23,7 +23,7 @@ let pending: Promise<Catalog> | undefined;
 /** Loaded on the first scan only; a failed load is retried on the next scan. */
 export function loadProducts(): Promise<Catalog> {
   if (!pending) {
-    pending = loadFile().catch(() => { throw new Error('商品對照載入失敗，尚差藥品先以健保碼顯示；下次掃碼會再試。'); }).then(file => {
+    pending = loadFile().catch(() => { throw new Error('商品對照載入失敗，藥品清單先以健保碼顯示；下次掃碼會再試。'); }).then(file => {
       const entries = Object.entries(file.products).flatMap(([code, list]) => list.map(([sku, key, replacedBy]) => ({ sku, code, key, replacedBy })));
       return { dataDate: file.dataDate, index: productIndex(entries) };
     });

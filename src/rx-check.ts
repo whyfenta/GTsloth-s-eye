@@ -268,13 +268,21 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
 export interface IcdEntry { name: string; deleted: boolean }
 /** ICD-10-CM puts the dot after the third character. */
 export const icdDisplay = (code: string) => code.length > 3 ? `${code.slice(0, 3)}.${code.slice(3)}` : code;
-/** I2510 → I25.10 and its Chinese name; a code not in the table falls back to its category, and says so. */
-export function dxLabel(code: string, icd: Map<string, IcdEntry>): string {
+/**
+ * A diagnosis as the code shown and its Chinese name with any note, for a list that puts codes and names in their own columns.
+ * I2510 → I25.10; a code not in the table falls back to its category, and says so; an unknown code stays as written.
+ */
+export function dxParts(code: string, icd: Map<string, IcdEntry>): { code: string; name: string; found: boolean } {
   for (let n = code.length; n > 2; n--) {
     const entry = icd.get(code.slice(0, n));
     if (!entry) continue;
     const note = entry.deleted ? '（舊碼，2014 版已刪除）' : n === code.length ? '' : `（查無 ${code}，此為類別）`;
-    return `${icdDisplay(code.slice(0, n))} ${entry.name}${note}`;
+    return { code: icdDisplay(code.slice(0, n)), name: `${entry.name}${note}`, found: true };
   }
-  return `${code}（查無此碼）`;
+  return { code, name: '（查無此碼）', found: false };
+}
+/** The diagnosis on one line: I25.10 and its Chinese name. */
+export function dxLabel(code: string, icd: Map<string, IcdEntry>): string {
+  const parts = dxParts(code, icd);
+  return parts.found ? `${parts.code} ${parts.name}` : `${parts.code}${parts.name}`;
 }

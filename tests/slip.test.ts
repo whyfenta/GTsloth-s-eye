@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildSlip, planSlip, prescriptionAhead, productIndex, type SlipEntry, type SlipForm } from '../src/slip-model';
+import { buildSlip, contactKind, planSlip, prescriptionAhead, productIndex, type SlipEntry, type SlipForm } from '../src/slip-model';
 import { readMap, type MapEntry } from '../src/sku-map';
 import { csvRows, rosterNames } from '../scripts/roster';
 
@@ -122,3 +122,12 @@ assert.deepEqual(roster.names, { '0101090517': '測試醫院,總院', '350102A00
 assert.deepEqual(roster.skipped, ['3.50E+12 壞代碼診所']);
 assert.throws(() => rosterNames('代碼,名稱\n1,2\n'), /名冊缺少欄位：醫事機構代碼/);
 console.log('institution roster conversion passed');
+
+// 聯絡人與電話: a Taiwan mobile number anywhere in the field defaults to 簡訊發送, any other number to 電話通知 (synthetic numbers).
+for (const value of ['0900000000', '0900-000-000', '0900 000 000', '0900.000.000', '媽媽 0900-000-000', '+886 900 000 000', '+886-9-0000-0000', '886900000000',
+  '+886 (0)900 000 000', '０９００－０００－０００', '02-0000-0000／0900000000', '0900000000 02-0000-0000'])
+  assert.equal(contactKind(value), 'mobile', value);
+for (const value of ['02-0000-0000', '(02)0000-0000', '049-0000000', '089-000000', '0900-000-00', '0900-000-0000', '10900000000', '0800-090-000', '王媽媽 0'])
+  assert.equal(contactKind(value), 'phone', value);
+for (const value of ['', '  ', '王媽媽']) assert.equal(contactKind(value), '', value);
+console.log('contact kind passed');
