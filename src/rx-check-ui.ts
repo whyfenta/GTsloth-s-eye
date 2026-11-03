@@ -22,31 +22,25 @@ function list(lines: Line[]): HTMLUListElement {
 }
 
 /**
- * What the check reads about the patient, under the card's name: 就醫科別, age band, then one diagnosis a row with the codes in one
- * column and the Chinese names in the next. The names wait for the data; the sex goes beside the name itself.
+ * What the check reads about the patient, under the card's name: 就醫科別, age band, then the diagnoses, each a code and its Chinese
+ * name; the stylesheet sets them side by side in columns that keep codes and names aligned. The names wait for the data; the sex
+ * goes beside the name itself.
  */
-export function renderPatient(table: HTMLTableElement, rx: RxFacts, data?: RxData) {
-  const body = make('tbody');
-  const row = (label: string, rows: number, ...cells: HTMLTableCellElement[]) => {
-    const tr = make('tr');
-    if (label) {
-      const th = make('th', '', label);
-      th.scope = 'row';
-      if (rows > 1) th.rowSpan = rows;
-      tr.append(th);
-    }
-    tr.append(...cells);
-    body.append(tr);
+export function renderPatient(box: HTMLDListElement, rx: RxFacts, data?: RxData) {
+  const entry = (term: string, value: string | HTMLElement) => {
+    const dd = make('dd');
+    dd.append(value);
+    box.append(make('dt', '', term), dd);
   };
-  const wide = (text: string) => { const td = make('td', '', text); td.colSpan = 2; return td; };
-  row('科別', 1, wide(rx.dept ? `${rx.dept} ${DEPARTMENTS[rx.dept] ?? ''}`.trim() : '科別未知'));
-  row('年齡層', 1, wide(rx.age || '年齡不明'));
-  if (!rx.dx.length) row('診斷', 1, wide('沒有診斷碼'));
-  rx.dx.forEach((code, i) => {
+  const dx = make('dl', 'slip-dx');
+  for (const code of rx.dx) {
     const parts = data ? dxParts(code, data.icd) : { code: icdDisplay(code), name: '' };
-    row(i ? '' : '診斷', rx.dx.length, make('td', 'slip-dx-code', parts.code), make('td', '', parts.name));
-  });
-  table.replaceChildren(body);
+    dx.append(make('dt', '', parts.code), make('dd', '', parts.name));
+  }
+  box.replaceChildren();
+  entry('科別', rx.dept ? `${rx.dept} ${DEPARTMENTS[rx.dept] ?? ''}`.trim() : '科別未知');
+  entry('年齡層', rx.age || '年齡不明');
+  entry('診斷', rx.dx.length ? dx : '沒有診斷碼');
 }
 
 /**
