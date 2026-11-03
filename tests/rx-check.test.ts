@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parsePrescriptionSlip } from '../src/prescription-qr';
-import { checkPrescription, compileRules, dxLabel, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
+import { checkPrescription, compileRules, dxLabel, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
 import { rxCheckOn } from '../src/rx-check-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -118,6 +118,10 @@ assert.equal(dxLabel('E119', icd), 'E11.9 測試完整碼名');
 assert.equal(dxLabel('E1165', icd), 'E11 測試類別名（查無 E1165，此為類別）');
 assert.equal(dxLabel('I1590', icd), 'I15.90 測試舊碼名（舊碼，2014 版已刪除）');
 assert.equal(dxLabel('Z999', icd), 'Z999（查無此碼）');
+// The 憑單 card lists each diagnosis with its code and name in their own columns: the same text, split.
+assert.deepEqual(dxParts('E119', icd), { code: 'E11.9', name: '測試完整碼名', found: true });
+assert.deepEqual(dxParts('E1165', icd), { code: 'E11', name: '測試類別名（查無 E1165，此為類別）', found: true });
+assert.deepEqual(dxParts('Z999', icd), { code: 'Z999', name: '（查無此碼）', found: false });
 const labelled = checkPrescription(qr('E11.9#I10', ['TESTMETF01']), drugs, compileRules(tables({ indications: csv('ATC,藥理類別,可解釋的ICD-10,依據,備註', 'A10,測試類別,E11 I10,仿單,') })),
   { dx: code => dxLabel(code, icd), atc: code => code, join: '、' });
 assert.equal(labelled.drugs[0].reason, 'E11.9 測試完整碼名、I10 測試名稱（仿單）');

@@ -1,4 +1,4 @@
-import { checkPrescription, DEPARTMENTS, dxLabel, type Layer, type Level, type RxFacts } from './rx-check';
+import { checkPrescription, DEPARTMENTS, dxLabel, dxParts, icdDisplay, type Layer, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 
 interface Line { level: Level | Layer; drug: string; text: string }
@@ -22,8 +22,37 @@ function list(lines: Line[]): HTMLUListElement {
 }
 
 /**
+ * What the check reads about the patient, under the card's name: 就醫科別, age band, then one diagnosis a row with the codes in one
+ * column and the Chinese names in the next. The names wait for the data; the sex goes beside the name itself.
+ */
+export function renderPatient(table: HTMLTableElement, rx: RxFacts, data?: RxData) {
+  const body = make('tbody');
+  const row = (label: string, rows: number, ...cells: HTMLTableCellElement[]) => {
+    const tr = make('tr');
+    if (label) {
+      const th = make('th', '', label);
+      th.scope = 'row';
+      if (rows > 1) th.rowSpan = rows;
+      tr.append(th);
+    }
+    tr.append(...cells);
+    body.append(tr);
+  };
+  const wide = (text: string) => { const td = make('td', '', text); td.colSpan = 2; return td; };
+  row('科別', 1, wide(rx.dept ? `${rx.dept} ${DEPARTMENTS[rx.dept] ?? ''}`.trim() : '科別未知'));
+  row('年齡層', 1, wide(rx.age || '年齡不明'));
+  if (!rx.dx.length) row('診斷', 1, wide('沒有診斷碼'));
+  rx.dx.forEach((code, i) => {
+    const parts = data ? dxParts(code, data.icd) : { code: icdDisplay(code), name: '' };
+    row(i ? '' : '診斷', rx.dx.length, make('td', 'slip-dx-code', parts.code), make('td', '', parts.name));
+  });
+  table.replaceChildren(body);
+}
+
+/**
  * One prescription's check under its card on the 憑單 page; the slip itself never prints it. Red and yellow are shown, grey and
  * the drugs a layer explains are folded away. One line each, diagnoses with their Chinese names and other drugs with theirs.
+ * The department, age band and diagnoses are listed under the name instead (renderPatient).
  * names: each drug as the card shows it ('' when the product lookup has none, then its NHI ingredients stand in).
  */
 export function renderRxCheck(box: HTMLElement, rx: RxFacts, names: string[], data: RxData) {
@@ -48,11 +77,8 @@ export function renderRxCheck(box: HTMLElement, rx: RxFacts, names: string[], da
   });
   lines.sort((a, b) => RANK[a.level as Level] - RANK[b.level as Level]);
   const shown = lines.filter(line => line.level !== '灰'), folded = lines.filter(line => line.level === '灰');
-  const dept = rx.dept ? `${rx.dept} ${DEPARTMENTS[rx.dept] ?? ''}`.trim() : '科別未知';
-  const dx = rx.dx.length ? rx.dx.map(label).join('、') : '沒有診斷碼';
   const details = make('details');
   details.append(make('summary', '', `灰色提示 ${folded.length} 則・已解釋 ${explained.length} 個藥`), list([...folded, ...explained]));
-  const sex = rx.sex === 'M' ? '男' : rx.sex === 'F' ? '女' : '性別不明';
-  box.replaceChildren(make('p', 'rx-title', '處方警示（部分規則仍待藥師審核；不印在憑單上）'), make('p', 'hint', `${dept} · ${sex} · ${rx.age || '年齡不明'} · 診斷：${dx}`),
+  box.replaceChildren(make('p', 'rx-title', '處方警示（部分規則仍待藥師審核；不印在憑單上）'),
     shown.length ? list(shown) : make('p', 'rx-none', '沒有紅色或黃色警示。'), details);
 }

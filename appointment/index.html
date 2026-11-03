@@ -27,7 +27,7 @@
               <input id="prescription-date" type="text" placeholder="掃碼或選擇日期" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
               <span class="calendar-control calc-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><input id="date-picker" type="date" aria-label="選擇處方日期" /></span>
             </div>
-            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">點此欄位掃描處方 QR，每掃一張就加入憑單；同時交付多科或家人的處方請連續掃入。掃入後游標移到可調劑次數（預設 2 次），再到本次第幾次（依日期推算），都以方向鍵選擇、Enter 確認，確認後回到這裡等下一張。憑單需要 QR 的完整資料，不接受手動日期。</span></p>
+            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">如病患/家屬多張處方有區間重疊，可在此連續刷入。</span></p>
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select>
@@ -46,13 +46,11 @@
             <ol id="slip-items" class="slip-items"></ol>
             <fieldset id="slip-trips" class="slip-trips" hidden><legend>預計領藥日（預設為計算值，可依病患約定調整：日曆選擇，或方向鍵前後一天、Enter 確認）</legend></fieldset>
             <div id="slip-plan" class="slip-plan" aria-live="polite"></div>
-            <fieldset class="slip-drugs"><legend>其他尚差品項（如自費品項）</legend><div id="slip-others"></div><button type="button" id="slip-add-other">＋其他品項</button></fieldset>
             <div class="field-row"><div><label for="slip-phone">聯絡人與電話</label><input id="slip-phone" type="text" inputmode="tel" autocomplete="off" /></div><div><label for="slip-staff">承辦人員</label><input id="slip-staff" type="text" autocomplete="off" /></div></div>
             <div class="slip-checks"><label><input type="checkbox" id="slip-sms" /> 簡訊發送</label><label><input type="checkbox" id="slip-call" /> 電話通知</label></div>
             <label for="slip-note">備註</label><textarea id="slip-note" rows="2"></textarea>
             <p id="slip-status" class="hint" role="status" aria-live="polite"></p>
-            <div class="form-actions"><button type="button" class="primary" id="slip-print">列印憑單</button></div>
-            <p id="slip-sample-note" class="hint" hidden>列印憑單時，會把這張憑單上處方的去識別化內容（醫事機構代碼、就醫日期、科別、年齡層、性別、診斷碼、藥品，與處方樣本收集頁相同）送到開發者的試算表，用來改進處方警示。<b>不送出姓名、身分證、生日、電話、尚差數量與備註。</b></p>
+            <div class="form-actions slip-actions"><button type="button" class="primary" id="slip-print">列印憑單</button><p id="slip-sample-note" class="hint" hidden>列印後，本處方之去識別化資料將傳回至開發者，用來持續統計及改進處方警示能力。</p></div>
           </div>
         </section>
       </div>
