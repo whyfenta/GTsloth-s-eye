@@ -1,7 +1,7 @@
 import './arithmetic.css';
 import { addDays, dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
-import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, type PrescriptionQR } from './prescription-qr';
-import { addDrugs, addPrescription, rejectScan } from './slip-ui';
+import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, prescriptionText, type PrescriptionQR } from './prescription-qr';
+import { addDrugs, addPrescription, rejectScan, type Scanned } from './slip-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -13,6 +13,13 @@ const result = element('result');
 const status = element('qr-status');
 const datePicker = element<HTMLInputElement>('date-picker');
 const grid = element('calculator-grid');
+const cameraButton = element<HTMLButtonElement>('qr-camera');
+/**
+ * A phone (touch first, with a camera the page may ask for: https only) can scan in 憑單 with its camera; a desktop keeps to the
+ * keyboard scanner. The camera view is a modal dialog, which iOS has from 15.4.
+ */
+const camera = typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof HTMLDialogElement === 'function' && matchMedia('(pointer: coarse)').matches;
+for (const node of document.querySelectorAll<HTMLElement>('[data-camera]')) node.hidden = !camera;
 /** 試算 accepts a typed date; 憑單 needs every QR field, so it takes scans only and shows the slip instead of the result. */
 let mode: 'calc' | 'slip' = 'calc';
 let calcDate = '';
@@ -469,7 +476,7 @@ function render(input: DialInput) {
 function clearScan() {
   clearTimeout(scanTimer);
   scanBuffer = '';
-  date.placeholder = mode === 'slip' ? '掃描處方 QR' : '掃碼或選擇日期';
+  date.placeholder = mode === 'slip' ? camera ? '按右側相機掃描處方 QR' : '掃描處方 QR' : '掃碼或選擇日期';
 }
 function normalizeDate(value: string): string {
   const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(value.trim());
@@ -508,20 +515,10 @@ function finishScan(moveFocus = true) {
   const text = value.replace(/[\r\n]+$/, '');
   if (mode === 'slip') {
     date.value = '';
-    let next: HTMLElement | undefined;
-    try {
-      // A prescription with many drugs has a second QR of drugs only; it joins the prescription scanned before it.
-      const more = parsePrescriptionDrugs(text);
-      const added = more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text);
-      status.textContent = added.message;
-      next = added.focus;
-    }
-    catch (error) {
-      rejectScan(text, error);
-      status.textContent = `${(error as Error).message} 請重新掃碼。`;
-    }
+    const added = slipScan(text);
+    status.textContent = added.message;
     // An added prescription goes on to its refill count; a rejected or repeated scan stays here for the next try.
-    if (moveFocus) (next ?? date).focus();
+    if (moveFocus) (added.focus ?? date).focus();
     return;
   }
   // The dates are all in the first QR; a scan of the drugs-only second QR leaves the form as it is.
@@ -544,6 +541,40 @@ function finishScan(moveFocus = true) {
     if (moveFocus) date.focus();
   }
 }
+/** A 憑單 scan from the keyboard scanner or the camera. A prescription with many drugs has a second QR of drugs only; it joins the prescription scanned before it. */
+function slipScan(text: string, viaCamera = false): Scanned {
+  try {
+    const more = parsePrescriptionDrugs(text);
+    return more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text, viaCamera);
+  } catch (error) {
+    rejectScan(text, error);
+    return { message: `${(error as Error).message} 請重新掃碼。` };
+  }
+}
+/**
+ * The camera closes on the first QR laid out as a prescription and hands it to the slip as a scan would; another QR leaves it
+ * looking. An added prescription brings its card into view; a message without one (a repeat, a rejected QR) is shown at the field.
+ */
+let cameraOpening = false;
+cameraButton.addEventListener('click', async () => {
+  // The reader loads on the first tap; a second tap meanwhile must not open a second camera. Once open, the camera view is modal.
+  if (cameraOpening) return;
+  cameraOpening = true;
+  clearScan();
+  status.textContent = '開啟相機中…';
+  let scanQR: typeof import('./qr-camera').scanQR;
+  try { ({ scanQR } = await import('./qr-camera')); }
+  catch { status.textContent = '相機掃描載入失敗，請重新整理頁面後再試。'; return; }
+  finally { cameraOpening = false; }
+  status.textContent = '';
+  let text: string | undefined;
+  try { text = await scanQR(prescriptionText, { title: '將處方箋上的 QR 放進框內', other: '這不是處方 QR，請對準處方箋上的 QR。' }); }
+  catch (error) { status.textContent = (error as Error).message; return; }
+  if (text === undefined) return; // Closed without a scan.
+  const added = slipScan(text, true);
+  status.textContent = added.message;
+  (added.card ?? status).scrollIntoView({ behavior: 'smooth', block: added.card ? 'start' : 'center' });
+});
 function validateManualDate() {
   if (!date.value) { datePicker.value = ''; return; }
   try {
@@ -665,7 +696,8 @@ for (const radio of document.querySelectorAll<HTMLInputElement>('input[name=mode
   // Each mode keeps its own state; the shared entry field is empty for scanning in 憑單 mode.
   if (mode === 'slip') { calcDate = date.value; date.value = ''; date.setCustomValidity(''); }
   else date.value = calcDate;
-  date.focus();
+  // On a phone the text field would bring up the keyboard; its 憑單 scans come from the camera.
+  (mode === 'slip' && camera ? cameraButton : date).focus();
 });
 // Cancel before blur so a partial scan cannot move the reset button mid-click.
 form.querySelector<HTMLButtonElement>('button[type=reset]')!.addEventListener('pointerdown', clearScan);
