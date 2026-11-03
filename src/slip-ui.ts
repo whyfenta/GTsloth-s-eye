@@ -19,7 +19,7 @@ interface Drug { code: string; total: string; missing: boolean; name: string; qu
 // more: the follow-up QRs of drugs only, so a rescan of one is not added twice. sample: the de-identified line sent when the
 // slip is printed (only with samples on), and sent once that request has gone out. patient: the 科別, age band and diagnoses under the name.
 interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
-  patient: HTMLTableElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
+  patient: HTMLDListElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -37,6 +37,8 @@ const call = element<HTMLInputElement>('slip-call');
 const note = element<HTMLTextAreaElement>('slip-note');
 const tripBox = element('slip-trips');
 const scanField = element<HTMLInputElement>('prescription-date');
+/** The scan field's message (已加入第 n 張…), which a removed or cleared card makes wrong. */
+const scanStatus = element('qr-status');
 let items: Item[] = [];
 /** 健保碼 → 六碼, loaded on the first scan. */
 let catalog: Map<string, Product[]> | undefined;
@@ -312,14 +314,20 @@ function listDrugs(item: Item) {
 function fillItem(item: Item) {
   const li = item.element;
   const head = make('div', 'slip-item-head');
-  const remove = make('button', '', '移除');
+  const remove = make('button', '', '移除本單');
   remove.type = 'button';
-  remove.addEventListener('click', () => { items = items.filter(other => other !== item); li.remove(); placeExtras(); status.textContent = ''; update(); });
+  remove.addEventListener('click', () => {
+    items = items.filter(other => other !== item);
+    li.remove();
+    placeExtras();
+    status.textContent = scanStatus.textContent = '';
+    update();
+  });
   head.append(item.heading, make('span', 'hint', `處方 ${fullDate(item.date)} · ${item.days} 天`), remove);
   const fields = make('div', 'slip-item-fields');
   const hospital = textInput(item.hospital, '查詢醫院名冊中…', value => { item.hospital = value; });
   hospital.dataset.role = 'hospital';
-  // Scan → refill count (2 by default) → visit (inferred by default) → back to the scan field for the next prescription.
+  // Scan → refill count (3 by default) → visit (inferred by default) → back to the scan field for the next prescription.
   const count = segmented('可調劑次數', [[2, '2 次'], [3, '3 次']], value => { item.count = value; },
     () => { if (performance.now() - scannedAt > 300) focusChoice(item.visits); });
   const visit = segmented('本次第幾次', [[1, '第 1 次'], [2, '第 2 次'], [3, '第 3 次']], value => { item.visit = value; }, () => scanField.focus());
@@ -401,10 +409,10 @@ export function addPrescription(qr: SlipQR, scanned = ''): { message: string; fo
   const existing = items.findIndex(item => item.key === key);
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
-  const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 2, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
+  const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 3, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
     drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
-    patient: make('table', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
+    patient: make('dl', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
     ...(samples && scanned ? { sample: sampleOf(scanned) } : {}) };
   item.check.hidden = item.patient.hidden = !rxOn;
   item.drugs.forEach(identify);
@@ -424,7 +432,7 @@ export function addPrescription(qr: SlipQR, scanned = ''): { message: string; fo
   }).catch((error: Error) => { status.textContent = error.message; });
   update();
   scannedAt = performance.now();
-  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 2 次、本次第幾次依日期推算：以方向鍵選擇，Enter 確認後回到掃碼欄。`
+  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 3 次、本次第幾次依日期推算：以方向鍵選擇，Enter 確認後回到掃碼欄。`
     + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), focus: item.counts.find(radio => radio.checked) };
 }
 
@@ -448,7 +456,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): { message: string; focus?: 
   listDrugs(item);
   showCheck(item);
   update();
-  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除」後重掃。` };
+  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除本單」後重掃。` };
 }
 
 // A mobile number ticks 簡訊發送, any other number 電話通知; this runs before the panel's update below.
@@ -462,7 +470,9 @@ phone.addEventListener('input', () => {
 panel.addEventListener('input', update);
 panel.addEventListener('change', update);
 element('slip-clear').addEventListener('click', () => {
-  if (confirm('確定要清空憑單？已掃入的處方、尚差品項、聯絡電話與備註都會清除，無法復原。')) clearSlip();
+  if (!confirm('確定要清空憑單？已掃入的處方、尚差品項、聯絡電話與備註都會清除，無法復原。')) return;
+  clearSlip();
+  scanStatus.textContent = '';
 });
 element('slip-print').addEventListener('click', async () => {
   try {
