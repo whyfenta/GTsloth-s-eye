@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { addDays, autoCalculate, rangeDays, calculate, dayNumber, dial, inferVisit, rocDate, sameOutcome, taiwanToday, visitAfter } from '../src/arithmetic-model';
-import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionDrugs, parsePrescriptionSlip } from '../src/prescription-qr';
+import { decodePrescriptionBytes, parsePrescription, parsePrescriptionBytes, parsePrescriptionDrugs, parsePrescriptionSlip, prescriptionText } from '../src/prescription-qr';
 
 assert.equal(taiwanToday(new Date('2026-10-23T16:00:00Z')), '2026-10-24');
 assert.equal(taiwanToday(new Date('2026-10-23T15:59:59Z')), '2026-10-23');
@@ -50,6 +50,17 @@ const big5 = new Uint8Array([...prefix, 0xA4, 0xA4, ...suffix]);
 assert.equal(decodePrescriptionBytes(big5).encoding, 'big5');
 assert.equal(parsePrescriptionBytes(big5).date, '2026-01-01');
 assert.throws(() => decodePrescriptionBytes(new Uint8Array([0x81])));
+// The camera gives a QR's bytes: a prescription's layout closes it with the decoded text, any other QR leaves it looking.
+const encode = (text: string) => new TextEncoder().encode(text);
+assert.equal(prescriptionText(encode(sample)), sample);
+assert.equal(prescriptionText(big5), sample.replace('測試', '中'));
+assert.equal(parsePrescriptionSlip(prescriptionText(big5)!).name, '中');
+assert.equal(prescriptionText(encode(sample + '\r\n')), sample);
+assert.equal(prescriptionText(encode('TESTCODE02;1;QD;PO;28;')), 'TESTCODE02;1;QD;PO;28;');
+assert.equal(prescriptionText(encode(fields.slice(0, 18).join(';') + ';')), undefined);
+assert.equal(prescriptionText(encode(sample + 'X;')), undefined);
+for (const other of ['https://example.com/', 'WIFI:T:WPA;S:Store;P:secret;;', 'MECARD:N:Test;TEL:0912345678;EMAIL:a@example.com;;', 'A1B2C3D4E5']) assert.equal(prescriptionText(encode(other)), undefined);
+assert.equal(prescriptionText(new Uint8Array([0x81])), undefined);
 assert.throws(() => parsePrescription(sample + ';'));
 assert.throws(() => parsePrescription(fields.slice(0, 18).join(';') + ';'));
 assert.throws(() => parsePrescription(sample.replace('1150101', '1150230')));

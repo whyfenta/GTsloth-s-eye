@@ -397,11 +397,13 @@ export function clearSlip() {
 export function rejectScan(scanned: string, error: unknown) {
   if (samples && scanned.includes(';') && rejected.length < MAX_FAILED) rejected.push(failureLine(scanned, error));
 }
+/** What a scan did: the message for the scan field and, when the slip took it, its card and the control to type into next. */
+export interface Scanned { message: string; card?: HTMLElement; focus?: HTMLElement }
 /**
- * Adds a scanned prescription; returns the message for the scan field and, when added, the control to type into next.
- * scanned: the QR text, read here for the de-identified sample only and not kept.
+ * Adds a scanned prescription. scanned: the QR text, read here for the de-identified sample only and not kept.
+ * camera: read by the phone camera, where the card is tapped rather than keyed through.
  */
-export function addPrescription(qr: SlipQR, scanned = ''): { message: string; focus?: HTMLElement } {
+export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scanned {
   const restarted = printed;
   if (printed) clearSlip();
   status.textContent = '';
@@ -432,12 +434,13 @@ export function addPrescription(qr: SlipQR, scanned = ''): { message: string; fo
   }).catch((error: Error) => { status.textContent = error.message; });
   update();
   scannedAt = performance.now();
-  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 3 次、本次第幾次依日期推算：以方向鍵選擇，Enter 確認後回到掃碼欄。`
-    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), focus: item.counts.find(radio => radio.checked) };
+  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 3 次、本次第幾次依日期推算：`
+    + (camera ? '請在卡片上核對；處方有第 2 個 QR 時，再按相機鈕掃描。' : '以方向鍵選擇，Enter 確認後回到掃碼欄。')
+    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), card: item.element, focus: item.counts.find(radio => radio.checked) };
 }
 
 /** A follow-up QR has no patient or date, so it joins the prescription scanned last; nothing in the first QR says one follows. */
-export function addDrugs(qr: DrugsQR, scanned = ''): { message: string; focus?: HTMLElement } {
+export function addDrugs(qr: DrugsQR, scanned = ''): Scanned {
   const item = items.at(-1);
   if (!item || printed) return { message: '這張 QR 只有藥品，是處方的第 2 個 QR。請先掃同一張處方的第 1 個 QR（有姓名與日期的那個），再掃這個。' };
   const index = items.length;
@@ -456,7 +459,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): { message: string; focus?: 
   listDrugs(item);
   showCheck(item);
   update();
-  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除本單」後重掃。` };
+  return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除本單」後重掃。`, card: item.element };
 }
 
 // A mobile number ticks 簡訊發送, any other number 電話通知; this runs before the panel's update below.

@@ -26,8 +26,9 @@
             <div class="date-entry">
               <input id="prescription-date" type="text" placeholder="掃碼或選擇日期" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
               <span class="calendar-control calc-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><input id="date-picker" type="date" aria-label="選擇處方日期" /></span>
+              <button type="button" id="qr-camera" class="camera-control slip-only" aria-label="用相機掃描處方 QR" title="用相機掃描處方 QR" data-camera hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3V8Zm9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></button>
             </div>
-            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">如病患/家屬多張處方有區間重疊，可在此連續刷入。</span></p>
+            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">如病患/家屬多張處方有區間重疊，可在此連續刷入。<span data-camera hidden>手機可按右側相機鈕掃描，掃到處方 QR 即關閉鏡頭、回到憑單。</span></span></p>
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select>
