@@ -19,8 +19,9 @@ export function deidentify(scanned: string, scannedAs?: string): string {
   line[4] = sexMark(sexOf(fields[4]));
   line[5] = ageBand(fields[5], fields[7]);
   line[12] = fields[12] === fields[0] ? fields[12] : '';
-  // Field 14 joins codes and the free-text allergy history with commas; only the allergy part stays, cut at its first comma.
-  line[13] = fields[13].split(',').filter(part => /^\s*過敏史[:：]/.test(part)).join(',');
+  // Field 14 joins codes and the free-text allergy history with commas, or for one hospital lists allergies with ; (see alignFields);
+  // only the allergy part stays, cut at its first comma or ;, so the line keeps its fields.
+  line[13] = fields[13].split(/[,;]/).filter(part => /^\s*過敏史[:：]/.test(part)).join(',');
   if (line.some(value => /[\r\n\u2028\u2029]/.test(value))) throw new Error('保留欄位含換行，無法輸出單行樣本。');
   return line.join(';') + ';';
 }

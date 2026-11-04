@@ -35,6 +35,10 @@ for (const [value, kept] of [['過敏史:藥物甲', '過敏史:藥物甲'], ['T
   ['TESTNOTE01,過敏史:藥物甲,藥物乙,TESTVISIT02', '過敏史:藥物甲'], ['TESTNOTE01,過敏史:藥物甲、藥物乙', '過敏史:藥物甲、藥物乙'], ['TEST過敏史:藥物甲', '']]) {
   assert.equal(field(qr({ 14: value }), 14), kept, value);
 }
+// A hospital listing allergies in field 14 with ; spreads it over several fields; the line keeps 14 + 5n fields, field 14 cut at the first ;.
+for (const [value, kept] of [['TESTALLERGYA;TESTALLERGYB;TESTALLERGYC', ''], ['過敏史:藥物甲;TESTALLERGYB', '過敏史:藥物甲'], ['TESTALLERGYA;過敏史:藥物甲', '過敏史:藥物甲']]) {
+  assert.equal(deidentify(qr({ 14: value })), expected.replace(';過敏史:藥物甲;', `;${kept};`), value);
+}
 // Drug fields stay as scanned. Only a blank drug code is refused; a blank dose, frequency, route or total stays a blank field.
 assert.equal(field(qr({ 16: '.5', 19: 'X1' }), 19), 'X1');
 for (const n of [16, 17, 18, 19, 21, 22, 23, 24]) for (const value of ['', ' ']) assert.equal(field(qr({ [n]: value }), n), value, `第 ${n} 欄`);
