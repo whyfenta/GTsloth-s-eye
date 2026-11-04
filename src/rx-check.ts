@@ -49,9 +49,9 @@ const COLUMNS: Record<RuleFile, string[]> = {
 interface Indication { atc: string[]; dx: string[]; basis: string }
 interface CoDrug { atc: string[]; partners: string[]; basis: string; note: string }
 /** One condition of a caution; key is its type and written value, to tell when one caution has all of another's conditions. */
-type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | { kind: '年齡'; below: boolean; years: number } | { kind: '性別'; sex: 'M' | 'F' }
+export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | { kind: '年齡'; below: boolean; years: number } | { kind: '性別'; sex: 'M' | 'F' }
   | { kind: '同處方'; partners: { atc: string; frequency: string }[] });
-interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
+export interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
   repeated: Level; byDepartment: boolean }
@@ -71,7 +71,7 @@ function isIcd(token: string): boolean {
   return low.length === high.length && low <= high;
 }
 const tokens = (value: string) => value.split(/\s+/).filter(Boolean);
-const atcHit = (atc: string, prefixes: string[]) => prefixes.some(prefix => atc.startsWith(prefix));
+export const atcHit = (atc: string, prefixes: string[]) => prefixes.some(prefix => atc.startsWith(prefix));
 /** A token is a prefix (E11, N18.4) or a range (I10-I16) whose ends are compared at the low end's length. */
 function icdHit(code: string, token: string): boolean {
   if (!token.includes('-')) return code.startsWith(normCode(token));
@@ -79,9 +79,9 @@ function icdHit(code: string, token: string): boolean {
   const part = code.slice(0, low.length);
   return low <= part && part <= high;
 }
-const icdHits = (dx: string[], spec: string[]) => dx.filter(code => spec.some(token => icdHit(code, token)));
+export const icdHits = (dx: string[], spec: string[]) => dx.filter(code => spec.some(token => icdHit(code, token)));
 /** true or false; undefined when the band straddles n or there is no band. */
-function ageAtLeast(band: string, n: number): boolean | undefined {
+export function ageAtLeast(band: string, n: number): boolean | undefined {
   const match = /^AGE(\d+)(?:-(\d+)|\+)$/.exec(band);
   if (!match) return undefined;
   const low = Number(match[1]), high = match[2] ? Number(match[2]) : 200;
