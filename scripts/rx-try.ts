@@ -3,21 +3,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileRules, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion, type RxData } from '../src/rx-data';
+import { describeSample, ruleCoverage } from '../src/rx-review';
 import { isFailure, sampleCheck, type SampleCheck } from '../src/rx-sample';
 
-// Usage: npm run rx-try -- 樣本1.txt [樣本2.txt …] [--lines]
+// Usage: npm run rx-try -- 樣本1.txt [樣本2.txt …] [--lines] [--detail] [--coverage]
 //        npm run rx-try -- --version   (the published rules' version, as the sample sheet's 規則版本 column records it)
 // Runs de-identified sample lines (the collector's .txt, or the weekly export in 驗證用) through the published rules
 // (public/assets/rx/rules.json) and through the tables as they are now in docs/reference/rx-rules/, so an edit can be tried
 // before `npm run rx-assets`. Prints counts, then each prescription whose check changed by file and line number; --lines adds
-// the lines themselves. Samples stay on this computer: never run it in CI or paste its --lines output outside the team.
+// the lines themselves. With the tables as they are now, --detail writes out every prescription (diagnoses with names, drugs
+// with ATC, ingredients and daily count, and what the rules say), for looking for problems no rule catches; --coverage counts,
+// for each caution, the prescriptions it fired on, those with its drug and with each condition, and those it would catch if
+// combination products counted their ingredients. Samples stay on this computer: never run it in CI or paste its --lines or
+// --detail output outside the team.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const showLines = args.includes('--lines');
+const showLines = args.includes('--lines'), showDetail = args.includes('--detail'), showCoverage = args.includes('--coverage');
 const files = args.filter(arg => !arg.startsWith('--'));
 const json = (name: string) => JSON.parse(readFileSync(path.join(root, 'public', 'assets', 'rx', `${name}.json`), 'utf8'));
 if (args.includes('--version')) { console.log(rulesVersion(json('rules'))); process.exit(0); }
-if (!files.length) { console.error('用法：npm run rx-try -- 樣本1.txt [樣本2.txt …] [--lines]，或 npm run rx-try -- --version'); process.exit(2); }
+if (!files.length) { console.error('用法：npm run rx-try -- 樣本1.txt [樣本2.txt …] [--lines] [--detail] [--coverage]，或 npm run rx-try -- --version'); process.exit(2); }
 
 const [published, drugs, icd] = ['rules', 'drugs', 'icd10cm'].map(json);
 const before = readRxData(published, drugs, icd);
@@ -63,3 +68,31 @@ const unexplained = new Map<string, number>();
 for (const [, b] of checks) for (const item of b.unexplained) { const atc = item.split(' ')[1]; unexplained.set(atc, (unexplained.get(atc) ?? 0) + 1); }
 const top = [...unexplained].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 20);
 console.log(`\n目前的規則表下，未解釋最多的 ATC：${top.map(([atc, n]) => `${atc} ×${n}`).join('、') || '無'}`);
+
+if (showCoverage) {
+  const coverage = ruleCoverage(lines.map(({ line }) => line), after);
+  const where = (indices: number[]) => indices.map(i => `${lines[i].file}:${lines[i].number}`).join(' ');
+  console.log(`\n規則覆蓋度（目前的規則表，樣本 ${lines.length} 張；數字都是張數，「複方」指只在複方成分裡出現）`);
+  for (const row of coverage) {
+    const conditions = row.conditions.map(c => `${c.label} ${c.holds}${c.combo ? `（另複方 ${c.combo}）` : ''}`).join('；');
+    console.log(`${row.id} ${row.level}｜命中 ${row.fired}｜藥品端 ${row.drug}${row.drugCombo ? `（另複方 ${row.drugCombo}）` : ''}｜${conditions}`
+      + (row.comboMisses.length ? `｜複方可能漏掉 ${row.comboMisses.length}：${where(row.comboMisses)}` : ''));
+    if (showLines) for (const i of row.comboMisses) console.log(`  行：${lines[i].line}`);
+  }
+  const silent = coverage.filter(row => !row.fired);
+  const group = (title: string, rows: typeof coverage) => { if (rows.length) console.log(`  ${title}：${rows.map(row => row.id).join('、')}`); };
+  console.log(`\n沒有命中的 ${silent.length} 條：`);
+  group('樣本裡沒有這類藥', silent.filter(row => !row.drug && !row.drugCombo));
+  group('這類藥只在複方裡', silent.filter(row => !row.drug && row.drugCombo));
+  group('有這類藥，但有條件從沒成立', silent.filter(row => row.drug && row.conditions.some(c => !c.holds && !c.combo)));
+  group('藥和條件都出現過，但不在同一張', silent.filter(row => row.drug && row.conditions.every(c => c.holds || c.combo) && !row.comboMisses.length));
+  const misses = coverage.filter(row => row.comboMisses.length);
+  console.log(`複方可能漏掉的：${misses.map(row => `${row.id}（${row.comboMisses.length} 張）`).join('、') || '無'}`);
+}
+if (showDetail) {
+  console.log('\n逐張明細（目前的規則表）：');
+  for (const { file, number, line } of lines) {
+    console.log(`\n${file}:${number}`);
+    for (const text of describeSample(line, after)) console.log(text);
+  }
+}
