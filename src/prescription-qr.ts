@@ -169,17 +169,20 @@ export function rxFacts(fields: string[], age: string, sex: Sex): RxFacts {
   for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3] });
   return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, sex, drugs };
 }
+/** A first QR's fields start with the 10-digit institution code; this many or more is a prescription, whatever its layout. */
+const FIRST_QR_FIELDS = 10;
 /**
- * The text of a QR read by the phone camera, when it has a prescription's layout, from UTF-8 or Big5 bytes: a first QR's
- * 10-digit institution code and 14 + 5n fields (field 14 can hold more, see alignFields), or a drugs-only QR's 5n. Any other QR
- * (a web address, a member card) is undefined, so the camera keeps looking; what the fields hold is checked as for a keyboard scan.
+ * The text of a QR read by the phone camera, when it is a prescription's, from UTF-8 or Big5 bytes: a first QR's 10-digit
+ * institution code and at least FIRST_QR_FIELDS fields, or a drugs-only QR's 5n. A first QR is taken whatever its layout, so one
+ * the slip cannot read closes the camera with the reason and is kept as a failure, as a keyboard scan is. Any other QR (a web
+ * address, a member card) is undefined, so the camera keeps looking; what the fields hold is checked as for a keyboard scan.
  */
 export function prescriptionText(bytes: Uint8Array): string | undefined {
   let text: string;
   try { text = decodePrescriptionBytes(bytes).text.replace(/[\r\n]+$/, ''); } catch { return undefined; }
   if (!text.includes(';')) return undefined;
   const fields = splitFields(text);
-  const shaped = /^\d{10}$/.test(fields[0].trim()) ? !!alignFields(fields) : fields.length >= 5 && fields.length % 5 === 0;
+  const shaped = /^\d{10}$/.test(fields[0].trim()) ? fields.length >= FIRST_QR_FIELDS : fields.length >= 5 && fields.length % 5 === 0;
   return shaped ? text : undefined;
 }
 export function parsePrescriptionBytes(bytes: Uint8Array): PrescriptionQR {
