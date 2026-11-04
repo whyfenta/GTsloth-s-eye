@@ -50,16 +50,21 @@ const big5 = new Uint8Array([...prefix, 0xA4, 0xA4, ...suffix]);
 assert.equal(decodePrescriptionBytes(big5).encoding, 'big5');
 assert.equal(parsePrescriptionBytes(big5).date, '2026-01-01');
 assert.throws(() => decodePrescriptionBytes(new Uint8Array([0x81])));
-// The camera gives a QR's bytes: a prescription's layout closes it with the decoded text, any other QR leaves it looking.
+// The camera gives a QR's bytes: a prescription's QR closes it with the decoded text, any other QR leaves it looking.
 const encode = (text: string) => new TextEncoder().encode(text);
 assert.equal(prescriptionText(encode(sample)), sample);
 assert.equal(prescriptionText(big5), sample.replace('測試', '中'));
 assert.equal(parsePrescriptionSlip(prescriptionText(big5)!).name, '中');
 assert.equal(prescriptionText(encode(sample + '\r\n')), sample);
 assert.equal(prescriptionText(encode('TESTCODE02;1;QD;PO;28;')), 'TESTCODE02;1;QD;PO;28;');
-assert.equal(prescriptionText(encode(fields.slice(0, 18).join(';') + ';')), undefined);
-assert.equal(prescriptionText(encode(sample + 'X;')), undefined);
-for (const other of ['https://example.com/', 'WIFI:T:WPA;S:Store;P:secret;;', 'MECARD:N:Test;TEL:0912345678;EMAIL:a@example.com;;', 'A1B2C3D4E5']) assert.equal(prescriptionText(encode(other)), undefined);
+// A first QR the slip cannot read still closes the camera, so the slip shows why and keeps it as a failure, as for a keyboard scan.
+for (const odd of [fields.slice(0, 10).join(';') + ';', fields.slice(0, 18).join(';') + ';', sample + 'X;']) {
+  assert.equal(prescriptionText(encode(odd)), odd);
+  assert.throws(() => parsePrescriptionSlip(odd), /不是支援的處方 QR 格式/);
+}
+// Fewer fields after a 10-digit start, a drugs-only QR that is not 5n, and any other QR keep the camera looking.
+for (const other of ['https://example.com/', 'WIFI:T:WPA;S:Store;P:secret;;', 'MECARD:N:Test;TEL:0912345678;EMAIL:a@example.com;;', 'A1B2C3D4E5',
+  fields.slice(0, 9).join(';') + ';', '0912345678;TEST;', 'TESTCODE02;1;QD;PO;']) assert.equal(prescriptionText(encode(other)), undefined, other);
 assert.equal(prescriptionText(new Uint8Array([0x81])), undefined);
 assert.throws(() => parsePrescription(sample + ';'));
 assert.throws(() => parsePrescription(fields.slice(0, 18).join(';') + ';'));
@@ -103,7 +108,7 @@ for (let n = 1; n <= 7; n++) {
 // A drug missing a field is never moved into field 14 to make the rest fit: its code, dose and total have digits, allergy names do not.
 const shortDrug = allergyQR(['TESTALLERGYA'], [['TESTCODE01', 'X1', 'QID', 'OS'], ...allergyDrugs]);
 assert.throws(() => parsePrescriptionSlip(shortDrug));
-assert.equal(prescriptionText(new TextEncoder().encode(shortDrug)), undefined);
+assert.equal(prescriptionText(new TextEncoder().encode(shortDrug)), shortDrug);
 assert.throws(() => parsePrescriptionSlip(allergyQR(['TESTALLERGYA', 'TESTALLERGY2'])));
 // Nor is the first drug when its total is not a number, though 14 + 5n would fit without it.
 assert.throws(() => parsePrescriptionSlip(allergyQR(['TESTALLERGYA'], [['TESTCODE00', '1', 'QD', 'PO', 'TESTTOTAL'], ...allergyDrugs])));

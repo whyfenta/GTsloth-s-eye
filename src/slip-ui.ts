@@ -7,7 +7,7 @@ import { rxCheckOn } from './rx-check-config';
 import { renderPatient, renderRxCheck } from './rx-check-ui';
 import { loadRxData, type RxData } from './rx-data';
 import { failureLine } from './prescription-sample';
-import { MAX_FAILED, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
+import { FailureLog, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
 import { SAMPLE_ENDPOINT, samplesOn } from './sample-config';
 import { buildSlip, contactKind, patientGroups, planSlip, prescriptionAhead, MISSING_ROWS, type ContactKind, type MissingItem, type Person, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
@@ -50,8 +50,8 @@ let rxData: RxData | undefined;
 let rxError = '';
 /** 處方樣本: on whenever src/sample-config.ts has an address (?samples=0 turns it off). The check summary needs the rule data too. */
 const samples = samplesOn(location.search);
-/** Failure lines of scans the slip turned down, sent with the next printed slip. */
-let rejected: string[] = [];
+/** Failure lines of scans the slip turned down, sent a few seconds after the scan, or with a slip printed before then. */
+const rejected = new FailureLog(failed => sendSamples(sampleRecords([], failed, undefined, __APP_VERSION__, new Date().toISOString()), SAMPLE_ENDPOINT));
 element('slip-sample-note').hidden = !samples;
 /** The calculated trips, and dates agreed with the patient in their place; base is the window they replaced. */
 let plan: SlipPlan | undefined;
@@ -427,7 +427,7 @@ export function clearSlip() {
 }
 /** A scan the slip turned down is kept as the collector's failure line, its reason and field count only. */
 export function rejectScan(scanned: string, error: unknown) {
-  if (samples && scanned.includes(';') && rejected.length < MAX_FAILED) rejected.push(failureLine(scanned, error));
+  if (samples && scanned.includes(';')) void rejected.add(scanned, failureLine(scanned, error));
 }
 /** What a scan did: the message for the scan field and, when the slip took it, its card and the control to type into next. */
 export interface Scanned { message: string; card?: HTMLElement; focus?: HTMLElement }
@@ -488,7 +488,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): Scanned {
   if (item.sample && scanned) {
     const joined = withDrugs(item.sample, scanned);
     item.sample = joined.sample;
-    if (joined.failed && rejected.length < MAX_FAILED) rejected.push(joined.failed);
+    if (joined.failed) void rejected.add(scanned, joined.failed);
   }
   listDrugs(item);
   showChecks();
@@ -523,15 +523,14 @@ element('slip-print').addEventListener('click', async () => {
   } catch (error) { status.textContent = (error as Error).message; }
 });
 /**
- * After printing, the slip's prescriptions not yet sent go to the sample sheet with the failures since the last print. The check
- * summary needs the rule data; when it cannot load the lines go without it. A failed request is tried again on the next print.
+ * After printing, the slip's prescriptions not yet sent go to the sample sheet with the failures not sent yet. The check summary
+ * needs the rule data; when it cannot load the lines go without it. A failed request is tried again on the next print.
  */
 async function shareSamples(): Promise<string> {
   if (!samples) return '';
   const fresh = items.filter(item => item.sample && !item.sent);
-  if (!fresh.length && !rejected.length) return '';
-  const failed = rejected;
-  rejected = [];
+  const failed = rejected.take();
+  if (!fresh.length && !failed.length) return '';
   for (const item of fresh) item.sent = true;
   let data = rxData;
   if (!data) try { data = rxData = await loadRxData(); } catch { /* Sent without the check summary. */ }
@@ -540,9 +539,10 @@ async function shareSamples(): Promise<string> {
     return fresh.length ? `已送出 ${fresh.length} 張處方的去識別化樣本。` : '';
   } catch {
     for (const item of fresh) item.sent = false;
-    rejected = [...failed, ...rejected].slice(0, MAX_FAILED);
+    rejected.restore(failed);
     return '去識別化樣本沒有送出（網路問題），不影響憑單；重印時會再送一次。';
   }
 }
-window.addEventListener('pagehide', clearSlip);
+// Failures still waiting go now, in a request that outlives the page; the slip itself is cleared.
+window.addEventListener('pagehide', () => { void rejected.flush(); clearSlip(); });
 clearSlip();

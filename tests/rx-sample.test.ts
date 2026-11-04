@@ -3,7 +3,7 @@ import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { deidentify } from '../src/prescription-sample';
 import { checkPrescription, compileRules, ruleTable, type DrugInfo, type IcdEntry, type RuleTables } from '../src/rx-check';
 import { rulesVersion, type RxData } from '../src/rx-data';
-import { MAX_BATCH, MAX_FAILED, SAMPLE_FORMAT, sampleCheck, sampleOf, sampleRecords, sendSamples, withDrugs } from '../src/rx-sample';
+import { FAILURE_DELAY, FailureLog, MAX_BATCH, MAX_FAILED, SAMPLE_FORMAT, sampleCheck, sampleOf, sampleRecords, sendSamples, withDrugs } from '../src/rx-sample';
 import { samplesOn } from '../src/sample-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -109,4 +109,47 @@ const sha = (c: string) => c.repeat(64);
 assert.equal(rulesVersion({ tables, sourceSha256: { 'indications.csv': sha('a'), 'co-drugs.csv': sha('b'), 'cautions.csv': sha('c'), 'specialty.csv': sha('d'),
   'drug-classes.csv': sha('e'), 'settings.csv': sha('f') } }), 'aaaabbbbccccddddeeeeffff');
 assert.equal(rulesVersion({ tables }), '-'.repeat(24));
+// A turned-down scan is sent a few seconds later, not with the next print: a QR the slip cannot read is rarely printed.
+assert.ok(FAILURE_DELAY >= 1000 && FAILURE_DELAY <= 10_000);
+const sent: string[][] = [];
+let down = false;
+const send = async (failed: string[]) => { if (down) throw new TypeError('Failed to fetch'); sent.push(failed); };
+// Counted through a call, so asserting a count does not narrow sent's type for what follows.
+const count = () => sent.length;
+const timed = new FailureLog(send, 20);
+await timed.add('TESTSCAN00;', '失敗：零，欄位數 2');
+assert.equal(count(), 0);
+await new Promise(resolve => setTimeout(resolve, 200));
+assert.deepEqual(sent, [['失敗：零，欄位數 2']]);
+// The rest flush by hand, as the delay or closing the page would. Scans before a send go in one request; the same QR turned down
+// again is kept once.
+sent.length = 0;
+const log = new FailureLog(send, 60_000);
+const bad = qr('E11.9#', ['TESTMETF01']) + 'X;';
+await log.add(bad, '失敗：甲，欄位數 20');
+await log.add(bad, '失敗：甲，欄位數 20');
+await log.add(drugsQR(['TESTMETF01']) + 'X;', '失敗：乙，欄位數 6');
+await log.flush();
+await log.add(bad, '失敗：甲，欄位數 20');
+await log.flush();
+assert.deepEqual(sent, [['失敗：甲，欄位數 20', '失敗：乙，欄位數 6']]);
+// A slip printed first takes the waiting lines; nothing is sent twice.
+await log.add('TESTSCAN01;', '失敗：丙，欄位數 2');
+assert.deepEqual(log.take(), ['失敗：丙，欄位數 2']);
+await log.flush();
+assert.equal(count(), 1);
+// A send that fails keeps its lines, ahead of the next failure's, and they go with it.
+down = true;
+await log.add('TESTSCAN02;', '失敗：丁，欄位數 2');
+await log.flush();
+assert.equal(count(), 1);
+down = false;
+await log.add('TESTSCAN03;', '失敗：戊，欄位數 2');
+await log.flush();
+assert.deepEqual(sent[1], ['失敗：丁，欄位數 2', '失敗：戊，欄位數 2']);
+// At most MAX_FAILED lines wait.
+for (let i = 0; i < MAX_FAILED + 5; i++) await log.add(`TESTSCAN${i};X`, `失敗：${i}，欄位數 2`);
+await log.flush();
+assert.equal(sent[2].length, MAX_FAILED);
+assert.deepEqual(log.take(), []);
 console.log('rx-sample tests passed');

@@ -3,7 +3,7 @@
 // collector keeps and nothing else; the check summary is worked out again from that line, never from the scan.
 import { postAppsScript } from './apps-script';
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
-import { deidentify, deidentifyDrugs, failureLine } from './prescription-sample';
+import { deidentify, deidentifyDrugs, failureLine, scanKey } from './prescription-sample';
 import { checkPrescription, dxLabel, type Level } from './rx-check';
 import type { RxData } from './rx-data';
 
@@ -91,4 +91,45 @@ export function sampleRecords(samples: PendingSample[], failed: string[], data: 
 }
 export async function sendSamples(records: SampleRecord[], endpoint: string, post: typeof fetch = fetch): Promise<void> {
   for (const record of records) await postAppsScript(endpoint, record, post);
+}
+
+/** How long a failure waits before it is sent, so a QR rescanned at once and the scans around it go in one request. */
+export const FAILURE_DELAY = 5_000;
+/**
+ * Failure lines of scans the 憑單 turned down. A QR the slip cannot read is usually written by hand and never printed, so its
+ * line is sent shortly after the scan rather than waiting for a print; a print still takes the lines not yet sent. The same QR
+ * turned down again is kept once, matched by the SHA-256 of its text in page memory. A send that fails keeps its lines for the
+ * next failure or print.
+ */
+export class FailureLog {
+  private lines: string[] = [];
+  private keys = new Set<string>();
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  constructor(private readonly send: (failed: string[]) => Promise<void>, private readonly delay = FAILURE_DELAY) {}
+  /** Keeps the failure line of a scan unless the same text was turned down before, and sends it after the delay. */
+  async add(scanned: string, line: string): Promise<void> {
+    // Without a secure context there is no digest: the line is kept, only not matched against earlier ones.
+    const key = await scanKey(scanned).catch(() => undefined);
+    if (key && this.keys.has(key)) return;
+    if (key) this.keys.add(key);
+    this.lines = [...this.lines, line].slice(0, MAX_FAILED);
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { void this.flush(); }, this.delay);
+  }
+  /** The lines not yet sent, for a printed slip's request. */
+  take(): string[] {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    const lines = this.lines;
+    this.lines = [];
+    return lines;
+  }
+  /** Lines a request could not send, kept ahead of newer ones for the next failure or print. */
+  restore(lines: string[]) { this.lines = [...lines, ...this.lines].slice(0, MAX_FAILED); }
+  /** Sends the waiting lines now: the delay is up, or the page is closing. */
+  async flush(): Promise<void> {
+    const lines = this.take();
+    if (!lines.length) return;
+    try { await this.send(lines); } catch { this.restore(lines); }
+  }
 }
