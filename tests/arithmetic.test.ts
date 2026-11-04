@@ -89,6 +89,24 @@ assert.throws(() => parsePrescriptionSlip(sample.replace(';PO;', ';;')));
 // Layout of a real eye clinic QR, patient fields replaced: dose X1 for drops and ointment, notes joined by commas in field 14.
 const eye = [...slipFields.slice(0, 13), '3,00000000,過敏史:無,TESTVISITID', 'TESTCODE01', 'X1', 'QID', 'OS', '1', 'TESTCODE02', 'X1', 'QN', 'OU', '1'];
 assert.deepEqual(parsePrescriptionSlip(eye.join(';') + ';').drugs, [{ code: 'TESTCODE01', total: '1' }, { code: 'TESTCODE02', total: '1' }]);
+// Layout of a real QR whose field 14 lists the allergies with ; (ASPIRIN;NSAID;PENTOXIFYLLINE), patient and doctor fields replaced:
+// the fields past 14 + 5n join field 14, and the drugs are read from where they fit, for 2 to 7 allergies (1 to 6 more fields).
+const allergyDrugs = [['TESTCODE01', '1', 'BID', 'PO', '56'], ['TESTCODE02', '1', 'QD', 'PO', '28']];
+const allergyQR = (allergies: string[], drugs = allergyDrugs) => [...slipFields.slice(0, 12), 'TESTDOCTOR', ...allergies, ...drugs.flat()].join(';') + ';';
+for (let n = 1; n <= 7; n++) {
+  const text = allergyQR(Array.from({ length: n }, (_, i) => `TESTALLERGY${'ABCDEFG'[i]}`));
+  slipQR = parsePrescriptionSlip(text);
+  assert.deepEqual(slipQR.drugs, [{ code: 'TESTCODE01', total: '56' }, { code: 'TESTCODE02', total: '28' }], `${n} 個過敏藥物`);
+  assert.deepEqual(slipQR.rx.drugs, [{ code: 'TESTCODE01', frequency: 'BID', route: 'PO' }, { code: 'TESTCODE02', frequency: 'QD', route: 'PO' }], `${n} 個過敏藥物`);
+  assert.deepEqual([parsePrescription(text).drugCount, prescriptionText(new TextEncoder().encode(text))], [2, text], `${n} 個過敏藥物`);
+}
+// A drug missing a field is never moved into field 14 to make the rest fit: its code, dose and total have digits, allergy names do not.
+const shortDrug = allergyQR(['TESTALLERGYA'], [['TESTCODE01', 'X1', 'QID', 'OS'], ...allergyDrugs]);
+assert.throws(() => parsePrescriptionSlip(shortDrug));
+assert.equal(prescriptionText(new TextEncoder().encode(shortDrug)), undefined);
+assert.throws(() => parsePrescriptionSlip(allergyQR(['TESTALLERGYA', 'TESTALLERGY2'])));
+// Nor is the first drug when its total is not a number, though 14 + 5n would fit without it.
+assert.throws(() => parsePrescriptionSlip(allergyQR(['TESTALLERGYA'], [['TESTCODE00', '1', 'QD', 'PO', 'TESTTOTAL'], ...allergyDrugs])));
 // A scanner that types each Big5 or UTF-8 byte as a Windows-1252 character (測試 → ´ú¸Õ) is decoded back.
 const byteTyped = (bytes: Uint8Array) => [...bytes].map(byte => new TextDecoder('windows-1252').decode(Uint8Array.of(byte))).join('');
 const big5Fields = [...slipFields];

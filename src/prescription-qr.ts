@@ -33,11 +33,31 @@ export function splitFields(text: string): string[] {
   if (fields.at(-1) === '') fields.pop();
   return fields;
 }
+const DECIMAL = /^(?:\d+(?:\.\d+)?|\.\d+)$/;
+/**
+ * A first QR's fields as 14 fixed ones and 5 per drug (code, dose, frequency, route, total), or undefined when they do not fit.
+ * Field 14 is a note, and a hospital can list the allergies there with the ; that also separates fields (ASPIRIN;NSAID;PENTOXIFYLLINE),
+ * which leaves 1 to 4 fields more than 14 + 5n, or 5 more for six allergies. The drugs then start at the first place that fits: its
+ * first group has a code and a positive total, and no field moved into field 14 has a digit, as a drug's code, dose and total do.
+ * Those fields are joined back into field 14 with ;. A QR that fits 14 + 5n keeps its layout unless its first group cannot be a drug.
+ */
+export function alignFields(fields: string[]): string[] | undefined {
+  if (fields.length < 19) return undefined;
+  const fits = (start: number) => {
+    const total = fields[start + 4].trim();
+    return !!fields[start].trim() && DECIMAL.test(total) && /[1-9]/.test(total) && fields.slice(14, start).every(value => !/\d/.test(value));
+  };
+  const extra = (fields.length - 14) % 5;
+  for (let start = 14 + extra; start + 5 <= fields.length; start += 5) {
+    if (fits(start)) return start === 14 ? fields : [...fields.slice(0, 13), fields.slice(13, start).join(';'), ...fields.slice(start)];
+  }
+  return extra ? undefined : fields;
+}
 /** Layout only, shared by every parser: readable text, 14 fixed fields, then 5 per drug (at least one). */
 function layoutFields(text: string): string[] {
   if (text.length > 32_768 || text.includes('�') || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(text)) throw new Error('QR 文字不完整或含亂碼，請重新掃描。');
-  const fields = splitFields(text);
-  if (fields.length < 19 || (fields.length - 14) % 5 !== 0) throw new Error('不是支援的處方 QR 格式，或藥品欄位不完整。');
+  const fields = alignFields(splitFields(text));
+  if (!fields) throw new Error('不是支援的處方 QR 格式，或藥品欄位不完整。');
   return fields;
 }
 /** Any prescription type and number of days: the layout, and a code for every drug; a blank dose, frequency, route or total stays blank. For collecting samples, not for dispensing. */
@@ -56,11 +76,10 @@ function prescriptionFields(text: string): { fields: string[]; date: string } {
   return { fields, date };
 }
 function checkDrugs(fields: string[], start: number) {
-  const decimal = /^(?:\d+(?:\.\d+)?|\.\d+)$/;
   for (let i = start; i < fields.length; i += 5) {
     // Nothing reads the dose and hospitals write it their own way (an eye clinic writes X1), so only the total's format is checked.
     const [code, dose, frequency, route, total] = fields.slice(i, i + 5);
-    if (![code, dose, frequency, route, total].every(v => v.trim()) || !decimal.test(total) || !/[1-9]/.test(total)) throw new Error('QR 藥品欄位缺漏或數量格式不支援，請核對後手動輸入。');
+    if (![code, dose, frequency, route, total].every(v => v.trim()) || !DECIMAL.test(total) || !/[1-9]/.test(total)) throw new Error('QR 藥品欄位缺漏或數量格式不支援，請核對後手動輸入。');
   }
 }
 /** Only non-identifying fields needed for date calculation leave this parser. */
@@ -152,15 +171,15 @@ export function rxFacts(fields: string[], age: string, sex: Sex): RxFacts {
 }
 /**
  * The text of a QR read by the phone camera, when it has a prescription's layout, from UTF-8 or Big5 bytes: a first QR's
- * 10-digit institution code and 14 + 5n fields, or a drugs-only QR's 5n. Any other QR (a web address, a member card) is
- * undefined, so the camera keeps looking; what the fields hold is checked as for a keyboard scan.
+ * 10-digit institution code and 14 + 5n fields (field 14 can hold more, see alignFields), or a drugs-only QR's 5n. Any other QR
+ * (a web address, a member card) is undefined, so the camera keeps looking; what the fields hold is checked as for a keyboard scan.
  */
 export function prescriptionText(bytes: Uint8Array): string | undefined {
   let text: string;
   try { text = decodePrescriptionBytes(bytes).text.replace(/[\r\n]+$/, ''); } catch { return undefined; }
   if (!text.includes(';')) return undefined;
   const fields = splitFields(text);
-  const shaped = /^\d{10}$/.test(fields[0].trim()) ? fields.length >= 19 && fields.length % 5 === 4 : fields.length >= 5 && fields.length % 5 === 0;
+  const shaped = /^\d{10}$/.test(fields[0].trim()) ? !!alignFields(fields) : fields.length >= 5 && fields.length % 5 === 0;
   return shaped ? text : undefined;
 }
 export function parsePrescriptionBytes(bytes: Uint8Array): PrescriptionQR {
