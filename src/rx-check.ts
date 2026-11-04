@@ -14,12 +14,19 @@ export type Sex = 'M' | 'F' | '';
 export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; drugs: { code: string; frequency: string; route: string }[] }
 export interface DrugInfo { atc: string; ingredients: string }
 export interface Note { level: Level; text: string }
-/** A drug's verdict and one-line reason, then the cautions it triggers. info is missing for a code outside the NHI drug list. */
-export interface DrugCheck { code: string; frequency: string; route: string; info?: DrugInfo; verdict: Layer | Level; reason: string; notes: Note[] }
+/**
+ * A drug's verdict and one-line reason, then the cautions it triggers. info is missing for a code outside the NHI drug list.
+ * part: the prescription it is on, when one patient's prescriptions are checked together (0 for a single prescription).
+ */
+export interface DrugCheck { code: string; frequency: string; route: string; part: number; info?: DrugInfo; verdict: Layer | Level; reason: string; notes: Note[] }
 /** notes: the prescription's own, a missing diagnosis first and repeated ingredients last. */
 export interface RxCheck { drugs: DrugCheck[]; notes: Note[] }
-/** How a reason names diagnoses and other drugs' ATC codes: the prototype prints bare codes joined by spaces; the page adds names. */
-export interface Labels { dx: (code: string) => string; atc: (code: string) => string; join: string }
+/**
+ * How a reason names diagnoses and other drugs: the prototype prints bare codes joined by spaces; the page adds names. atc gets
+ * the other drug's ATC and its 健保碼. part names one prescription of a combined check (第 2 張), set before a diagnosis or drug
+ * that comes from another prescription than the drug's own.
+ */
+export interface Labels { dx: (code: string) => string; atc: (atc: string, code: string) => string; join: string; part?: (index: number) => string }
 
 /** 健保就醫科別 (TW Core IG, 健保署譯碼簿 2022/8/2): the codes the prototype names. */
 export const DEPARTMENTS: Record<string, string> = { '00': '不分科', '01': '家醫科', '02': '內科', '03': '外科', '04': '兒科', '05': '婦產科',
@@ -185,7 +192,7 @@ export function compileRules(tables: RuleTables): Rules {
     byDepartment: setting('科別常用', ['保留', '停用']) === '保留' };
 }
 
-const PLAIN: Labels = { dx: code => code, atc: code => code, join: ' ' };
+const PLAIN: Labels = { dx: code => code, atc: atc => atc, join: ' ' };
 /** A caution with all of another's conditions and more, for the same drugs (C17 is C09 plus another drug), replaces it. */
 const covers = (wide: Caution, narrow: Caution) => wide.conditions.length > narrow.conditions.length && wide.keyword === narrow.keyword
   && wide.atc.join(' ') === narrow.atc.join(' ') && narrow.conditions.every(c => wide.conditions.some(d => d.key === c.key));
@@ -195,21 +202,44 @@ const covers = (wide: Caution, narrow: Caution) => wide.conditions.length > narr
  * Cautions (diagnosis, age, sex, another drug) are checked whatever the verdict; a code outside the NHI drug list is low risk.
  */
 export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rules: Rules, labels: Labels = PLAIN): RxCheck {
-  const { dx, dept, age, sex } = rx;
-  const dxText = (codes: string[]) => codes.map(labels.dx).join(labels.join);
-  // One ATC per distinct code: the same code twice on a prescription does not explain itself. A code keeps every frequency it is given at.
+  return checkPrescriptions([rx], drugs, rules, labels);
+}
+/**
+ * One patient's prescriptions checked as one (several departments handed in together), as checkPrescription checks one: every
+ * prescription's diagnoses can explain a drug or rule it out, a drug on one prescription can explain or interact with a drug on
+ * another, and an ingredient on two prescriptions is repeated, even under the same 健保碼 (on one prescription a repeated code
+ * is the same drug at two times of day; on two it is the drug given twice). Each drug keeps its own prescription's department.
+ * A reason that leans on another prescription's diagnosis or drug names that prescription (labels.part). The age band and sex are
+ * the first prescription's that has them. One prescription is checked exactly as the prototype checks it.
+ */
+export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo>, rules: Rules, labels: Labels = PLAIN): RxCheck {
+  const many = parts.length > 1, partName = labels.part ?? ((index: number) => `第 ${index + 1} 張`);
+  // The prescriptions each diagnosis and each code is on.
+  const dxFrom = new Map<string, number[]>(), codeFrom = new Map<string, number[]>();
+  const from = (map: Map<string, number[]>, key: string, index: number) => { const list = map.get(key) ?? []; if (!list.includes(index)) map.set(key, [...list, index]); };
+  parts.forEach((part, index) => { for (const code of part.dx) from(dxFrom, code, index); for (const { code } of part.drugs) from(codeFrom, code, index); });
+  const dx = many ? [...dxFrom.keys()] : parts[0]?.dx ?? [];
+  const age = parts.find(part => part.age)?.age ?? '', sex = parts.find(part => part.sex)?.sex ?? '';
+  /** 第 2 張 before what is not on the drug's own prescription; nothing for a single prescription. */
+  const elsewhere = (on: number[], part: number) => many && !on.includes(part) ? `${on.map(partName).join('、')} ` : '';
+  const list = parts.flatMap((rx, part) => rx.drugs.map(drug => ({ ...drug, part, dept: rx.dept })));
+  // One ATC per distinct code: the same code twice does not explain itself. A code keeps every frequency it is given at.
   const atcs = new Map<string, string>(), frequencies = new Map<string, string[]>();
-  for (const { code, frequency } of rx.drugs) {
+  for (const { code, frequency } of list) {
     const info = drugs.get(code);
     if (info && !atcs.has(code)) atcs.set(code, info.atc);
     frequencies.set(code, [...frequencies.get(code) ?? [], frequency]);
   }
-  const notes: Note[] = dx.length ? [] : [{ level: '灰', text: '處方沒有診斷碼，無法解釋的藥不另提示' }];
-  const checked = rx.drugs.map(({ code, frequency, route }): DrugCheck => {
+  const notes: Note[] = dx.length ? [] : [{ level: '灰', text: `${many ? '各張處方都' : '處方'}沒有診斷碼，無法解釋的藥不另提示` }];
+  const checked = list.map(({ code, frequency, route, part, dept }): DrugCheck => {
     const info = drugs.get(code);
-    if (!info) return { code, frequency, route, verdict: '低風險', reason: '不在健保用藥品項（可能是特材）', notes: [] };
+    if (!info) return { code, frequency, route, part, verdict: '低風險', reason: '不在健保用藥品項（可能是特材）', notes: [] };
     const { atc } = info;
     const others = [...atcs].filter(([other]) => other !== code);
+    const dxText = (codes: string[]) => codes.map(hit => `${elsewhere(dxFrom.get(hit)!, part)}${labels.dx(hit)}`).join(labels.join);
+    const drugText = ([other, value]: [string, string]) => `${elsewhere(codeFrom.get(other)!, part)}${labels.atc(value, other)}`;
+    // Another drug on the drug's own prescription is 同處方; one only on another prescription is named by that prescription.
+    const onOwn = ([other]: [string, string]) => codeFrom.get(other)!.includes(part);
     const verdict = (): Pick<DrugCheck, 'verdict' | 'reason'> => {
       for (const rule of rules.indications) {
         if (!atcHit(atc, rule.atc)) continue;
@@ -218,8 +248,10 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
       }
       for (const rule of rules.coDrugs) {
         if (!atcHit(atc, rule.atc)) continue;
-        const partner = others.find(([, other]) => atcHit(other, rule.partners));
-        if (partner) return { verdict: '同處方', reason: `同處方 ${labels.atc(partner[1])}：${rule.note}（${rule.basis}）` };
+        // A partner on the drug's own prescription first.
+        const partners = others.filter(([, other]) => atcHit(other, rule.partners));
+        const partner = partners.find(onOwn) ?? partners[0];
+        if (partner) return { verdict: '同處方', reason: `${onOwn(partner) ? '同處方 ' : ''}${drugText(partner)}：${rule.note}（${rule.basis}）` };
       }
       const usual = rules.specialty.get(dept);
       if (rules.byDepartment && usual && atcHit(atc, usual)) return { verdict: '科別常用', reason: `本次診斷無對應，${DEPARTMENTS[dept] ?? dept}常開` };
@@ -240,8 +272,8 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
         case '性別': return { hit: sex ? sex === condition.sex : undefined, detail: sex === 'F' ? '女性' : '男性', why: '無法取得性別資料' };
         case '同處方': {
           const hits = others.filter(([other, value]) => condition.partners.some(partner => value.startsWith(partner.atc)
-            && (!partner.frequency || frequencies.get(other)!.some(frequency => frequency.includes(partner.frequency))))).map(([, value]) => value);
-          return { hit: hits.length > 0, detail: `同處方：${hits.map(labels.atc).join(labels.join)}` };
+            && (!partner.frequency || frequencies.get(other)!.some(frequency => frequency.includes(partner.frequency)))));
+          return { hit: hits.length > 0, detail: `${hits.every(onOwn) ? '同處方' : '併用'}：${hits.map(drugText).join(labels.join)}` };
         }
       }
     };
@@ -256,12 +288,20 @@ export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rul
         : { level: caution.level, text: `${caution.id} ${caution.message}（${outcomes.map(outcome => outcome.detail).join('；')}）` } });
     }
     const cautions = fired.filter(({ caution }) => !fired.some(other => covers(other.caution, caution))).map(({ note }) => note);
-    return { code, frequency, route, info, ...verdict(), notes: cautions };
+    return { code, frequency, route, part, info, ...verdict(), notes: cautions };
   });
-  // Each distinct code counts an ingredient once, so a repeated code is not a repeated ingredient.
-  const seen = new Map<string, number>();
-  for (const code of atcs.keys()) for (const base of new Set(ingredientBases(drugs.get(code)!.ingredients))) seen.set(base, (seen.get(base) ?? 0) + 1);
-  for (const [base, n] of seen) if (n > 1) notes.push({ level: rules.repeated, text: `同成分重複：${base} 出現在 ${n} 個品項` });
+  // Each distinct code on a prescription counts an ingredient once, so a code repeated on one prescription is not a repeated
+  // ingredient; the same code on two prescriptions is. A combined check names the prescriptions.
+  const seen = new Map<string, number[]>();
+  parts.forEach((rx, part) => {
+    for (const code of new Set(rx.drugs.map(drug => drug.code))) {
+      const info = drugs.get(code);
+      if (info) for (const base of new Set(ingredientBases(info.ingredients))) seen.set(base, [...seen.get(base) ?? [], part]);
+    }
+  });
+  for (const [base, on] of seen) {
+    if (on.length > 1) notes.push({ level: rules.repeated, text: `同成分重複：${base} 出現在 ${on.length} 個品項${many ? `（${[...new Set(on)].map(partName).join('、')}）` : ''}` });
+  }
   return { drugs: checked, notes };
 }
 

@@ -108,6 +108,31 @@ export function planSlip(entries: SlipEntry[], today: string): SlipPlan {
   return { validUntil, ...(third ? { third: next } : { second: next }), notes };
 }
 
+/** Who a prescription is for, as its first QR says (the name on the card can be edited; this is not). */
+export type Person = Pick<SlipEntry, 'idNumber' | 'name' | 'birth'>;
+/**
+ * The same patient: the same ID number when both prescriptions have one (a different one is someone else, whatever the name);
+ * without one, the same name and birth date. A name alone could be a namesake.
+ */
+export function samePerson(a: Person, b: Person): boolean {
+  const id = (person: Person) => person.idNumber.trim().toUpperCase(), name = (person: Person) => person.name.replace(/\s+/g, '');
+  if (id(a) && id(b)) return id(a) === id(b);
+  return !!name(a) && name(a) === name(b) && !!a.birth && a.birth === b.birth;
+}
+/**
+ * The slip's prescriptions by patient, as card indices in scan order; the groups in the order their first card was scanned.
+ * A prescription joins a group only when it is the same patient as every card already in it.
+ */
+export function patientGroups(people: Person[]): number[][] {
+  const groups: number[][] = [];
+  people.forEach((person, index) => {
+    const group = groups.find(members => members.every(member => samePerson(people[member], person)));
+    if (group) group.push(index);
+    else groups.push([index]);
+  });
+  return groups;
+}
+
 /** Agreed dates replace a trip's window, never its prescription count; they must stay within today and 領藥最終有效時間. */
 function agreeTrips(plan: SlipPlan, trips: TripDates | undefined, today: string): SlipPlan {
   const agreed = { ...plan, notes: [...plan.notes] };

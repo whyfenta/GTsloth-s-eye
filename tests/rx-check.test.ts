@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parsePrescriptionSlip } from '../src/prescription-qr';
-import { checkPrescription, compileRules, dxLabel, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
+import { checkPrescription, checkPrescriptions, compileRules, dxLabel, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
 import { rxCheckOn } from '../src/rx-check-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -110,6 +110,40 @@ result = checkPrescription(qr('E11.9#M54.5', ['TESTMETF01', 'TESTMETF02', 'TESTT
 assert.deepEqual(result.notes, [{ level: '黃', text: '同成分重複：METFORMIN 出現在 2 個品項' }, { level: '黃', text: '同成分重複：ACETAMINOPHEN 出現在 2 個品項' }]);
 const greyRepeats = compileRules(tables({ settings: csv('設定,值,可選的值,說明', '同成分重複,灰,紅 黃 灰,', '科別常用,保留,保留 停用,') }));
 assert.equal(checkPrescription(qr('E11.9', ['TESTMETF01', 'TESTMETF02']), drugs, greyRepeats).notes[0].level, '灰', 'settings.csv sets the level');
+
+// One patient's prescriptions from several departments are checked as one: every diagnosis against every drug, every drug
+// against every other. A reason that leans on another prescription names it; one prescription alone is checked as before.
+const combined = (...parts: RxFacts[]) => checkPrescriptions(parts, drugs, rules);
+const combinedNotes = (...parts: RxFacts[]) => combined(...parts).drugs.flatMap(drug => drug.notes.map(note => `${drug.part} ${drug.code} ${note.level} ${note.text}`));
+rx = qr('E11.9#M54.5', ['TESTMETF01', 'TESTTRAM01', 'TESTACET01', 'TESTACET01']);
+assert.deepEqual(checkPrescriptions([rx], drugs, rules), checkPrescription(rx, drugs, rules), 'one prescription: the same check');
+// A drug on one prescription against a diagnosis on another: the cardiologist's propranolol and the chest clinic's asthma.
+assert.deepEqual(notes(qr('I10', ['TESTPROP01'])), [], 'the cardiology prescription alone');
+assert.deepEqual(combinedNotes(qr('I10', ['TESTPROP01']), qr('J45.909', ['TESTOTHR01'], { 7: 'AC' })), ['0 TESTPROP01 紅 T01 測試提示甲（本次：第 2 張 J45909）']);
+// A drug against a drug on another prescription; only those on the drug's own prescription are 同處方.
+assert.deepEqual(combinedNotes(qr('M54.5', ['TESTTRAM01'], { 6: '0550101' }), qr('F41.1', ['TESTALPR01'], { 6: '0550101' })),
+  ['0 TESTTRAM01 黃 T04 測試提示丁（併用：第 2 張 N05BA12）']);
+assert.deepEqual(combinedNotes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01']), qr('I10', ['TESTAMLO01'])),
+  ['0 TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', '0 TESTALPR01 黃 T06 測試提示己（AGE65-69；同處方：G04CA02）']);
+assert.deepEqual(combinedNotes(qr('F41.1', ['TESTALPR01']), qr('I10', ['TESTAMLO01'], { 17: 'QDHS' })),
+  ['0 TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', '0 TESTALPR01 黃 T06 測試提示己（AGE65-69；併用：第 2 張 C08CA01）'], 'the frequency on the other prescription counts');
+// Explained by another prescription's diagnosis or drug; the department is the drug's own prescription's.
+result = combined(qr('I10', ['TESTMETF01'], { 7: '02' }), qr('E11.9', ['TESTPPI001']), qr('I25.10', ['TESTCLOP01'], { 7: '02' }));
+assert.deepEqual(result.drugs.map(drug => `${drug.part} ${drug.verdict} ${drug.reason}`),
+  ['0 適應症 第 2 張 E119（仿單）', '1 同處方 第 3 張 B01AC04：胃腸保護（常見）', '2 適應症 I2510（仿單）']);
+assert.deepEqual(combined(qr('I10', ['TESTPPI001', 'TESTCLOP01']), qr('I10', ['TESTCLOP01'])).drugs[0].reason, '同處方 B01AC04：胃腸保護（常見）', 'a partner on its own prescription first');
+assert.deepEqual(combined(qr('I10', ['TESTPROP01']), qr('I10', ['TESTSTAT01'], { 7: '02' })).drugs[1].verdict, '灰', 'not the cardiology department of the other prescription');
+// The same 健保碼 on two prescriptions is the drug given twice; on one it is not a repeated ingredient.
+assert.deepEqual(combined(qr('I10', ['TESTAMLO01', 'TESTAMLO01']), qr('I10', ['TESTSTAT01'])).notes, []);
+assert.deepEqual(combined(qr('I10', ['TESTAMLO01']), qr('E11.9', ['TESTMETF01']), qr('I10', ['TESTAMLO01'])).notes,
+  [{ level: '黃', text: '同成分重複：AMLODIPINE 出現在 2 個品項（第 1 張、第 3 張）' }]);
+assert.deepEqual(combined(qr('I10', ['TESTSTAT01']), qr('E11.9', ['TESTMETF01', 'TESTMETF02'])).notes, [{ level: '黃', text: '同成分重複：METFORMIN 出現在 2 個品項（第 2 張）' }]);
+// Diagnoses: one prescription's are enough; a missing note only when none has any.
+assert.deepEqual(combined(qr('', ['TESTQUET01']), qr('I10', ['TESTSTAT01'])).drugs[0].verdict, '黃', 'the other prescription has diagnoses');
+assert.deepEqual(combined(qr('', ['TESTQUET01']), qr('', ['TESTSTAT01'])).notes, [{ level: '灰', text: '各張處方都沒有診斷碼，無法解釋的藥不另提示' }]);
+// The page names the prescriptions by their cards.
+assert.equal(checkPrescriptions([qr('I10', ['TESTPROP01']), qr('I10', ['TESTSTAT01']), qr('J45.909', ['TESTOTHR01'])], drugs, rules,
+  { dx: code => code, atc: atc => atc, join: '、', part: index => `卡${index + 1}` }).drugs[0].notes[0].text, 'T01 測試提示甲（本次：卡3 J45909）');
 
 // The page names diagnoses in Chinese; a missing full code falls back to its category and says so.
 const icd = new Map<string, IcdEntry>([['E11', { name: '測試類別名', deleted: false }], ['E119', { name: '測試完整碼名', deleted: false }],

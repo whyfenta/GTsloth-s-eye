@@ -9,7 +9,7 @@ import { loadRxData, type RxData } from './rx-data';
 import { failureLine } from './prescription-sample';
 import { MAX_FAILED, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
 import { SAMPLE_ENDPOINT, samplesOn } from './sample-config';
-import { buildSlip, contactKind, planSlip, prescriptionAhead, MISSING_ROWS, type ContactKind, type MissingItem, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
+import { buildSlip, contactKind, patientGroups, planSlip, prescriptionAhead, MISSING_ROWS, type ContactKind, type MissingItem, type Person, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
 
 declare const __APP_VERSION__: string;
@@ -18,7 +18,8 @@ declare const __APP_VERSION__: string;
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
 // more: the follow-up QRs of drugs only, so a rescan of one is not added twice. sample: the de-identified line sent when the
 // slip is printed (only with samples on), and sent once that request has gone out. patient: the 科別, age band and diagnoses under the name.
-interface Item extends SlipEntry { key: string; institution: string; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+// person: the ID number, name and birth date as scanned, which tell the prescriptions of one patient (the name field can be edited).
+interface Item extends SlipEntry { key: string; institution: string; person: Person; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
   patient: HTMLDListElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
@@ -45,6 +46,8 @@ let catalog: Map<string, Product[]> | undefined;
 /** 處方警示: off unless switched on (src/rx-check-config.ts); its rules and lookups load on the first scan. */
 const rxOn = rxCheckOn(location.search);
 let rxData: RxData | undefined;
+/** Why the rule data did not load; the next scan tries again. */
+let rxError = '';
 /** 處方樣本: on whenever src/sample-config.ts has an address (?samples=0 turns it off). The check summary needs the rule data too. */
 const samples = samplesOn(location.search);
 /** Failure lines of scans the slip turned down, sent with the next printed slip. */
@@ -321,6 +324,7 @@ function fillItem(item: Item) {
     li.remove();
     placeExtras();
     status.textContent = scanStatus.textContent = '';
+    showChecks();
     update();
   });
   head.append(item.heading, make('span', 'hint', `處方 ${fullDate(item.date)} · ${item.days} 天`), remove);
@@ -344,12 +348,40 @@ function fillItem(item: Item) {
   listDrugs(item);
   li.append(head, fields, item.patient, item.hospitalNote, item.state, item.drugList, item.check);
 }
-/** The card's 處方警示, never on the slip; drug names follow the product lookup once it has loaded, diagnosis names the rule data. */
-function showCheck(item: Item) {
+/** The cards' drug names for the check: the product lookup's once it has loaded ('' until then, and the NHI ingredients stand in). */
+const drugNames = (item: Item) => item.drugs.map(drug => drug.product?.name ?? [...new Set(drug.products.map(product => product.name))].join('／'));
+/** The cards scanned for the same patient as this one, itself included, as their card numbers. */
+function patientOf(item: Item): number[] {
+  const index = items.indexOf(item);
+  return patientGroups(items.map(other => other.person)).find(group => group.includes(index)) ?? [index];
+}
+/**
+ * The cards' 處方警示, never on the slip; drug names follow the product lookup once it has loaded, diagnosis names the rule data.
+ * One patient's prescriptions (several departments handed in together) are checked as one, every diagnosis against every drug,
+ * under the last of their cards, where the next scan lands; the earlier cards say so. Run again whenever a card comes or goes.
+ */
+function showChecks() {
   if (!rxOn) return;
-  renderPatient(item.patient, item.rx, rxData);
-  if (!rxData) { item.check.replaceChildren(make('p', 'hint', '處方警示資料載入中…')); return; }
-  renderRxCheck(item.check, item.rx, item.drugs.map(drug => drug.product?.name ?? [...new Set(drug.products.map(product => product.name))].join('／')), rxData);
+  for (const item of items) renderPatient(item.patient, item.rx, rxData);
+  if (!rxData) {
+    for (const item of items) item.check.replaceChildren(rxError ? make('p', 'error', rxError) : make('p', 'hint', '處方警示資料載入中…'));
+    return;
+  }
+  const data = rxData;
+  for (const group of patientGroups(items.map(item => item.person))) {
+    const cards = group.map(index => `第 ${index + 1} 張`), last = items[group.at(-1)!];
+    renderRxCheck(last.check, group.map(index => ({ rx: items[index].rx, names: drugNames(items[index]), label: `第 ${index + 1} 張` })), data);
+    for (const index of group.slice(0, -1)) {
+      items[index].check.replaceChildren(make('p', 'rx-title', `處方警示：${cards.join('、')}是同一病人，診斷與藥品合併比對，結果在${cards.at(-1)}下方。`));
+    }
+  }
+}
+/** The rule data on the first scan with the check or samples on; a failed load is tried again on the next scan. */
+function loadChecks() {
+  if (!(rxOn || samples) || rxData) return;
+  rxError = '';
+  loadRxData().then(loaded => { rxData = loaded; showChecks(); })
+    .catch((error: Error) => { if (rxData) return; rxError = error.message; showChecks(); });
 }
 function lookup(item: Item) {
   const input = item.element.querySelector<HTMLInputElement>('[data-role=hospital]')!;
@@ -411,7 +443,7 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scann
   const existing = items.findIndex(item => item.key === key);
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
-  const item: Item = { key, institution: qr.institution, date: qr.date, days: qr.days, count: 3, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
+  const item: Item = { key, institution: qr.institution, person: { idNumber: qr.idNumber, name: qr.name, birth: qr.birth }, date: qr.date, days: qr.days, count: 3, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
     drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
     patient: make('dl', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
@@ -423,18 +455,20 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scann
   list.append(item.element);
   placeExtras();
   lookup(item);
-  showCheck(item);
-  if ((rxOn || samples) && !rxData) loadRxData().then(loaded => { rxData = loaded; items.forEach(showCheck); })
-    .catch((error: Error) => { if (!rxData) for (const other of items) other.check.replaceChildren(make('p', 'error', error.message)); });
+  loadChecks();
+  showChecks();
   if (!catalog) loadProducts().then(loaded => {
     if (catalog) return;
     catalog = loaded.index;
-    for (const other of items) { other.drugs.forEach(identify); listDrugs(other); showCheck(other); }
+    for (const other of items) { other.drugs.forEach(identify); listDrugs(other); }
+    showChecks();
     update();
   }).catch((error: Error) => { status.textContent = error.message; });
   update();
   scannedAt = performance.now();
-  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。可調劑次數預設 3 次、本次第幾次依日期推算：`
+  const patient = patientOf(item).slice(0, -1).map(index => `第 ${index + 1} 張`);
+  return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。`
+    + (rxOn && patient.length ? `與${patient.join('、')}是同一病人，處方警示合併比對全部的診斷與藥品。` : '') + '可調劑次數預設 3 次、本次第幾次依日期推算：'
     + (camera ? '請在卡片上核對；處方有第 2 個 QR 時，再按相機鈕掃描。' : '以方向鍵選擇，Enter 確認後回到掃碼欄。')
     + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), card: item.element, focus: item.counts.find(radio => radio.checked) };
 }
@@ -457,7 +491,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): Scanned {
     if (joined.failed && rejected.length < MAX_FAILED) rejected.push(joined.failed);
   }
   listDrugs(item);
-  showCheck(item);
+  showChecks();
   update();
   return { message: `已把 ${drugs.length} 個藥加入第 ${index} 張${item.name ? `（${item.name}）` : ''}的藥品清單。藥品 QR 沒有姓名與日期，只會接在最後掃入的處方；不是同一張處方請按該張的「移除本單」後重掃。`, card: item.element };
 }
