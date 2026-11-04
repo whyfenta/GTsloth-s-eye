@@ -107,7 +107,7 @@ RX_SAMPLES="樣本1.txt;樣本2.txt" RX_PROTOTYPE=../rx-rules-draft/check_rules.
 
 試跑：範本的合併比對多了黃色 C42（第 2 張 lorazepam，本次：第 3 張失智症）與灰色 C43（第 1 張 empagliflozin，併用：第 2 張含 HCTZ 的複方）；合成處方確認胃腸複方配阿茲海默、SGLT2 複方配 losartan／HCTZ、atenolol／chlorthalidone、furosemide 都會觸發，SGLT2 配單方 amlodipine 不會。本機 265 張樣本這次沒有重跑。
 
-順帶發現、這次沒有改的：C09（65 歲以上 BZD）與 C17 沒有成分關鍵字，所以上面那些含 chlordiazepoxide 的複方不會觸發；這兩條藥師已審過，要不要加 `CHLORDIAZEPOXIDE` 由藥師決定。C43 列出複方的做法是權宜之計，之後若讓規則能比對複方裡每個成分（見「後續工作」），這串可以簡化回 `C03`。
+順帶發現：C09（65 歲以上 BZD）與 C17 原本沒有成分關鍵字，上面那些含 chlordiazepoxide 的複方不會觸發。藥師決定（115/11/04）兩條也加上 `CHLORDIAZEPOXIDE`：65 歲以上用這些複方給灰色 C09，同處方有 α 阻斷劑或睡前服用的降血壓藥時給黃色 C17。兩條的 ATC 與成分關鍵字仍然一樣，C17 成立時照舊取代 C09。C43 列出複方的做法是權宜之計，之後若讓規則能比對複方裡每個成分（見「後續工作」），這串可以簡化回 `C03`。
 
 ### 還沒審的（58 條）
 
