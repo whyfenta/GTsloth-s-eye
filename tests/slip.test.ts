@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildSlip, contactKind, planSlip, prescriptionAhead, productIndex, type SlipEntry, type SlipForm } from '../src/slip-model';
+import { buildSlip, contactKind, patientGroups, planSlip, prescriptionAhead, productIndex, samePerson, type SlipEntry, type SlipForm } from '../src/slip-model';
 import { readMap, type MapEntry } from '../src/sku-map';
 import { csvRows, rosterNames } from '../scripts/roster';
 
@@ -131,3 +131,19 @@ for (const value of ['02-0000-0000', '(02)0000-0000', '049-0000000', '089-000000
   assert.equal(contactKind(value), 'phone', value);
 for (const value of ['', '  ', '王媽媽']) assert.equal(contactKind(value), '', value);
 console.log('contact kind passed');
+
+// 處方警示 checks one patient's prescriptions together: the same ID number, or without one the same name and birth date (synthetic people).
+const person = (idNumber: string, name = '測試甲', birth = '1950-07-17') => ({ idNumber, name, birth });
+assert.equal(samePerson(person('A123456789'), person('a123456789 ', '測試 甲')), true, 'case and spaces');
+assert.equal(samePerson(person('A123456789'), person('A123456789', '測試乙', '1960-01-01')), true, 'the ID number decides');
+assert.equal(samePerson(person('A123456789'), person('B234567890')), false, 'a namesake with the same birthday is someone else');
+assert.equal(samePerson(person(''), person('A123456789')), true, 'no ID number on one: the name and birth date');
+assert.equal(samePerson(person(''), person('', '測試甲', '1950-07-18')), false);
+assert.equal(samePerson(person('', '測試甲', ''), person('', '測試甲', '')), false, 'a name alone is not enough');
+assert.equal(samePerson(person('', ''), person('', '')), false);
+// Three departments for one patient with a family member scanned between them; a card joins a group only if it matches all of it.
+assert.deepEqual(patientGroups([person('A123456789'), person('B234567890', '測試乙'), person('A123456789'), person('', '測試甲'), person('C123456789')]),
+  [[0, 2, 3], [1], [4]]);
+assert.deepEqual(patientGroups([person('A123456789'), person(''), person('C123456789')]), [[0, 1], [2]], 'C… is not A… although both match the card without one');
+assert.deepEqual(patientGroups([]), []);
+console.log('same patient groups passed');
