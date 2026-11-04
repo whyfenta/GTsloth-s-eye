@@ -39,3 +39,5 @@ C38,N02CA,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,麥角生物鹼＋強�
 C39,M04AA03,,同處方,L04AX01 L01BB02,紅,Febuxostat＋azathioprine／mercaptopurine：骨髓抑制,仿單禁忌（美國）
 C40,M04AA01,,同處方,L04AX01 L01BB02,黃,Allopurinol＋azathioprine／mercaptopurine：骨髓抑制，azathioprine／mercaptopurine 需大幅減量,仿單警語（減量幅度未在網路上核對）
 C41,C02CA G04CA03,,性別+年齡+同處方,女;>=65;C03C,灰,65 歲以上女性 α1 阻斷劑＋環利尿劑：尿失禁,Beers 2023 表 5
+C42,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,診斷,F01-F03 G30 G31.0 G31.1 G31.83 R41.81,黃,BZD／Z-drug＋失智症或認知障礙：可能使認知功能惡化、引發譫妄與跌倒，老人應避免（含 chlordiazepoxide 的胃腸複方也算）,Beers 2023 表 3
+C43,A10BK,GLIFLOZIN,年齡+同處方,>=65;C03 C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54,灰,65 歲以上 SGLT2 抑制劑＋利尿劑（含利尿劑的降血壓複方）：體液不足、姿勢性低血壓、急性腎損傷，請提醒頭暈時告知醫師並注意水分攝取,仿單警語（Jardiance、Forxiga：老人與併用利尿劑者需評估體液）
