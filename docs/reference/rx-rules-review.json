@@ -1552,17 +1552,18 @@
    "id": "C49",
    "table": "cautions",
    "key": "C49",
-   "fp": "8b632ecbe3e2",
-   "text": "C49 N05AH02 同處方 N04AA N04AC A03AB A03B G04BD N06AA → 黃：Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況",
+   "fp": "1ddbb33d2c6f",
+   "text": "C49 N05AH02 同處方 N04AA N04AC A03AB A03B G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 N06AA → 黃：Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況",
    "batch": "2026-11-05",
-   "changed": "2026-11-05T00:00:00.000Z",
+   "changed": "2026-11-05T07:05:51.504Z",
    "why": "新的 97 張有 1 張：clozapine＋抗膽鹼藥，診斷同時有便秘。FDA 建議避免 clozapine 併用其他抗膽鹼藥。",
    "links": [
     {
      "t": "FDA 2020 安全通訊",
      "u": "https://www.fda.gov/drugs/drug-safety-communications/fda-strengthens-warning-untreated-constipation-caused-schizophrenia-medicine-clozapine-clozaril-can"
     }
-   ]
+   ],
+   "prev": "C49 N05AH02 同處方 N04AA N04AC A03AB A03B G04BD N06AA → 黃：Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況"
   },
   {
    "id": "C50",
@@ -1588,7 +1589,7 @@
    "text": "C51 M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;B01AC N02BA01 → 黃：65 歲以上 NSAID＋抗血小板藥：腸胃道出血與消化性潰瘍風險增加，無替代時需併用胃腸保護",
    "batch": "2026-11-05",
    "changed": "2026-11-05T05:34:44.294Z",
-   "why": "核對 Beers 2023 原文時補的：表 2 把 NSAID 併用類固醇、抗凝血劑、抗血小板藥並列，C24、C25 只做了前兩項。全部 362 張沒有命中。Beers 這條寫的是非 COX-2 選擇性的 NSAID，所以不含 M01AH；樣本裡唯一的組合是 celecoxib＋aspirin，因此不會提示。要提示這種組合，就把 M01AH 加回來；C24、C25 目前含 M01AH，可以一起決定。沒有其他選擇且併用胃腸保護時是例外，但現有寫法排除不了，有開胃藥也會提示。",
+   "why": "核對 Beers 2023 原文時補的：表 2 把 NSAID 併用類固醇、抗凝血劑、抗血小板藥並列，C24、C25 只做了前兩項。全部 362 張沒有命中。Beers 這條寫的是非 COX-2 選擇性的 NSAID，藥師決定（115/11/05）不含 COX-2 抑制劑（M01AH），所以樣本裡唯一的組合 celecoxib＋aspirin 不會提示；C24、C25 目前仍含 M01AH，在那兩條決定。沒有其他選擇且併用胃腸保護時是例外，但現有寫法排除不了，有開胃藥也會提示。Beers 寫的是口服，現有寫法不看劑型，所以栓劑、注射劑也算，另有 4 個外用凝膠的 ATC 標成 M01AB05。",
    "links": [
     {
      "t": "Beers 2023 原文（JAGS）",
@@ -1600,33 +1601,35 @@
    "id": "C52",
    "table": "cautions",
    "key": "C52",
-   "fp": "4ba410045d1d",
-   "text": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 G04BD A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄",
+   "fp": "b61ee6c7822e",
+   "text": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄",
    "batch": "2026-11-05",
-   "changed": "2026-11-05T05:34:44.294Z",
-   "why": "核對 Beers 2023 原文時補的：表 3 寫失智症或認知障礙應避免表 7 的強抗膽鹼藥。C42 只管 BZD，C10 只管抗精神病藥，所以這條不放抗精神病藥，免得同一個藥提醒兩次。全部 362 張沒有命中，是預防性的規則。藥品依表 7 對應健保檔：doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden 不在表 7，但同類所以放進來；butylscopolamine（A03BB01）原文沒有明列，沒有放進來；含這些成分的胃腸與感冒複方也沒有包含。",
+   "changed": "2026-11-05T07:05:51.504Z",
+   "why": "核對 Beers 2023 原文時補的：表 3 寫失智症或認知障礙應避免表 7 的強抗膽鹼藥。C42 只管 BZD，C10 只管抗精神病藥，所以這條不放抗精神病藥，免得同一個藥提醒兩次。全部 362 張沒有命中，是預防性的規則。藥品依表 7 對應健保檔：doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden、propiverine 不在表 7，但同類所以放進來。藥師決定（115/11/05）butylscopolamine 不算：A03BB01 不放；健保檔的 A04AD01 只有一項，成分其實是 butylscopolamine 注射劑（A006774212），所以也不放，目前因此抓不到真正的 scopolamine，健保檔收載時要加回 A04AD01。只列明確的 ATC，不用 A03BA、G04BD 前綴：mirabegron（G04BD12）是 β3 促效劑不是抗膽鹼藥，piperilate（A03BA92）與 pipoxolan（G04BD）不在表 7。darifenacin、fesoterodine 健保檔目前沒有，先列著。含這些成分的胃腸與感冒複方也沒有包含。",
    "links": [
     {
      "t": "Beers 2023 原文（JAGS）",
      "u": "https://doi.org/10.1111/jgs.18372"
     }
-   ]
+   ],
+   "prev": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 G04BD A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄"
   },
   {
    "id": "C53",
    "table": "cautions",
    "key": "C53",
-   "fp": "62344c035800",
-   "text": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留",
+   "fp": "372e0b723a43",
+   "text": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留",
    "batch": "2026-11-05",
-   "changed": "2026-11-05T05:34:44.294Z",
+   "changed": "2026-11-05T07:05:51.504Z",
    "why": "核對 Beers 2023 原文時補的：表 3 寫男性下泌尿道症狀或攝護腺增生應避免強抗膽鹼藥，尿失禁用藥除外，所以不含 G04BD 與 trospium。全部 362 張沒有黃色命中：有這種組合的男性處方未滿 65 歲（見 Q6），另有 1 張性別欄空白會給灰色。條件只寫 N40，沒有放下泌尿道症狀的診斷碼。藥品的對應與限制同 C52，另外包含表 7 的抗精神病藥。性別欄空白時給灰色。",
    "links": [
     {
      "t": "Beers 2023 原文（JAGS）",
      "u": "https://doi.org/10.1111/jgs.18372"
     }
-   ]
+   ],
+   "prev": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留"
   },
   {
    "id": "S02",
@@ -2363,6 +2366,16 @@
   "M03BC": "肌肉鬆弛劑（orphenadrine 類）",
   "M03BX08": "Cyclobenzaprine",
   "N05AB03": "Perphenazine",
-  "N05AB04": "Prochlorperazine"
+  "N05AB04": "Prochlorperazine",
+  "A03BA01": "Atropine",
+  "A03BA03": "Hyoscyamine",
+  "G04BD02": "Flavoxate",
+  "G04BD04": "Oxybutynin",
+  "G04BD06": "Propiverine",
+  "G04BD07": "Tolterodine",
+  "G04BD08": "Solifenacin",
+  "G04BD09": "Trospium",
+  "G04BD10": "Darifenacin",
+  "G04BD11": "Fesoterodine"
  }
 }

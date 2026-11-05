@@ -47,7 +47,7 @@
 
 ## 修改流程
 
-1. 改 CSV。表頭不要動；用 Excel 編輯時另存成「CSV UTF-8」。
+1. 改 CSV。表頭不要動；用 Excel 編輯時另存成「CSV UTF-8」。新增藥品清單時，用 `nhi-drug-codes.csv` 的成分核對每個 ATC：前綴可能多抓（`G04BD` 含 β3 促效劑 mirabegron），ATC 也可能標錯（A04AD01 唯一的品項其實是 butylscopolamine）。
 2. 執行 `npm run rx-assets`。格式不對時會停下，並指出哪個檔、第幾列、哪一欄。
 3. 執行 `npm run rx-review-page -- 樣本…`，再把產生的清單寫進審核頁（見下方「審核頁」）。新條文和改過內容的規則會出現在藥師的待審。
 4. 執行 `npm test`。`public/assets/rx/rules.json` 沒有重產，或 `docs/reference/rx-rules-review.json` 沒有更新時，測試會失敗。
@@ -139,7 +139,12 @@ RX_SAMPLES="樣本1.txt;樣本2.txt" RX_PROTOTYPE=../rx-rules-draft/check_rules.
 - `indications.csv` 3 列：鼻用製劑（R01A）配鼻炎與鼻竇炎，原本整張表沒有 R01A；azathioprine 配異位性皮膚炎與濕疹（常見仿單外）；三環抗憂鬱劑配神經痛與神經根病變（常見仿單外）。
 - `co-drugs.csv` 1 列：抗膽鹼藥（N04AA、N04AC）可由同處方的抗精神病藥解釋，仍列灰色提示。範圍不含 lithium。
 - `cautions.csv` C44–C50（灰 2、黃 5）：同處方兩種以上 BZD／Z-drug（22 張，約 6%，所以先填灰色；比照 C09、C17 的決定，含 chlordiazepoxide 的複方也算）；同處方兩種以上抗精神病藥；50 歲以下女性用 valproate；巴金森配抗精神病藥（clozapine、quetiapine 除外）、metoclopramide、promethazine；desmopressin 配三環抗憂鬱劑、SSRI、chlorpromazine、carbamazepine、NSAID；clozapine 配抗膽鹼藥；皮膚病用 ciclosporin 配其他免疫抑制劑。
-- `cautions.csv` C51–C53（黃 3，核對 Beers 原文時補的）：65 歲以上 NSAID 配抗血小板藥；強抗膽鹼藥配失智症或認知障礙；65 歲以上男性攝護腺增生配強抗膽鹼藥。362 張都沒有黃色命中，是預防性的規則，用合成處方確認過會觸發，也確認例外不會觸發（COX-2 抑制劑、C10 已管的抗精神病藥、尿失禁用藥）。強抗膽鹼藥照 Beers 表 7 對應健保檔：doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden 不在表 7，但同類所以放進來；butylscopolamine（A03BB01）原文沒有明列，沒有放進來；含這些成分的胃腸與感冒複方也沒有包含。
+- `cautions.csv` C51–C53（黃 3，核對 Beers 原文時補的）：65 歲以上 NSAID 配抗血小板藥；強抗膽鹼藥配失智症或認知障礙；65 歲以上男性攝護腺增生配強抗膽鹼藥。362 張都沒有黃色命中，是預防性的規則，用合成處方確認過會觸發，也確認例外不會觸發（COX-2 抑制劑、butylscopolamine、mirabegron、C10 已管的抗精神病藥、尿失禁用藥）。藥師決定（115/11/05）：C51 不含 COX-2 抑制劑（M01AH），butylscopolamine 不算強抗膽鹼藥；規則本身仍是待審。強抗膽鹼藥照 Beers 表 7 對應健保檔，並用健保檔的成分逐項核對過 ATC：
+  - doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden、propiverine 不在表 7，但同類所以放進來。
+  - butylscopolamine：A03BB01 不放。健保檔的 A04AD01 只有一項，成分其實是 butylscopolamine 注射劑（A006774212），所以也不放；目前因此抓不到真正的 scopolamine，健保檔收載時要加回 A04AD01。
+  - 只列明確的 ATC，不用 `A03BA`、`G04BD` 前綴：mirabegron（G04BD12）是 β3 促效劑不是抗膽鹼藥，piperilate（A03BA92）與 pipoxolan（G04BD）不在表 7。C49 的同處方條件也改成明確的 G04BD 代碼。C13 也含 `G04BD`，會把 mirabegron 算進去，還沒有改，等藥師決定。
+  - darifenacin、fesoterodine 健保檔目前沒有，先列著；含這些成分的胃腸與感冒複方沒有包含。
+  - 現有寫法不看劑型。C52 列的藥沒有眼用製劑；C51 的栓劑、注射劑也會算（Beers 寫的是口服），另有 4 個外用凝膠的 ATC 標成 M01AB05。
 - 3 個問題：三環抗憂鬱劑配攝護腺增生與夜尿要不要解釋（Q6，查不到成人夜尿的指引，Beers 表 3 又寫男性攝護腺增生應避免強抗膽鹼藥，起草者建議維持灰色）；要不要做「3 種中樞神經藥」的計數寫法（Q7，Beers 表 5 算 7 類藥，362 張有 26 張，其中確定 65 歲以上 9 張；只算 BZD／Z-drug 是 5 張）；長效加短效的同成分要不要維持黃色（Q8）。
 
 出處連結在審核頁每條的「出處」。查證到的程度：clozapine 是 FDA 2020 安全通訊原文；valproate 是 EMA 2018 文件，FDA 黑框沒有查到原文；desmopressin 是英國 SmPC 與美國注射劑仿單；巴金森那條已核對 Beers 2023 表 3 原文；ciclosporin 的警語寫的是乾癬，套到異位性皮膚炎是類推；BZD 與抗精神病藥重複沒有查到專門的指引，依據寫起草者判斷。都沒有對照國內仿單。
@@ -149,7 +154,7 @@ RX_SAMPLES="樣本1.txt;樣本2.txt" RX_PROTOTYPE=../rx-rules-draft/check_rules.
 - 相符：C09（原文明列 chlordiazepoxide 單方與複方）、C15、C17、C19、C27、C28、C29、C41、C42、C47。
 - C26：原文是 azithromycin 以外的 macrolide，原本只列 3 種，這次補上健保檔裡其他的 macrolide。內容改了，所以這條的時間更新（它本來就在待審）。
 - C30：原文限慢性腎病 3a 期以上，這條不看腎功能，依據的是 EMA 與 FDA，「依據」欄改寫清楚。原文也列了 RAS 抑制劑＋保鉀利尿劑，362 張沒有這種組合配慢性腎病，這次沒有加。
-- C24、C25：原文寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。這兩條目前含 COX-2 抑制劑（M01AH），也排除不了有開胃藥的處方，沒有改，審核時決定。
+- C24、C25：原文寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。這兩條目前含 COX-2 抑制劑（M01AH），也排除不了有開胃藥的處方，沒有改，審核時決定（C51 藥師已決定不含）。
 
 看了但沒有提出的（只出現一兩次，或診斷本來就解釋不了）：pentoxifylline（全部 4 次未解釋，診斷都沒有周邊血管病）、TMP-SMX 配血液腫瘤、A02BX13 算不算低風險、metoclopramide 與 domperidone 配 65 歲以上。
 

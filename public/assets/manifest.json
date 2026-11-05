@@ -1364,8 +1364,8 @@
     },
     {
       "path": "rx/rules.json",
-      "bytes": 35069,
-      "sha256": "dacdf8e0049abef118614d446387fb71b4fb67b39b10c21aac3c827d6676c5bb",
+      "bytes": 35189,
+      "sha256": "969514ca670f7077740ece9db7c734661ce3037a2751a3133f8a7bed8f2af9db",
       "source": "docs/reference/rx-rules/*.csv（本專案的規則表草稿，待藥師審核）",
       "conversion": "scripts/rx-assets.ts：逐列檢查後原樣轉成 JSON"
     },
