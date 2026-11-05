@@ -18,7 +18,7 @@
   {
    "id": "2026-11-05",
    "title": "第二次驗證",
-   "note": "依 97 張沒看過的新樣本提出。這批規則在 data/rx-rules-second-validation 分支，合併前不影響線上警示。"
+   "note": "依 97 張沒看過的新樣本提出；C51–C53 是核對 Beers 2023 原文後補的，362 張樣本裡沒有黃色命中。這批規則在 data/rx-rules-second-validation 分支，合併前不影響線上警示。"
   }
  ],
  "rules": [
@@ -1268,7 +1268,14 @@
    "fp": "1538c9323b80",
    "text": "C24 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 同處方 B01AA B01AE B01AF → 黃：NSAID＋口服抗凝血劑：出血風險增加",
    "batch": "2026-11-03",
-   "changed": "2026-11-03T00:00:00.000Z"
+   "changed": "2026-11-03T00:00:00.000Z",
+   "why": "核對 Beers 2023 原文：這個組合併在表 2 的 NSAID 條文裡，寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。這條目前含 COX-2 抑制劑（M01AH），也排除不了有開胃藥的處方。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
   },
   {
    "id": "C25",
@@ -1277,16 +1284,31 @@
    "fp": "cb9d7558f7b9",
    "text": "C25 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;H02AB → 黃：65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護",
    "batch": "2026-11-03",
-   "changed": "2026-11-03T00:00:00.000Z"
+   "changed": "2026-11-03T00:00:00.000Z",
+   "why": "核對 Beers 2023 原文：這個組合併在表 2 的 NSAID 條文裡，寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。這條目前含 COX-2 抑制劑（M01AH），也排除不了有開胃藥的處方。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
   },
   {
    "id": "C26",
    "table": "cautions",
    "key": "C26",
-   "fp": "5aeaaf9ea2a1",
-   "text": "C26 B01AA03 同處方 C01BD01 J01MA02 J01FA01 J01FA06 J01FA09 J01EE01 N06AB → 黃：Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR",
+   "fp": "fec9c3c1a0b0",
+   "text": "C26 B01AA03 同處方 C01BD01 J01MA02 J01FA01 J01FA02 J01FA03 J01FA06 J01FA07 J01FA08 J01FA09 J01FA15 J01FA91 J01EE01 N06AB → 黃：Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR",
    "batch": "2026-11-03",
-   "changed": "2026-11-03T00:00:00.000Z"
+   "changed": "2026-11-05T05:34:44.294Z",
+   "prev": "C26 B01AA03 同處方 C01BD01 J01MA02 J01FA01 J01FA06 J01FA09 J01EE01 N06AB → 黃：Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR",
+   "why": "核對 Beers 2023 原文：表 5 寫的是 azithromycin 以外的 macrolide。原本只列 erythromycin、roxithromycin、clarithromycin，這次補上健保檔裡其他的 macrolide（spiramycin、midecamycin、josamycin、troleandomycin、telithromycin、leucomycin）。原文的建議是盡量避免，併用時密切追蹤 INR。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
   },
   {
    "id": "C27",
@@ -1322,7 +1344,14 @@
    "fp": "ec7b35934d30",
    "text": "C30 C09A C09B 同處方 C09C C09DA C09DB C09XA → 黃：ACEI＋ARB／aliskiren 雙重 RAS 阻斷：高血鉀、急性腎損傷、低血壓",
    "batch": "2026-11-03",
-   "changed": "2026-11-03T00:00:00.000Z"
+   "changed": "2026-11-03T00:00:00.000Z",
+   "why": "核對 Beers 2023 原文：表 5 限慢性腎病 3a 期以上，這條不看腎功能，依據的是 EMA 與 FDA。Beers 也把 RAS 抑制劑＋保鉀利尿劑（amiloride、triamterene）列入；362 張沒有這種組合配慢性腎病，這次沒有加。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
   },
   {
    "id": "C31",
@@ -1449,11 +1478,11 @@
    "text": "C44 N05BA N05CD N05CF N03AE01 同處方 N05BA N05CD N05CF N03AE01 → 灰：同處方兩種以上 BZD／Z-drug：作用重複，鎮靜、跌倒與依賴風險增加（含 chlordiazepoxide 的胃腸複方也算）",
    "batch": "2026-11-05",
    "changed": "2026-11-05T00:00:00.000Z",
-   "why": "新的 97 張有 2 張（都是 3 種以上），先前 265 張有 20 張（其中 3 張 3 種以上），合計 22 張、約 6%。等級先填灰色，免得精神科處方大量變黃。比照 C09、C17 的決定，含 chlordiazepoxide 的複方也算，但同處方那一邊只能用 ATC 比對，所以兩個都是複方時抓不到。現有寫法不能數到 3 種，見 Q7。",
+   "why": "新的 97 張有 2 張（都是 3 種以上），先前 265 張有 20 張（其中 3 張 3 種以上），合計 22 張、約 6%。等級先填灰色，免得精神科處方大量變黃。Beers 原文只寫合計 3 種中樞神經藥，沒有專門寫兩種 BZD，所以依據是起草者判斷；要做到 3 種見 Q7。比照 C09、C17 的決定，含 chlordiazepoxide 的複方也算，但同處方那一邊只能用 ATC 比對，所以兩個都是複方時抓不到。",
    "links": [
     {
-     "t": "Beers 2015 併用表（PMC）",
-     "u": "https://pmc.ncbi.nlm.nih.gov/articles/pmid/28467623"
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
     }
    ]
   },
@@ -1491,15 +1520,11 @@
    "text": "C47 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH01 N05AH03 N05AH05 N05AH06 N05AL N05AX A03FA01 R06AD02 診斷 G20 → 黃：巴金森氏症＋抗精神病藥（clozapine、quetiapine 除外）或 metoclopramide、promethazine：可能使巴金森症狀惡化",
    "batch": "2026-11-05",
    "changed": "2026-11-05T00:00:00.000Z",
-   "why": "新的 97 張有 1 張：有巴金森診斷的處方開 olanzapine，同時也命中 C10。I77 把巴金森列為抗精神病藥的仿單外解釋（待審），這條不影響解釋，只另外提醒。Beers 原表沒有逐字核對，例外名單看的是二手摘要；flunarizine 這類藥不在 Beers 名單裡，沒有放進來。",
+   "why": "新的 97 張有 1 張：有巴金森診斷的處方開 olanzapine，同時也命中 C10。I77 把巴金森列為抗精神病藥的仿單外解釋（待審），這條不影響解釋，只另外提醒。已核對 Beers 2023 表 3 原文：例外是 clozapine、pimavanserin、quetiapine，並點名 metoclopramide、prochlorperazine、promethazine。健保檔目前沒有 pimavanserin，日後收載時要從 N05AX 排除。flunarizine 這類藥不在 Beers 名單裡，沒有放進來。",
    "links": [
     {
-     "t": "Beers 2023 摘要（Nursing Center）",
-     "u": "https://nursingcenter.com/getattachment/clinical-resources/Guideline-Summaries/Beers-Criteria/Guideline-Summary_Beers-criteria_2023.pdf.aspx"
-    },
-    {
-     "t": "Beers 2023 精神科用藥摘要（Genomind）",
-     "u": "https://genomind.com/providers/beers-criteria-updates-with-a-focus-on-psychiatric-medications/"
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
     }
    ]
   },
@@ -1552,6 +1577,54 @@
     {
      "t": "Neoral 美國仿單（FDA 2019）",
      "u": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/050715s035,050716s038lbl.pdf"
+    }
+   ]
+  },
+  {
+   "id": "C51",
+   "table": "cautions",
+   "key": "C51",
+   "fp": "54a86c0599e9",
+   "text": "C51 M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;B01AC N02BA01 → 黃：65 歲以上 NSAID＋抗血小板藥：腸胃道出血與消化性潰瘍風險增加，無替代時需併用胃腸保護",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T05:34:44.294Z",
+   "why": "核對 Beers 2023 原文時補的：表 2 把 NSAID 併用類固醇、抗凝血劑、抗血小板藥並列，C24、C25 只做了前兩項。全部 362 張沒有命中。Beers 這條寫的是非 COX-2 選擇性的 NSAID，所以不含 M01AH；樣本裡唯一的組合是 celecoxib＋aspirin，因此不會提示。要提示這種組合，就把 M01AH 加回來；C24、C25 目前含 M01AH，可以一起決定。沒有其他選擇且併用胃腸保護時是例外，但現有寫法排除不了，有開胃藥也會提示。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C52",
+   "table": "cautions",
+   "key": "C52",
+   "fp": "4ba410045d1d",
+   "text": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 G04BD A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T05:34:44.294Z",
+   "why": "核對 Beers 2023 原文時補的：表 3 寫失智症或認知障礙應避免表 7 的強抗膽鹼藥。C42 只管 BZD，C10 只管抗精神病藥，所以這條不放抗精神病藥，免得同一個藥提醒兩次。全部 362 張沒有命中，是預防性的規則。藥品依表 7 對應健保檔：doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden 不在表 7，但同類所以放進來；butylscopolamine（A03BB01）原文沒有明列，沒有放進來；含這些成分的胃腸與感冒複方也沒有包含。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C53",
+   "table": "cautions",
+   "key": "C53",
+   "fp": "62344c035800",
+   "text": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T05:34:44.294Z",
+   "why": "核對 Beers 2023 原文時補的：表 3 寫男性下泌尿道症狀或攝護腺增生應避免強抗膽鹼藥，尿失禁用藥除外，所以不含 G04BD 與 trospium。全部 362 張沒有黃色命中：有這種組合的男性處方未滿 65 歲（見 Q6），另有 1 張性別欄空白會給灰色。條件只寫 N40，沒有放下泌尿道症狀的診斷碼。藥品的對應與限制同 C52，另外包含表 7 的抗精神病藥。性別欄空白時給灰色。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
     }
    ]
   },
@@ -1961,7 +2034,7 @@
   {
    "id": "Q4",
    "title": "benzydamine（M01AX07）要算 NSAID 嗎？",
-   "desc": "目前算（C07、C23–C25、胃藥那列同處方）。不算的話從那串 ATC 拿掉。",
+   "desc": "目前算（C07、C23–C25、C51、胃藥那列同處方）。不算的話從那串 ATC 拿掉。",
    "batch": "2026-11-03",
    "changed": "2026-11-03T00:00:00.000Z"
   },
@@ -1975,20 +2048,26 @@
   {
    "id": "Q6",
    "title": "三環抗憂鬱劑配良性攝護腺增生、夜尿（N40 R35）要解釋嗎？",
-   "desc": "同意：在 N06AA 那列加上 N40 R35，不再列為無法解釋。不同意：維持灰色。",
-   "why": "新的 97 張有 1 張：泌尿科開 imipramine，診斷是攝護腺增生與攝護腺炎。可能是用來治夜尿或急迫性尿失禁，但 TCA 的抗膽鹼作用可能加重尿滯留。這次查不到成人夜尿用 imipramine 的指引，所以沒有直接加進規則表。",
+   "desc": "同意：在 N06AA 那列加上 N40 R35，不再列為無法解釋。不同意：維持灰色（起草者建議）。",
+   "why": "新的 97 張有 1 張：泌尿科開 imipramine，診斷是攝護腺增生與攝護腺炎，未滿 65 歲。可能是用來治夜尿或急迫性尿失禁，但這次查不到成人夜尿用 imipramine 的指引。Beers 2023 表 3 寫男性攝護腺增生應避免強抗膽鹼藥，imipramine 在表 7 裡，所以起草者建議不要解釋；65 歲以上由 C53 提醒。",
    "batch": "2026-11-05",
-   "changed": "2026-11-05T00:00:00.000Z"
+   "changed": "2026-11-05T00:00:00.000Z",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
   },
   {
    "id": "Q7",
-   "title": "要不要做「3 種以上」的計數寫法？",
-   "desc": "現有寫法只能看同處方有沒有某類藥，不能數藥數。同意：改判定程式，加上計數條件，3 種以上 BZD／Z-drug 或中樞神經藥可以給黃色，兩種仍是灰色的 C44。不同意：只留 C44。",
-   "why": "Beers 建議避免合計 3 種以上中樞神經藥（2015 表格；2023 只查到摘要）。全部 362 張有 5 張用了 3 種以上 BZD／Z-drug，新的 97 張佔 2 張。",
+   "title": "要不要做「3 種中樞神經藥」的計數寫法？",
+   "desc": "現有寫法只能看同處方有沒有某類藥，不能數藥數。同意：改判定程式加上計數條件，65 歲以上合計 3 種可以給黃色，兩種 BZD 仍是灰色的 C44。不同意：只留 C44。",
+   "why": "Beers 2023 表 5 寫避免合計 3 種中樞神經藥，算的是抗癲癇藥（含 gabapentinoid）、抗憂鬱藥（TCA、SSRI、SNRI）、抗精神病藥、BZD、Z-drug、鴉片類、肌肉鬆弛劑。照這樣算，全部 362 張有 26 張（約 7%），其中確定 65 歲以上 9 張；只算 BZD／Z-drug 是 5 張。",
    "links": [
     {
-     "t": "Beers 2015 併用表（PMC）",
-     "u": "https://pmc.ncbi.nlm.nih.gov/articles/pmid/28467623"
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
     }
    ],
    "batch": "2026-11-05",
@@ -2255,6 +2334,35 @@
   "R01A": "鼻用製劑（類固醇、抗過敏、去充血）",
   "R03DA04": "Theophylline",
   "R03DA05": "Aminophylline",
-  "R06AD02": "Promethazine"
+  "R06AD02": "Promethazine",
+  "J01FA02": "Spiramycin",
+  "J01FA03": "Midecamycin",
+  "J01FA07": "Josamycin",
+  "J01FA08": "Troleandomycin",
+  "J01FA15": "Telithromycin",
+  "J01FA91": "Leucomycin",
+  "N06AA02": "Imipramine",
+  "N06AA04": "Clomipramine",
+  "N06AA09": "Amitriptyline",
+  "N06AA12": "Doxepin",
+  "N06AB05": "Paroxetine",
+  "N06CA01": "Amitriptyline＋chlordiazepoxide",
+  "R06AA": "第一代抗組織胺（diphenhydramine、doxylamine 類）",
+  "R06AB": "第一代抗組織胺（chlorpheniramine、brompheniramine 類）",
+  "R06AE05": "Meclizine",
+  "R06AE55": "Meclizine 複方",
+  "R06AX02": "Cyproheptadine",
+  "R06AX07": "Triprolidine",
+  "N05BB01": "Hydroxyzine",
+  "A03AB20": "Trospium",
+  "A03AA07": "Dicyclomine",
+  "A03BA": "顛茄生物鹼（atropine、hyoscyamine）",
+  "A03BB06": "Homatropine",
+  "A03CA02": "Clidinium＋chlordiazepoxide",
+  "A04AD01": "Scopolamine",
+  "M03BC": "肌肉鬆弛劑（orphenadrine 類）",
+  "M03BX08": "Cyclobenzaprine",
+  "N05AB03": "Perphenazine",
+  "N05AB04": "Prochlorperazine"
  }
 }
