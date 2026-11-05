@@ -1,0 +1,2419 @@
+{
+ "batches": [
+  {
+   "id": "2026-10-31",
+   "title": "第一批",
+   "note": "第一次審核頁的 161 條，115/11/01 審了 129 條。"
+  },
+  {
+   "id": "2026-11-03",
+   "title": "藥品併用",
+   "note": "C19–C41：來源以 Beers 2023 表 5 為主，其餘是 FDA、EMA 與仿單，沒有逐條對照國內仿單。已合併，照原樣生效。"
+  },
+  {
+   "id": "2026-11-04",
+   "title": "跨科處方的老人用藥",
+   "note": "C42、C43：憑單改成同一病人的多張處方合併比對後加入。已合併，照原樣生效。"
+  },
+  {
+   "id": "2026-11-05",
+   "title": "第二次驗證",
+   "note": "依 97 張沒看過的新樣本提出；C51–C53 是核對 Beers 2023 原文後補的，362 張樣本裡沒有黃色命中；C54、C55 是藥師決定把 mirabegron 從 C13 分出來。這批規則在 data/rx-rules-second-validation 分支，合併前不影響線上警示。"
+  }
+ ],
+ "rules": [
+  {
+   "id": "I01",
+   "table": "indications",
+   "key": "A10",
+   "fp": "0da6b517fb9d",
+   "text": "A10 降血糖藥：E08-E13（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I02",
+   "table": "indications",
+   "key": "A10BA A10BG03",
+   "fp": "e913e0cb382a",
+   "text": "A10BA A10BG03 Metformin、Pioglitazone：R73.0 R73.9 E28.2（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I03",
+   "table": "indications",
+   "key": "A10BG03",
+   "fp": "94e5b70fc838",
+   "text": "A10BG03 Pioglitazone：K75.81 K76.0（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I04",
+   "table": "indications",
+   "key": "A10BK",
+   "fp": "8fe0876493b8",
+   "text": "A10BK SGLT2 抑制劑：I50 I11.0 I13.0 I13.2 N18（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "依據與備註不一致：備註限 dapagliflozin、empagliflozin，規則卻套用整個 A10BK"
+   ]
+  },
+  {
+   "id": "I05",
+   "table": "indications",
+   "key": "C10",
+   "fp": "19b15b25fcfb",
+   "text": "C10 調血脂藥：E78（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I06",
+   "table": "indications",
+   "key": "C10",
+   "fp": "d00fde565f52",
+   "text": "C10 調血脂藥：I20-I25 I63-I67 I69 I70 G45 Z95.1 Z95.5 Z86.73（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "2018 AHA/ACC 膽固醇指引；2019 ESC/EAS 血脂指引"
+  },
+  {
+   "id": "I07",
+   "table": "indications",
+   "key": "C10",
+   "fp": "75a9a8067c79",
+   "text": "C10 調血脂藥：E10-E13（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "ADA Standards of Care；2018 AHA/ACC 膽固醇指引"
+  },
+  {
+   "id": "I08",
+   "table": "indications",
+   "key": "C10",
+   "fp": "fbbf37645430",
+   "text": "C10 調血脂藥：N18（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "KDIGO 2013 慢性腎病血脂指引"
+  },
+  {
+   "id": "I09",
+   "table": "indications",
+   "key": "C02CA C03 C07 C08 C09",
+   "fp": "6eeb708fef28",
+   "text": "C02CA C03 C07 C08 C09 降血壓藥：I10-I16（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I10",
+   "table": "indications",
+   "key": "C02CA C03 C07 C08 C09",
+   "fp": "6a6bdc8b08a2",
+   "text": "C02CA C03 C07 C08 C09 降血壓藥：I63-I67 I69 G45（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "2021 AHA/ASA 中風與 TIA 次級預防指引"
+  },
+  {
+   "id": "I11",
+   "table": "indications",
+   "key": "C07 C08CA C08D",
+   "fp": "c8d2e9294227",
+   "text": "C07 C08CA C08D β 阻斷劑、鈣離子阻斷劑：I20 I25（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "依據與備註不一致：備註說 lercanidipine 只有高血壓適應症，規則卻套用整個 C08CA"
+   ]
+  },
+  {
+   "id": "I12",
+   "table": "indications",
+   "key": "C07 C08D C01B",
+   "fp": "0bfea83408e3",
+   "text": "C07 C08D C01B 心律控制：I47-I49（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I13",
+   "table": "indications",
+   "key": "C01D",
+   "fp": "f4c7c50f7ddf",
+   "text": "C01D 硝酸鹽類與 nicorandil：I20-I25（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I14",
+   "table": "indications",
+   "key": "C03 C07 C09",
+   "fp": "fdc80fb19e97",
+   "text": "C03 C07 C09 利尿劑、β 阻斷劑、ACEI／ARB／ARNI：I50 I11.0 I13.0 I13.2（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I15",
+   "table": "indications",
+   "key": "C09",
+   "fp": "983fafab13f0",
+   "text": "C09 ACEI／ARB：N18 E10.2 E11.2 I21-I25（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I16",
+   "table": "indications",
+   "key": "C07AA05",
+   "fp": "4a4377241a14",
+   "text": "C07AA05 Propranolol：G43 G25.0 E05（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I17",
+   "table": "indications",
+   "key": "C07AA05",
+   "fp": "e56793133912",
+   "text": "C07AA05 Propranolol：R25.1 F40-F48 G25.7（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I18",
+   "table": "indications",
+   "key": "C03",
+   "fp": "2b953cf7d5d5",
+   "text": "C03 利尿劑：R60 E26 R18 K70-K74 N04 N18 E87.7（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I19",
+   "table": "indications",
+   "key": "C02CA",
+   "fp": "878d7f56fa40",
+   "text": "C02CA Doxazosin：N40 R33 R39.1（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I20",
+   "table": "indications",
+   "key": "B01AC",
+   "fp": "1c23342a7464",
+   "text": "B01AC 抗血小板：I20-I25 I63-I67 I69 I70-I74 G45 Z95 Z86.73（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I21",
+   "table": "indications",
+   "key": "B01AC06",
+   "fp": "605c51fa29ec",
+   "text": "B01AC06 Aspirin：D45 D47.3（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "ELN／NCCN 骨髓增生性腫瘤建議（低劑量 aspirin）"
+  },
+  {
+   "id": "I22",
+   "table": "indications",
+   "key": "N02BA01",
+   "fp": "a8dbb05bd234",
+   "text": "N02BA01 Aspirin（ATC 歸在 N02BA 的產品）：I20-I25 I63-I67 I69 I70-I74 G45 Z95 Z86.73（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I23",
+   "table": "indications",
+   "key": "N02BA01",
+   "fp": "b09f9fef3645",
+   "text": "N02BA01 Aspirin（ATC 歸在 N02BA 的產品）：D45 D47.3（指引）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "ELN／NCCN 骨髓增生性腫瘤建議（低劑量 aspirin）",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I24",
+   "table": "indications",
+   "key": "B01AA B01AE B01AF",
+   "fp": "f04c14318c00",
+   "text": "B01AA B01AE B01AF 抗凝血劑：I48 I26 I80-I82 Z86.71 Z95.2 Z95.4 I05-I08 I34-I37 I63（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I25",
+   "table": "indications",
+   "key": "A02BA A02BC A02BX",
+   "fp": "074838f8c102",
+   "text": "A02BA A02BC A02BX 胃酸抑制與制酸：K20-K31 K92.0 K92.1 K92.2 R10.1 R12（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I26",
+   "table": "indications",
+   "key": "A02BA A02BC",
+   "fp": "90e28d27c73c",
+   "text": "A02BA A02BC 胃酸抑制：Z79.1 Z79.01 Z79.02 Z79.52（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I27",
+   "table": "indications",
+   "key": "A03FA",
+   "fp": "c34097d8b543",
+   "text": "A03FA 腸胃蠕動促進劑：K21 K29-K31 R10.1 R11 R14（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I28",
+   "table": "indications",
+   "key": "A03A",
+   "fp": "1cfdd8eb842e",
+   "text": "A03A 腸胃道解痙劑：K20-K31 K55-K59 K80-K87 N20-N23 R10（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I29",
+   "table": "indications",
+   "key": "A05B",
+   "fp": "b84418b8e0e4",
+   "text": "A05B 肝臟保護：K70-K77 B15-B19 R74.0（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I30",
+   "table": "indications",
+   "key": "A06A",
+   "fp": "1d7ee1f0c35a",
+   "text": "A06A 瀉劑：K59.0 K56-K58（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I31",
+   "table": "indications",
+   "key": "J05AF",
+   "fp": "e74a8fb6c640",
+   "text": "J05AF B 型肝炎抗病毒：B16-B19 Z22.5（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I32",
+   "table": "indications",
+   "key": "N07CA",
+   "fp": "a5f19e89faaa",
+   "text": "N07CA 抗暈眩藥：H81-H83 R42（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "起草時標為待審"
+   ]
+  },
+  {
+   "id": "I33",
+   "table": "indications",
+   "key": "N05BA",
+   "fp": "c8484b05311f",
+   "text": "N05BA BZD 抗焦慮劑：F40-F48 F51 G47.0 R45（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I34",
+   "table": "indications",
+   "key": "N05CD N05CF",
+   "fp": "e69fcc824bad",
+   "text": "N05CD N05CF BZD／Z-drug 安眠藥：F51 G47.0（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I35",
+   "table": "indications",
+   "key": "N05BA N05CD N05CF",
+   "fp": "587c877ec191",
+   "text": "N05BA N05CD N05CF BZD／Z-drug：F30-F39 F40-F48（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I36",
+   "table": "indications",
+   "key": "N03AE01",
+   "fp": "359260370622",
+   "text": "N03AE01 Clonazepam：G40 F41.0（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I37",
+   "table": "indications",
+   "key": "N03AE01",
+   "fp": "81fbbc3f0bb9",
+   "text": "N03AE01 Clonazepam：F30-F39 F40-F48 F51 G47.0 G25.81（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I38",
+   "table": "indications",
+   "key": "N03",
+   "fp": "15331f092e5e",
+   "text": "N03 抗癲癇藥：G40 R56（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I39",
+   "table": "indications",
+   "key": "N03AG",
+   "fp": "ccaa68274ecd",
+   "text": "N03AG Valproate：F30-F31 G43（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I40",
+   "table": "indications",
+   "key": "N03AX09",
+   "fp": "887720d4c4eb",
+   "text": "N03AX09 Lamotrigine：F31（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I41",
+   "table": "indications",
+   "key": "N03AX15",
+   "fp": "c208262cafd0",
+   "text": "N03AX15 Zonisamide：G20 G25.0 R25.1（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "起草時標為待審",
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I42",
+   "table": "indications",
+   "key": "N02BF",
+   "fp": "15f39d8b7196",
+   "text": "N02BF Gabapentinoid：G40 G50-G64 E08.4 E09.4 E10.4 E11.4 E13.4 B02.2 M79.2 M79.7（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I43",
+   "table": "indications",
+   "key": "N02BF",
+   "fp": "ca5bce787561",
+   "text": "N02BF Gabapentinoid：M54.1 M47.2 M51.1 G25.81 G89（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I44",
+   "table": "indications",
+   "key": "N02A",
+   "fp": "1a5d6c909c04",
+   "text": "N02A 鴉片類止痛藥：M00-M99 G89 R52 C00-D49 G50-G64 S00-T14（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I45",
+   "table": "indications",
+   "key": "N02B",
+   "fp": "95014f3c0950",
+   "text": "N02B 解熱鎮痛藥：M00-M99 R50-R52 G43-G44 G89 G50-G64 S00-T14 N94.6 K08.8（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I46",
+   "table": "indications",
+   "key": "M01A M02A",
+   "fp": "d90e9a207f31",
+   "text": "M01A M02A NSAID：M00-M99 R52 G43-G44 G89 S00-T14 N94.6（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I47",
+   "table": "indications",
+   "key": "M04",
+   "fp": "a0d13686f4a6",
+   "text": "M04 痛風用藥：M10 M1A E79.0 N20（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I48",
+   "table": "indications",
+   "key": "M05B",
+   "fp": "3d75bd44c732",
+   "text": "M05B 骨質疏鬆用藥：M80-M81（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I49",
+   "table": "indications",
+   "key": "H02AB",
+   "fp": "c56ebd7b0902",
+   "text": "H02AB 口服類固醇：M05-M06 M30-M36 J44-J45 L20-L30 L40 L93 D59 D69.3 N04 E27.1 E27.4 K50-K51 T78 G35 G70 H20 C81-C96（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I50",
+   "table": "indications",
+   "key": "P01BA02",
+   "fp": "f652ac3a5a16",
+   "text": "P01BA02 Hydroxychloroquine：M05-M06 M32 M35.0（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "依據與備註不一致：依據寫「仿單」，但備註說乾燥症（M35.0）是常見仿單外"
+   ]
+  },
+  {
+   "id": "I51",
+   "table": "indications",
+   "key": "N07AX03",
+   "fp": "8d51bf13a01d",
+   "text": "N07AX03 Cevimeline：M35.0（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I52",
+   "table": "indications",
+   "key": "L04AX01",
+   "fp": "cfb3d2b40557",
+   "text": "L04AX01 Azathioprine：M05-M06 M30-M36 K50-K51 Z94（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I53",
+   "table": "indications",
+   "key": "L04AX01",
+   "fp": "9a247905e5a0",
+   "text": "L04AX01 Azathioprine：D69.3 D59（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I54",
+   "table": "indications",
+   "key": "L04AD",
+   "fp": "1ca376a5b518",
+   "text": "L04AD Calcineurin 抑制劑：Z94 N04 M05-M06 M32（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I55",
+   "table": "indications",
+   "key": "L04AD01",
+   "fp": "ce6f305309d5",
+   "text": "L04AD01 Ciclosporin：L40 L20（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I56",
+   "table": "indications",
+   "key": "B02BX05",
+   "fp": "49269506bbef",
+   "text": "B02BX05 Eltrombopag：D69.3 D61（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I57",
+   "table": "indications",
+   "key": "L01XX05 L01XX35",
+   "fp": "6d4542c92149",
+   "text": "L01XX05 L01XX35 Hydroxyurea、Anagrelide：D45 D47.1 D47.3 C92.1（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I58",
+   "table": "indications",
+   "key": "L02B",
+   "fp": "cd95e9f6c4cc",
+   "text": "L02B 荷爾蒙拮抗劑：C50 D05 Z85.3 C61 Z85.46（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I59",
+   "table": "indications",
+   "key": "G04CA",
+   "fp": "3681e5909e9d",
+   "text": "G04CA α 阻斷劑（泌尿）：N40 R33 R35 R39.1 N13（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I60",
+   "table": "indications",
+   "key": "G04CA",
+   "fp": "016bc124b051",
+   "text": "G04CA α 阻斷劑（泌尿）：N20-N23（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I61",
+   "table": "indications",
+   "key": "G04CB",
+   "fp": "ddc67cce11f8",
+   "text": "G04CB 5α 還原酶抑制劑：N40（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依意見新增 C18：50 歲以下女性給紅色"
+  },
+  {
+   "id": "I62",
+   "table": "indications",
+   "key": "G04BD",
+   "fp": "6605e7f5abe6",
+   "text": "G04BD 膀胱過動症用藥：N32.81 N31 R32 R35 N39.4 R39.1（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I63",
+   "table": "indications",
+   "key": "G04BE",
+   "fp": "1e95ba8a42c1",
+   "text": "G04BE PDE5 抑制劑：N52 N40（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I64",
+   "table": "indications",
+   "key": "H01BA02",
+   "fp": "2670dcee5107",
+   "text": "H01BA02 Desmopressin：E23.2 R35.1 N39.44（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I65",
+   "table": "indications",
+   "key": "H03AA",
+   "fp": "854da00daf08",
+   "text": "H03AA 甲狀腺素：E01-E03 E89.0 C73 E04 E06（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I66",
+   "table": "indications",
+   "key": "H03B",
+   "fp": "5fc1fc1fd281",
+   "text": "H03B 抗甲狀腺藥：E05（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I67",
+   "table": "indications",
+   "key": "B03A",
+   "fp": "5487ae8a0194",
+   "text": "B03A 鐵劑：D50 D63 D64.9 N92 O99.0 N18（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I68",
+   "table": "indications",
+   "key": "B03BA",
+   "fp": "a8725921e269",
+   "text": "B03BA 維生素 B12：D51 E53.8 G50-G64 E08.4 E10.4 E11.4 E13.4 M79.2（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I69",
+   "table": "indications",
+   "key": "B03BB",
+   "fp": "ac42ebc52698",
+   "text": "B03BB 葉酸：D52 D53 E72.1 O99.0 Z33 Z34（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I70",
+   "table": "indications",
+   "key": "N06A",
+   "fp": "32ebb3eeb74c",
+   "text": "N06A 抗憂鬱劑：F30-F39 F40-F48 F50（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I71",
+   "table": "indications",
+   "key": "N06A",
+   "fp": "06a90abf2d8a",
+   "text": "N06A 抗憂鬱劑：F51 G47.0 G89 M79.7 G43（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I72",
+   "table": "indications",
+   "key": "N06A",
+   "fp": "dd0d9fba2cd1",
+   "text": "N06A 抗憂鬱劑：F01-F03 F05 G30（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "起草時標為待審",
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I73",
+   "table": "indications",
+   "key": "N06AX21",
+   "fp": "1f14d68db732",
+   "text": "N06AX21 Duloxetine：E08.4 E10.4 E11.4 E13.4 M79.7 M15-M19 M43 M47 M48 M51 M54（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I74",
+   "table": "indications",
+   "key": "N06AA",
+   "fp": "8a053fc2748a",
+   "text": "N06AA 三環抗憂鬱劑：N39.44 N39.3 N39.4 N31 R32（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I75",
+   "table": "indications",
+   "key": "N05A",
+   "fp": "189575c92fd5",
+   "text": "N05A 抗精神病藥：F20-F29 F30-F31（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I76",
+   "table": "indications",
+   "key": "N05A",
+   "fp": "44d567c7a415",
+   "text": "N05A 抗精神病藥：F32-F33 F84 F90 F95（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I77",
+   "table": "indications",
+   "key": "N05A",
+   "fp": "b7ab7e5d1448",
+   "text": "N05A 抗精神病藥：F01-F03 F05 G30 G20（常見仿單外）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "起草時標為待審",
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ]
+  },
+  {
+   "id": "I78",
+   "table": "indications",
+   "key": "N05AN01",
+   "fp": "2b201abaa887",
+   "text": "N05AN01 Lithium：F30-F31（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I79",
+   "table": "indications",
+   "key": "N05AN01",
+   "fp": "cafb861ffd82",
+   "text": "N05AN01 Lithium：F32-F33（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I80",
+   "table": "indications",
+   "key": "N06BA",
+   "fp": "c8ab7d31e15b",
+   "text": "N06BA 中樞興奮劑：F90 G47.4（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I81",
+   "table": "indications",
+   "key": "N06D",
+   "fp": "1becb30ffe84",
+   "text": "N06D 失智症用藥：F01-F03 G30 G31（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I82",
+   "table": "indications",
+   "key": "N06BX N06DX",
+   "fp": "23cd694aa5b5",
+   "text": "N06BX N06DX 腦循環與認知：F01-F03 G30 G31 R41 I63-I67 I69 G45 H93.1 R25（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I83",
+   "table": "indications",
+   "key": "N04",
+   "fp": "3773dc5b8bc3",
+   "text": "N04 巴金森用藥：G20-G22 G25（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I84",
+   "table": "indications",
+   "key": "N07AB",
+   "fp": "2b11c308c2db",
+   "text": "N07AB Bethanechol：R33 N31（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I85",
+   "table": "indications",
+   "key": "S01XA20",
+   "fp": "55152c9f80b5",
+   "text": "S01XA20 人工淚液：H04.12 H16 H18（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I86",
+   "table": "indications",
+   "key": "S01XA",
+   "fp": "797feabb9829",
+   "text": "S01XA 其他眼用製劑：H25-H26（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I87",
+   "table": "indications",
+   "key": "S01BA",
+   "fp": "524cb5f6da30",
+   "text": "S01BA 眼用類固醇：H10 H15-H16 H18 H20（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I88",
+   "table": "indications",
+   "key": "S01E",
+   "fp": "a217c8f75291",
+   "text": "S01E 抗青光眼藥：H40-H42 Q15.0（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I89",
+   "table": "indications",
+   "key": "R06A",
+   "fp": "126bc78af682",
+   "text": "R06A 口服抗組織胺：J30-J31 L20-L30 L50 L29 T78.4 H10.1（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I90",
+   "table": "indications",
+   "key": "D05BB",
+   "fp": "5520251a6430",
+   "text": "D05BB Acitretin：L40 L43 L44 L85 L87 Q80 Q82.8（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I91",
+   "table": "indications",
+   "key": "D11AH",
+   "fp": "2ae22028efd3",
+   "text": "D11AH 外用 calcineurin 抑制劑：L20（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "I92",
+   "table": "indications",
+   "key": "R03",
+   "fp": "3a3c9013c5f3",
+   "text": "R03 氣喘與 COPD 用藥：J41-J45 J47 R06.2（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I93",
+   "table": "indications",
+   "key": "R05",
+   "fp": "30da37d1040e",
+   "text": "R05 咳嗽祛痰：J00-J47 R05 R06（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I94",
+   "table": "indications",
+   "key": "C05BA",
+   "fp": "5e3d9557d69b",
+   "text": "C05BA Heparinoid 外用：I80-I87 S00-T14 M79（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I95",
+   "table": "indications",
+   "key": "V03AE",
+   "fp": "ab905077e3c1",
+   "text": "V03AE 磷結合劑：N18 E83.3 N25.8（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I96",
+   "table": "indications",
+   "key": "A11CC",
+   "fp": "96ed2411656e",
+   "text": "A11CC 活性維生素 D：N18 N25.8 E20-E21 E55 M80-M83（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I97",
+   "table": "indications",
+   "key": "A12A",
+   "fp": "57df48dc050e",
+   "text": "A12A 鈣：M80-M81 E20 E55 E83.5 N18（仿單）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "I98",
+   "table": "indications",
+   "key": "R01A",
+   "fp": "70074115ddaf",
+   "text": "R01A 鼻用製劑（類固醇、抗過敏、去充血）：J00-J01 J30-J34（仿單）",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：診斷有過敏性鼻炎，開鼻用類固醇卻判灰色。適應症表沒有任何 R01A 的列，目前只有耳鼻喉科的科別常用能解釋。全部 362 張 R01 出現 2 次。"
+  },
+  {
+   "id": "I99",
+   "table": "indications",
+   "key": "L04AX01",
+   "fp": "d4e26565b52c",
+   "text": "L04AX01 Azathioprine：L20 L28 L30（常見仿單外）",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：皮膚科開 azathioprine 配異位性皮膚炎與濕疹，判黃色（高警訊藥無法解釋）。同意的話 azathioprine 不再因診斷對不上而給黃色；同時開 ciclosporin 時由 C50 提醒。",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ],
+   "links": [
+    {
+     "t": "EuroGuiDerm 異位性皮膚炎指引 azathioprine 章（2026/01）",
+     "u": "https://guidelines.edf.one//uploads/attachments/cmlunucqi0wyrfojrv53nvozf-12-azathioprine-jan-2026.pdf"
+    }
+   ]
+  },
+  {
+   "id": "I100",
+   "table": "indications",
+   "key": "N06AA",
+   "fp": "79a8e9599b77",
+   "text": "N06AA 三環抗憂鬱劑：E08.4 E09.4 E10.4 E11.4 E13.4 G50-G64 G89 M54.1 M79.2（常見仿單外）",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "imipramine 在新的 97 張未解釋 3 次（2 家院所）。這列解釋其中 1 次（診斷有神經根病變）。另外 2 次：配攝護腺增生的見 Q6；診斷沒有神經病變的仍是灰色。",
+   "flags": [
+    "仿單外用法：同意後會讓更多藥被視為有解釋"
+   ],
+   "links": [
+    {
+     "t": "NICE 2010 神經痛用藥摘要（GPnotebook）",
+     "u": "https://gpnotebook.com/pages/neurology/tricylic-antidepressants-for-neuropathic-pain/regimen-for-tricylic-antidepressants-in-neuropathic-pain"
+    },
+    {
+     "t": "Imipramine（StatPearls）",
+     "u": "https://www.statpearls.com/point-of-care/23380"
+    }
+   ]
+  },
+  {
+   "id": "D01",
+   "table": "co-drugs",
+   "key": "A02BA A02BC A02BX",
+   "fp": "9ea64e7c578a",
+   "text": "A02BA A02BC A02BX 可由同處方 B01AC B01AA B01AE B01AF M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 H02AB 解釋（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "同意；網頁把這類藥列為灰色提示。115/11/03 把 M01A 改成列出 NSAID 的 ATC（benzydamine 另列 Q4）"
+  },
+  {
+   "id": "D02",
+   "table": "co-drugs",
+   "key": "A06A A03AX13",
+   "fp": "c4898492d69a",
+   "text": "A06A A03AX13 可由同處方 N02A 解釋（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "同意；網頁把這類藥列為灰色提示"
+  },
+  {
+   "id": "D03",
+   "table": "co-drugs",
+   "key": "B03BB",
+   "fp": "f14f88d517fd",
+   "text": "B03BB 可由同處方 L04AX03 N03AG N03AF N03AB 解釋（常見）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "同意；網頁把這類藥列為灰色提示"
+  },
+  {
+   "id": "D04",
+   "table": "co-drugs",
+   "key": "N04AA N04AC",
+   "fp": "615b0fc507db",
+   "text": "N04AA N04AC 可由同處方 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX 解釋（常見）",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：開 biperiden，診斷沒有錐體外症狀，同處方有抗精神病藥，理由卻是「無法解釋」。同意後理由改成由同處方解釋，仍列灰色提示（沿用第一批「因藥品而用的藥也要提示」）。"
+  },
+  {
+   "id": "C01",
+   "table": "cautions",
+   "key": "C01",
+   "fp": "1c09f479d513",
+   "text": "C01 S01BA 診斷 B00.5 → 黃：眼用類固醇＋疱疹性眼疾：上皮型（樹枝狀）角膜炎禁用，基質型通常需併用抗病毒藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C02",
+   "table": "cautions",
+   "key": "C02",
+   "fp": "1346f49ac40d",
+   "text": "C02 C07AA 診斷 J45 J44 → 紅：非選擇性 β 阻斷劑＋氣喘／COPD：可能誘發支氣管痙攣",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C03",
+   "table": "cautions",
+   "key": "C03",
+   "fp": "b8f38782449d",
+   "text": "C03 N07AB 診斷 N13 K56 → 黃：Bethanechol＋泌尿道或腸道阻塞：機械性阻塞時禁用，請確認不是阻塞造成",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C04",
+   "table": "cautions",
+   "key": "C04",
+   "fp": "a1dc9ab02a39",
+   "text": "C04 N07AB 診斷 J45 I20-I25 K25-K27 G40 G20 E05 → 黃：Bethanechol＋氣喘／冠心病／消化性潰瘍／癲癇／巴金森／甲亢：仿單禁忌疾病",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C06",
+   "table": "cautions",
+   "key": "C06",
+   "fp": "19faeb33de4d",
+   "text": "C06 METFORMIN 診斷 N18.4 N18.5 N18.6 → 紅：Metformin＋慢性腎病第 4–5 期：eGFR<30 禁用",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C07",
+   "table": "cautions",
+   "key": "C07",
+   "fp": "306e2387747a",
+   "text": "C07 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 診斷 N18 K25-K28 I50 → 黃：NSAID＋慢性腎病／消化性潰瘍／心衰竭",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "同意；115/11/03 把 M01A 改成列出 NSAID 的 ATC，不再含 glucosamine、chondroitin（benzydamine 另列 Q4）"
+  },
+  {
+   "id": "C08",
+   "table": "cautions",
+   "key": "C08",
+   "fp": "2341fc8cd0f2",
+   "text": "C08 N04BA 診斷 H40.2 → 黃：Levodopa＋隅角閉鎖性青光眼",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C09",
+   "table": "cautions",
+   "key": "C09",
+   "fp": "cd639c8ed1e7",
+   "text": "C09 N05BA N05CD N05CF N03AE01 年齡 >=65 → 灰：65 歲以上使用 BZD／Z-drug：跌倒與認知風險（老人用藥提醒，預設收合）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "AGS Beers Criteria 2023",
+   "outcome": "依意見新增 C17：同處方有 α 阻斷劑或睡前降血壓藥時升一級。115/11/04 藥師決定加上成分關鍵字 CHLORDIAZEPOXIDE"
+  },
+  {
+   "id": "C10",
+   "table": "cautions",
+   "key": "C10",
+   "fp": "84d45a6ebf26",
+   "text": "C10 N05A 診斷 F01-F03 G30 → 黃：抗精神病藥＋失智症：死亡率增加",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "US FDA 黑框警語（抗精神病藥用於失智症長者）"
+  },
+  {
+   "id": "C11",
+   "table": "cautions",
+   "key": "C11",
+   "fp": "60df29cb7e58",
+   "text": "C11 N03AG 診斷 O00-O9A Z33 Z34 → 紅：Valproate＋懷孕：致畸胎",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C12",
+   "table": "cautions",
+   "key": "C12",
+   "fp": "3535bc233e33",
+   "text": "C12 C03DA 診斷 E87.5 N18.4 N18.5 N18.6 → 黃：醛固酮拮抗劑＋高血鉀／慢性腎病第 4–5 期",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C13",
+   "table": "cautions",
+   "key": "C13",
+   "fp": "224e85f772b6",
+   "text": "C13 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03B 診斷 H40.2 R33 → 黃：抗膽鹼藥＋隅角閉鎖性青光眼／尿滯留",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "prev": "C13 G04BD A03B 診斷 H40.2 R33 → 黃：抗膽鹼藥＋隅角閉鎖性青光眼／尿滯留",
+   "outcome": "依藥師意見修改（115/11/05）：mirabegron 分到 C54、C55，其他藥不變",
+   "why": "藥師決定（115/11/05）：mirabegron 是 β3 促效劑，不是抗膽鹼藥，從這條分出去，配尿滯留維持黃色（C54），配隅角閉鎖性青光眼降為灰色（C55）。其他藥不變；pipoxolan 的 ATC 只有 G04BD 這一層，用成分關鍵字留在這條。"
+  },
+  {
+   "id": "C14",
+   "table": "cautions",
+   "key": "C14",
+   "fp": "c9473a8c8333",
+   "text": "C14 H01BA02 診斷 E87.1 → 紅：Desmopressin＋低血鈉",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "C15",
+   "table": "cautions",
+   "key": "C15",
+   "fp": "00705d9196fb",
+   "text": "C15 H01BA02 年齡 >=65 → 黃：65 歲以上使用 desmopressin 治療夜尿：低血鈉風險，請詢問有無噁心、食慾下降、體重增加、倦怠嗜睡等症狀",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "AGS Beers Criteria 2023",
+   "outcome": "依意見改成黃色，提示加上詢問低血鈉症狀"
+  },
+  {
+   "id": "C16",
+   "table": "cautions",
+   "key": "C16",
+   "fp": "de0244484254",
+   "text": "C16 N02A 同處方 N05BA N05CD N05CF N03AE01 → 黃：鴉片類＋BZD／Z-drug 同時使用：呼吸抑制",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "ref": "US FDA 2016 黑框警語（鴉片類與 BZD 併用）"
+  },
+  {
+   "id": "C17",
+   "table": "cautions",
+   "key": "C17",
+   "fp": "36caeb03875f",
+   "text": "C17 N05BA N05CD N05CF N03AE01 年齡+同處方 >=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS → 黃：65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依 C09 的意見新增。115/11/04 藥師決定加上成分關鍵字 CHLORDIAZEPOXIDE"
+  },
+  {
+   "id": "C18",
+   "table": "cautions",
+   "key": "C18",
+   "fp": "2d31c2bfa5db",
+   "text": "C18 G04CB 性別+年齡 女;<50 → 紅：50 歲以下女性的處方有 5α 還原酶抑制劑：可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依 I61 的意見新增"
+  },
+  {
+   "id": "C19",
+   "table": "cautions",
+   "key": "C19",
+   "fp": "f53bbb50fc8d",
+   "text": "C19 N02A 同處方 N02BF → 黃：鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C20",
+   "table": "cautions",
+   "key": "C20",
+   "fp": "b0058e1cfaff",
+   "text": "C20 CLOPIDOGREL 同處方 A02BC01 A02BC05 → 灰：Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C21",
+   "table": "cautions",
+   "key": "C21",
+   "fp": "24458919ceb4",
+   "text": "C21 J01MA 同處方 H02AB → 灰：Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C22",
+   "table": "cautions",
+   "key": "C22",
+   "fp": "2a8e3f507072",
+   "text": "C22 J01MA 年齡+同處方 >=60;H02AB → 黃：60 歲以上使用 fluoroquinolone＋全身性類固醇：肌腱斷裂風險更高，請提醒腳跟或肌腱疼痛時停藥回診",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C23",
+   "table": "cautions",
+   "key": "C23",
+   "fp": "d8b42ea2b8ce",
+   "text": "C23 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 同處方 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 → 黃：同處方兩種以上 NSAID：腸胃道出血與腎毒性增加，療效沒有增加",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C24",
+   "table": "cautions",
+   "key": "C24",
+   "fp": "5a34799481ec",
+   "text": "C24 M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 同處方 B01AA B01AE B01AF → 黃：NSAID＋口服抗凝血劑：出血風險增加",
+   "batch": "2026-11-03",
+   "changed": "2026-11-05T07:32:07.508Z",
+   "why": "核對 Beers 2023 原文：這個組合併在表 2 的 NSAID 條文裡，寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。藥師決定（115/11/05）不含 COX-2 抑制劑（M01AH），和 C51 一致，所以 celecoxib 這類配抗凝血劑不會提示。現有寫法排除不了有開胃藥的處方，也不看劑型。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ],
+   "prev": "C24 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 同處方 B01AA B01AE B01AF → 黃：NSAID＋口服抗凝血劑：出血風險增加"
+  },
+  {
+   "id": "C25",
+   "table": "cautions",
+   "key": "C25",
+   "fp": "5e6ab24b49d5",
+   "text": "C25 M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;H02AB → 黃：65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護",
+   "batch": "2026-11-03",
+   "changed": "2026-11-05T07:32:07.508Z",
+   "why": "核對 Beers 2023 原文：這個組合併在表 2 的 NSAID 條文裡，寫的是非 COX-2 選擇性的口服 NSAID，沒有其他選擇且併用胃腸保護時是例外。藥師決定（115/11/05）不含 COX-2 抑制劑（M01AH），和 C51 一致，所以 celecoxib 這類配類固醇不會提示。現有寫法排除不了有開胃藥的處方，也不看劑型。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ],
+   "prev": "C25 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;H02AB → 黃：65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護"
+  },
+  {
+   "id": "C26",
+   "table": "cautions",
+   "key": "C26",
+   "fp": "fec9c3c1a0b0",
+   "text": "C26 B01AA03 同處方 C01BD01 J01MA02 J01FA01 J01FA02 J01FA03 J01FA06 J01FA07 J01FA08 J01FA09 J01FA15 J01FA91 J01EE01 N06AB → 黃：Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR",
+   "batch": "2026-11-03",
+   "changed": "2026-11-05T05:34:44.294Z",
+   "prev": "C26 B01AA03 同處方 C01BD01 J01MA02 J01FA01 J01FA06 J01FA09 J01EE01 N06AB → 黃：Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR",
+   "why": "核對 Beers 2023 原文：表 5 寫的是 azithromycin 以外的 macrolide。原本只列 erythromycin、roxithromycin、clarithromycin，這次補上健保檔裡其他的 macrolide（spiramycin、midecamycin、josamycin、troleandomycin、telithromycin、leucomycin）。原文的建議是盡量避免，併用時密切追蹤 INR。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C27",
+   "table": "cautions",
+   "key": "C27",
+   "fp": "d1b0edb23137",
+   "text": "C27 R03DA04 R03DA05 同處方 J01MA02 A02BA01 → 黃：Theophylline／aminophylline＋ciprofloxacin／cimetidine：theophylline 中毒（噁心、心悸、抽搐）",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C28",
+   "table": "cautions",
+   "key": "C28",
+   "fp": "cbc258b8c5a0",
+   "text": "C28 N03AB02 同處方 J01EE01 → 黃：Phenytoin＋TMP-SMX：phenytoin 中毒",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C29",
+   "table": "cautions",
+   "key": "C29",
+   "fp": "d9f8958b3c35",
+   "text": "C29 N05AN01 同處方 C09A C09B C09C C09D C03C → 黃：Lithium＋ACEI／ARB／ARNI／環利尿劑：lithium 中毒，需監測血中濃度",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C30",
+   "table": "cautions",
+   "key": "C30",
+   "fp": "ec7b35934d30",
+   "text": "C30 C09A C09B 同處方 C09C C09DA C09DB C09XA → 黃：ACEI＋ARB／aliskiren 雙重 RAS 阻斷：高血鉀、急性腎損傷、低血壓",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z",
+   "why": "核對 Beers 2023 原文：表 5 限慢性腎病 3a 期以上，這條不看腎功能，依據的是 EMA 與 FDA。Beers 也把 RAS 抑制劑＋保鉀利尿劑（amiloride、triamterene）列入；362 張沒有這種組合配慢性腎病，這次沒有加。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C31",
+   "table": "cautions",
+   "key": "C31",
+   "fp": "1480ef192b0f",
+   "text": "C31 C09DX04 同處方 C09A C09B → 紅：Sacubitril/valsartan＋ACEI：禁止併用（血管性水腫），換藥須間隔 36 小時",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C32",
+   "table": "cautions",
+   "key": "C32",
+   "fp": "62f244b30260",
+   "text": "C32 G04BE 同處方 C01DA C01DX16 → 紅：PDE5 抑制劑＋硝酸鹽類／nicorandil：嚴重低血壓",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C33",
+   "table": "cautions",
+   "key": "C33",
+   "fp": "a51d8000228f",
+   "text": "C33 C10AA01 C10AA02 C10BA01 C10BA02 同處方 J01FA01 J01FA09 J02AB02 J02AC02 C10AB04 L04AD01 → 紅：Simvastatin／lovastatin＋強效 CYP3A4 抑制劑／gemfibrozil／ciclosporin：肌病變、橫紋肌溶解",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C34",
+   "table": "cautions",
+   "key": "C34",
+   "fp": "d68dea4a578b",
+   "text": "C34 M04AC01 同處方 J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01 → 黃：Colchicine＋P-gp／CYP3A4 抑制劑：colchicine 中毒（腹瀉、肌肉無力、骨髓抑制），需減量",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C35",
+   "table": "cautions",
+   "key": "C35",
+   "fp": "347d8e95e344",
+   "text": "C35 M04AC01 診斷+同處方 N18.3 N18.4 N18.5 N18.6 K70-K77;J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01 → 紅：Colchicine＋P-gp／CYP3A4 抑制劑＋腎或肝功能不全：禁止併用，曾有致死案例",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C36",
+   "table": "cautions",
+   "key": "C36",
+   "fp": "2c64c0610fe0",
+   "text": "C36 M03BX02 同處方 J01MA02 N06AB08 → 紅：Tizanidine＋ciprofloxacin／fluvoxamine：禁止併用（tizanidine 濃度大增，低血壓、嗜睡）",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C37",
+   "table": "cautions",
+   "key": "C37",
+   "fp": "582826bae4cd",
+   "text": "C37 A03FA03 同處方 J01FA01 J01FA09 J02AB02 J02AC02 → 紅：Domperidone＋強效 CYP3A4 抑制劑或會延長 QT 的 macrolide：QT 延長、心律不整",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C38",
+   "table": "cautions",
+   "key": "C38",
+   "fp": "229964f6e436",
+   "text": "C38 N02CA 同處方 J01FA01 J01FA09 J02AB02 J02AC02 → 紅：麥角生物鹼＋強效 CYP3A4 抑制劑：麥角中毒（血管痙攣、肢體缺血）",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C39",
+   "table": "cautions",
+   "key": "C39",
+   "fp": "68feb776afc9",
+   "text": "C39 M04AA03 同處方 L04AX01 L01BB02 → 紅：Febuxostat＋azathioprine／mercaptopurine：骨髓抑制",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C40",
+   "table": "cautions",
+   "key": "C40",
+   "fp": "aabf523290e1",
+   "text": "C40 M04AA01 同處方 L04AX01 L01BB02 → 黃：Allopurinol＋azathioprine／mercaptopurine：骨髓抑制，azathioprine／mercaptopurine 需大幅減量",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C41",
+   "table": "cautions",
+   "key": "C41",
+   "fp": "4929555a2aae",
+   "text": "C41 C02CA G04CA03 性別+年齡+同處方 女;>=65;C03C → 灰：65 歲以上女性 α1 阻斷劑＋環利尿劑：尿失禁",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "C42",
+   "table": "cautions",
+   "key": "C42",
+   "fp": "f60195d3d64b",
+   "text": "C42 N05BA N05CD N05CF N03AE01 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：BZD／Z-drug＋失智症或認知障礙：可能使認知功能惡化、引發譫妄與跌倒，老人應避免（含 chlordiazepoxide 的胃腸複方也算）",
+   "batch": "2026-11-04",
+   "changed": "2026-11-04T00:00:00.000Z"
+  },
+  {
+   "id": "C43",
+   "table": "cautions",
+   "key": "C43",
+   "fp": "ebd77a98b047",
+   "text": "C43 A10BK 年齡+同處方 >=65;C03 C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54 → 灰：65 歲以上 SGLT2 抑制劑＋利尿劑（含利尿劑的降血壓複方）：體液不足、姿勢性低血壓、急性腎損傷，請提醒頭暈時告知醫師並注意水分攝取",
+   "batch": "2026-11-04",
+   "changed": "2026-11-04T00:00:00.000Z"
+  },
+  {
+   "id": "C44",
+   "table": "cautions",
+   "key": "C44",
+   "fp": "35840329bfc9",
+   "text": "C44 N05BA N05CD N05CF N03AE01 同處方 N05BA N05CD N05CF N03AE01 → 灰：同處方兩種以上 BZD／Z-drug：作用重複，鎮靜、跌倒與依賴風險增加（含 chlordiazepoxide 的胃腸複方也算）",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 2 張（都是 3 種以上），先前 265 張有 20 張（其中 3 張 3 種以上），合計 22 張、約 6%。等級先填灰色，免得精神科處方大量變黃。Beers 原文只寫合計 3 種中樞神經藥，沒有專門寫兩種 BZD，所以依據是起草者判斷；要做到 3 種見 Q7。比照 C09、C17 的決定，含 chlordiazepoxide 的複方也算，但同處方那一邊只能用 ATC 比對，所以兩個都是複方時抓不到。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C45",
+   "table": "cautions",
+   "key": "C45",
+   "fp": "6479e9eb8c71",
+   "text": "C45 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX 同處方 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX → 灰：同處方兩種以上抗精神病藥：作用重複，副作用累加；clozapine 合併治療等情況常見，請確認是刻意合併",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 2 張，先前 265 張有 1 張。Clozapine 合併其他抗精神病藥是常見做法，所以先填灰色。這次沒有查到專門講抗精神病藥單一治療的指引，依據是起草者判斷。"
+  },
+  {
+   "id": "C46",
+   "table": "cautions",
+   "key": "C46",
+   "fp": "38fe63c95c3a",
+   "text": "C46 N03AG 性別+年齡 女;<50 → 黃：50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 2 張用 valproate 的非男性處方：50 歲以下女性 1 張（會給黃色）、性別欄空白 1 張（會給灰色「無法取得性別資料」）。比照 C18（藥師要求 50 歲以下女性用 5α 還原酶抑制劑給紅色）。等級先填黃：雙極症、癲癇常是必要用藥，重點在確認衛教。FDA 黑框警語這次沒有查到原文。",
+   "links": [
+    {
+     "t": "EMA 2018 valproate 新措施",
+     "u": "https://www.ema.europa.eu/en/documents/referral/valproate-article-31-referral-new-measures-avoid-valproate-exposure-pregnancy-endorsed_en.pdf"
+    }
+   ]
+  },
+  {
+   "id": "C47",
+   "table": "cautions",
+   "key": "C47",
+   "fp": "6b0ce9154287",
+   "text": "C47 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH01 N05AH03 N05AH05 N05AH06 N05AL N05AX A03FA01 R06AD02 診斷 G20 → 黃：巴金森氏症＋抗精神病藥（clozapine、quetiapine 除外）或 metoclopramide、promethazine：可能使巴金森症狀惡化",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：有巴金森診斷的處方開 olanzapine，同時也命中 C10。I77 把巴金森列為抗精神病藥的仿單外解釋（待審），這條不影響解釋，只另外提醒。已核對 Beers 2023 表 3 原文：例外是 clozapine、pimavanserin、quetiapine，並點名 metoclopramide、prochlorperazine、promethazine。健保檔目前沒有 pimavanserin，日後收載時要從 N05AX 排除。flunarizine 這類藥不在 Beers 名單裡，沒有放進來。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C48",
+   "table": "cautions",
+   "key": "C48",
+   "fp": "397c02653eeb",
+   "text": "C48 H01BA02 同處方 N06AA N06AB N05AA01 N03AF01 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 → 黃：Desmopressin＋三環抗憂鬱劑／SSRI／chlorpromazine／carbamazepine／NSAID：水分滯留與低血鈉風險增加，請留意症狀或追蹤血鈉",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：desmopressin＋imipramine，未滿 65 歲。C15 只看 65 歲以上，所以目前沒有提示。",
+   "links": [
+    {
+     "t": "英國 SmPC（medicines.org.uk）",
+     "u": "https://www.medicines.org.uk/emc/product/15990/smpc"
+    },
+    {
+     "t": "美國注射劑仿單（medlibrary）",
+     "u": "https://medlibrary.org/lib/rx/meds/desmopressin-acetate/page/2/"
+    }
+   ]
+  },
+  {
+   "id": "C49",
+   "table": "cautions",
+   "key": "C49",
+   "fp": "1ddbb33d2c6f",
+   "text": "C49 N05AH02 同處方 N04AA N04AC A03AB A03B G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 N06AA → 黃：Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T07:05:51.504Z",
+   "why": "新的 97 張有 1 張：clozapine＋抗膽鹼藥，診斷同時有便秘。FDA 建議避免 clozapine 併用其他抗膽鹼藥。",
+   "links": [
+    {
+     "t": "FDA 2020 安全通訊",
+     "u": "https://www.fda.gov/drugs/drug-safety-communications/fda-strengthens-warning-untreated-constipation-caused-schizophrenia-medicine-clozapine-clozaril-can"
+    }
+   ],
+   "prev": "C49 N05AH02 同處方 N04AA N04AC A03AB A03B G04BD N06AA → 黃：Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況"
+  },
+  {
+   "id": "C50",
+   "table": "cautions",
+   "key": "C50",
+   "fp": "889e5337316c",
+   "text": "C50 L04AD01 診斷+同處方 L20-L30 L40;L04AX01 L04AX03 → 黃：皮膚病使用 ciclosporin＋其他免疫抑制劑：過度免疫抑制與皮膚惡性腫瘤風險，請確認是刻意合併",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "why": "新的 97 張有 1 張：ciclosporin＋azathioprine。Neoral 的警語寫的是乾癬病人，套到異位性皮膚炎是類推，這點請判斷。",
+   "links": [
+    {
+     "t": "Neoral 美國仿單（FDA 2019）",
+     "u": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2019/050715s035,050716s038lbl.pdf"
+    }
+   ]
+  },
+  {
+   "id": "C51",
+   "table": "cautions",
+   "key": "C51",
+   "fp": "54a86c0599e9",
+   "text": "C51 M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91 年齡+同處方 >=65;B01AC N02BA01 → 黃：65 歲以上 NSAID＋抗血小板藥：腸胃道出血與消化性潰瘍風險增加，無替代時需併用胃腸保護",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T05:34:44.294Z",
+   "why": "核對 Beers 2023 原文時補的：表 2 把 NSAID 併用類固醇、抗凝血劑、抗血小板藥並列，C24、C25 只做了前兩項。全部 362 張沒有命中。Beers 這條寫的是非 COX-2 選擇性的 NSAID，藥師決定（115/11/05）不含 COX-2 抑制劑（M01AH），所以樣本裡唯一的組合 celecoxib＋aspirin 不會提示；C24、C25 同樣不含。沒有其他選擇且併用胃腸保護時是例外，但現有寫法排除不了，有開胃藥也會提示。Beers 寫的是口服，現有寫法不看劑型，所以栓劑、注射劑也算，另有 4 個外用凝膠的 ATC 標成 M01AB05。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C52",
+   "table": "cautions",
+   "key": "C52",
+   "fp": "b61ee6c7822e",
+   "text": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T07:05:51.504Z",
+   "why": "核對 Beers 2023 原文時補的：表 3 寫失智症或認知障礙應避免表 7 的強抗膽鹼藥。C42 只管 BZD，C10 只管抗精神病藥，所以這條不放抗精神病藥，免得同一個藥提醒兩次。全部 362 張沒有命中，是預防性的規則。藥品依表 7 對應健保檔：doxepin 原文限每天超過 6 mg，現有寫法不看劑量所以都算；biperiden、propiverine 不在表 7，但同類所以放進來。藥師決定（115/11/05）butylscopolamine 不算：A03BB01 不放；健保檔的 A04AD01 只有一項，成分其實是 butylscopolamine 注射劑（A006774212），所以也不放，目前因此抓不到真正的 scopolamine，健保檔收載時要加回 A04AD01。只列明確的 ATC，不用 A03BA、G04BD 前綴：mirabegron（G04BD12）是 β3 促效劑不是抗膽鹼藥，piperilate（A03BA92）與 pipoxolan（G04BD）不在表 7。darifenacin、fesoterodine 健保檔目前沒有，先列著。含這些成分的胃腸與感冒複方也沒有包含。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ],
+   "prev": "C52 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 G04BD A03AB20 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄"
+  },
+  {
+   "id": "C53",
+   "table": "cautions",
+   "key": "C53",
+   "fp": "372e0b723a43",
+   "text": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T07:05:51.504Z",
+   "why": "核對 Beers 2023 原文時補的：表 3 寫男性下泌尿道症狀或攝護腺增生應避免強抗膽鹼藥，尿失禁用藥除外，所以不含 G04BD 與 trospium。全部 362 張沒有黃色命中：有這種組合的男性處方未滿 65 歲（見 Q6），另有 1 張性別欄空白會給灰色。條件只寫 N40，沒有放下泌尿道症狀的診斷碼。藥品的對應與限制同 C52，另外包含表 7 的抗精神病藥。性別欄空白時給灰色。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ],
+   "prev": "C53 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA A03BB06 A03CA02 A04AD01 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 診斷+性別+年齡 N40;男;>=65 → 黃：65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留"
+  },
+  {
+   "id": "C54",
+   "table": "cautions",
+   "key": "C54",
+   "fp": "60284112f516",
+   "text": "C54 G04BD12 診斷 R33 → 黃：Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T07:32:07.508Z",
+   "why": "藥師決定（115/11/05）把 mirabegron 從 C13 分出來，配尿滯留維持黃色。美國仿單（2021/3 版）5.2 節：膀胱出口阻塞者與併用抗蕈毒鹼藥者有尿滯留通報，要小心使用並追蹤症狀；對照研究沒有看到尿滯留增加。沒有列為禁忌，也沒有對照國內仿單。全部 362 張沒有命中。",
+   "links": [
+    {
+     "t": "美國仿單（FDA）",
+     "u": "https://www.accessdata.fda.gov/drugsatfda_docs/nda/2022/213801Orig1s000lbl.pdf"
+    }
+   ]
+  },
+  {
+   "id": "C55",
+   "table": "cautions",
+   "key": "C55",
+   "fp": "98b918d4996a",
+   "text": "C55 G04BD12 診斷 H40.2 → 灰：Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T07:32:07.508Z",
+   "why": "藥師決定（115/11/05）把 mirabegron 從 C13 分出來，配隅角閉鎖性青光眼降級；等級填灰色，要改請在這條提出。美國仿單（2021/3 版）禁忌只列過敏；青光眼列在發生率低於 1% 的不良反應；健康受試者 100 mg 用 56 天眼壓沒有上升。查到的資料沒有隅角閉鎖的病人，所以提示寫資料有限。沒有對照國內仿單。全部 362 張沒有命中。",
+   "links": [
+    {
+     "t": "美國仿單（FDA）",
+     "u": "https://www.accessdata.fda.gov/drugsatfda_docs/nda/2022/213801Orig1s000lbl.pdf"
+    }
+   ]
+  },
+  {
+   "id": "S02",
+   "table": "specialty",
+   "key": "02",
+   "fp": "a6dd96d5189f",
+   "text": "02 內科：A02 A03 A06 A07 A09",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S05",
+   "table": "specialty",
+   "key": "05",
+   "fp": "209f952798e0",
+   "text": "05 婦產科：G01 G02 G03 B03",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S06",
+   "table": "specialty",
+   "key": "06",
+   "fp": "913b3b23b43b",
+   "text": "06 骨科：M01 M02 M03 M04 M05 N02",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依意見拿掉 A02"
+  },
+  {
+   "id": "S07",
+   "table": "specialty",
+   "key": "07",
+   "fp": "7df6e0c7ea6f",
+   "text": "07 神經外科：M01 M03 N02 N03 B03BA",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S08",
+   "table": "specialty",
+   "key": "08",
+   "fp": "7330648211fc",
+   "text": "08 泌尿科：G04 N07AB J01 G03B L02 C02CA H01BA02",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S09",
+   "table": "specialty",
+   "key": "09",
+   "fp": "4506f5e8352c",
+   "text": "09 耳鼻喉科：N07CA R01 R05 R06 J01 A01",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S10",
+   "table": "specialty",
+   "key": "10",
+   "fp": "cef9a379a3dc",
+   "text": "10 眼科：S01",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S11",
+   "table": "specialty",
+   "key": "11",
+   "fp": "c2b0bec8dd7d",
+   "text": "11 皮膚科：D R06 H02 J01 L04AD01 L04AX03",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "flags": [
+    "第一次驗證後新增"
+   ]
+  },
+  {
+   "id": "S12",
+   "table": "specialty",
+   "key": "12",
+   "fp": "3df6eaa3c987",
+   "text": "12 神經科：N03 N04 N02 N05C N06A N06BX N06D N06DX N07CA M03 C07AA05 B03BA",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "S13",
+   "table": "specialty",
+   "key": "13",
+   "fp": "d90600c1c0ea",
+   "text": "13 精神科：N05 N06 N03 N04A C07AA05",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SAA",
+   "table": "specialty",
+   "key": "AA",
+   "fp": "3b6e57eba5bc",
+   "text": "AA 消化內科：A02 A03 A05 A06 A07",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依意見拿掉 J05AF"
+  },
+  {
+   "id": "SAB",
+   "table": "specialty",
+   "key": "AB",
+   "fp": "257c1f761edd",
+   "text": "AB 心臟血管內科：C B01",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SAC",
+   "table": "specialty",
+   "key": "AC",
+   "fp": "280839f00cbf",
+   "text": "AC 胸腔內科：R03 R05 R06 J01",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SAD",
+   "table": "specialty",
+   "key": "AD",
+   "fp": "d7ef06a040e1",
+   "text": "AD 腎臟內科：C03 V03AE A11CC A12 B03 H05BX",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "outcome": "依意見拿掉 C08 C09 C10 A10BK M04"
+  },
+  {
+   "id": "SAE",
+   "table": "specialty",
+   "key": "AE",
+   "fp": "4fc34adffacd",
+   "text": "AE 風濕免疫科：M01 M04 H02 L04 P01BA N07AX03 A07EC",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SAF",
+   "table": "specialty",
+   "key": "AF",
+   "fp": "bc15f9093b46",
+   "text": "AF 血液腫瘤科：L01 L02 L04 B01AC B02 B03 H02 A02 A04",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SAG",
+   "table": "specialty",
+   "key": "AG",
+   "fp": "a0293a5a1735",
+   "text": "AG 內分泌科：H03 H05 A10 A11CC A12A G03 H02 C10 M05B",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "SBB",
+   "table": "specialty",
+   "key": "BB",
+   "fp": "257c1f761edd",
+   "text": "BB 心臟血管外科：C B01",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K01",
+   "table": "drug-classes",
+   "key": "A06|低風險",
+   "fp": "b4b8286a0e55",
+   "text": "A06 低風險：瀉劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K02",
+   "table": "drug-classes",
+   "key": "A02A|低風險",
+   "fp": "2128e4787e76",
+   "text": "A02A 低風險：制酸劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K03",
+   "table": "drug-classes",
+   "key": "A03AX13|低風險",
+   "fp": "bd4d7c89a380",
+   "text": "A03AX13 低風險：消脹劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K04",
+   "table": "drug-classes",
+   "key": "A11|低風險",
+   "fp": "c652e8a731ef",
+   "text": "A11 低風險：維生素",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K05",
+   "table": "drug-classes",
+   "key": "A12|低風險",
+   "fp": "c44a9d5fa612",
+   "text": "A12 低風險：礦物質",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "why": "第一批的意見是需要更多樣本。新的 97 張沒有出現 A12；全部 362 張出現 2 次（腎臟內科科別常用 1 次、低風險 1 次）。"
+  },
+  {
+   "id": "K06",
+   "table": "drug-classes",
+   "key": "B03BB|低風險",
+   "fp": "fb4f8d6eea67",
+   "text": "B03BB 低風險：葉酸",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K07",
+   "table": "drug-classes",
+   "key": "R05|低風險",
+   "fp": "70ce99ea7cf3",
+   "text": "R05 低風險：咳嗽感冒藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z",
+   "why": "第一批的意見是需要更多樣本。新的 97 張 R05 出現 2 次，全部 362 張 8 次，都由呼吸道診斷解釋，這層低風險其實沒用到。"
+  },
+  {
+   "id": "K08",
+   "table": "drug-classes",
+   "key": "S01XA20|低風險",
+   "fp": "9d6fa0ec87bb",
+   "text": "S01XA20 低風險：人工淚液",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K09",
+   "table": "drug-classes",
+   "key": "C05BA|低風險",
+   "fp": "3daf8f4d1781",
+   "text": "C05BA 低風險：外用 heparinoid",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K10",
+   "table": "drug-classes",
+   "key": "D02|低風險",
+   "fp": "22ae506b2506",
+   "text": "D02 低風險：潤膚劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K11",
+   "table": "drug-classes",
+   "key": "A10|高警訊",
+   "fp": "9f97fe1c43b1",
+   "text": "A10 高警訊：降血糖藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K12",
+   "table": "drug-classes",
+   "key": "B01AA|高警訊",
+   "fp": "565fcf7bd2a7",
+   "text": "B01AA 高警訊：口服抗凝血劑（warfarin）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K13",
+   "table": "drug-classes",
+   "key": "B01AE|高警訊",
+   "fp": "81dd39f0bcb8",
+   "text": "B01AE 高警訊：直接凝血酶抑制劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K14",
+   "table": "drug-classes",
+   "key": "B01AF|高警訊",
+   "fp": "0614c1b84bf5",
+   "text": "B01AF 高警訊：Xa 因子抑制劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K15",
+   "table": "drug-classes",
+   "key": "N03AA N03AB N03AF N03AG N03AX|高警訊",
+   "fp": "7608a1dbd231",
+   "text": "N03AA N03AB N03AF N03AG N03AX 高警訊：抗癲癇藥（不含 clonazepam，臨床多當 BZD 使用）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K16",
+   "table": "drug-classes",
+   "key": "H03AA|高警訊",
+   "fp": "5ec82a8d711e",
+   "text": "H03AA 高警訊：甲狀腺素",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K17",
+   "table": "drug-classes",
+   "key": "N05A|高警訊",
+   "fp": "e02176c36290",
+   "text": "N05A 高警訊：抗精神病藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K18",
+   "table": "drug-classes",
+   "key": "N02A|高警訊",
+   "fp": "0e4feb6a5725",
+   "text": "N02A 高警訊：鴉片類止痛藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K19",
+   "table": "drug-classes",
+   "key": "C01AA|高警訊",
+   "fp": "92cef1927af9",
+   "text": "C01AA 高警訊：毛地黃",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K20",
+   "table": "drug-classes",
+   "key": "L01|高警訊",
+   "fp": "c0c23e35183f",
+   "text": "L01 高警訊：抗腫瘤藥",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "K21",
+   "table": "drug-classes",
+   "key": "L04|高警訊",
+   "fp": "f4b1a5a47738",
+   "text": "L04 高警訊：免疫抑制劑",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "X1",
+   "table": "settings",
+   "key": "同成分重複",
+   "fp": "02718ad9b9b1",
+   "text": "同成分重複＝黃（可選：紅 黃 灰）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "X2",
+   "table": "settings",
+   "key": "科別常用",
+   "fp": "909d268fc5b4",
+   "text": "科別常用＝保留（可選：保留 停用）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  }
+ ],
+ "questions": [
+  {
+   "id": "Q1",
+   "title": "R55（昏厥）能不能用來解釋抗暈眩藥？",
+   "desc": "同意的話，在抗暈眩藥（N07CA）那列加上 R55。先前的樣本有心臟內科處方開 betahistine、診斷只有 R55，判為灰色。",
+   "why": "新的 97 張有 2 張診斷含 R55，都沒有開抗暈眩藥，沒有新證據。",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "Q2",
+   "title": "處方警示放在憑單模式、預設關閉、網址加 ?rxcheck=1 試用，可以嗎？",
+   "desc": "審完規則後，把 RX_CHECK_DEFAULT 改成 true，所有人預設開啟。",
+   "outcome": "同意；審完第一批後已改成預設開啟（115/11/01）",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "Q3",
+   "title": "讀不到生日時，年齡注意事項的用詞要改嗎？",
+   "desc": "原本寫「無法判斷：AGE?9999/99/99 跨過 65 歲」，是灰色提示，預設收合。",
+   "outcome": "依意見改成「無法讀取年齡」",
+   "batch": "2026-10-31",
+   "changed": "2026-10-31T00:00:00.000Z"
+  },
+  {
+   "id": "Q4",
+   "title": "benzydamine（M01AX07）要算 NSAID 嗎？",
+   "desc": "目前算（C07、C23–C25、C51、胃藥那列同處方）。不算的話從那串 ATC 拿掉。",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "Q5",
+   "title": "成分名去含量時，GM 要不要算單位？",
+   "desc": "沿用原型的做法：成分名只去掉 MG、MCG、G、ML、IU、U、%，GM 不在其中，所以 PETROLATUM 1 GM 和 PETROLATUM 2 GM 不算同成分。同意：維持現狀；不同意：把 GM 加進去，這類品項會變成同成分重複。",
+   "batch": "2026-11-03",
+   "changed": "2026-11-03T00:00:00.000Z"
+  },
+  {
+   "id": "Q6",
+   "title": "三環抗憂鬱劑配良性攝護腺增生、夜尿（N40 R35）要解釋嗎？",
+   "desc": "同意：在 N06AA 那列加上 N40 R35，不再列為無法解釋。不同意：維持灰色（起草者建議）。",
+   "why": "新的 97 張有 1 張：泌尿科開 imipramine，診斷是攝護腺增生與攝護腺炎，未滿 65 歲。可能是用來治夜尿或急迫性尿失禁，但這次查不到成人夜尿用 imipramine 的指引。Beers 2023 表 3 寫男性攝護腺增生應避免強抗膽鹼藥，imipramine 在表 7 裡，所以起草者建議不要解釋；65 歲以上由 C53 提醒。",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "Q7",
+   "title": "要不要做「3 種中樞神經藥」的計數寫法？",
+   "desc": "現有寫法只能看同處方有沒有某類藥，不能數藥數。同意：改判定程式加上計數條件，65 歲以上合計 3 種可以給黃色，兩種 BZD 仍是灰色的 C44。不同意：只留 C44。",
+   "why": "Beers 2023 表 5 寫避免合計 3 種中樞神經藥，算的是抗癲癇藥（含 gabapentinoid）、抗憂鬱藥（TCA、SSRI、SNRI）、抗精神病藥、BZD、Z-drug、鴉片類、肌肉鬆弛劑。照這樣算，全部 362 張有 26 張（約 7%），其中確定 65 歲以上 9 張；只算 BZD／Z-drug 是 5 張。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ],
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z"
+  },
+  {
+   "id": "Q8",
+   "title": "長效加短效的同成分（例如 methylphenidate 長效＋短效 PRN）要維持黃色嗎？",
+   "desc": "同意：維持黃色，每次都請藥師確認。其他意見：請寫要怎麼處理；要排除的話得在規則表加上例外寫法，ATC 和成分名都相同，目前分不出來。",
+   "why": "新的 97 張有 1 張：methylphenidate 長效加短效 PRN。先前的同成分重複多半是 amlodipine 單方加複方，這種是常見的刻意組合。",
+   "batch": "2026-11-05",
+   "changed": "2026-11-05T00:00:00.000Z"
+  }
+ ],
+ "retired": [
+  {
+   "id": "C05",
+   "table": "cautions",
+   "text": "C05 A10BK 診斷 N39.0 N30 N10-N12 N76 → 黃：SGLT2 抑制劑＋泌尿道或生殖道感染：感染風險，評估是否暫停",
+   "batch": "2026-10-31",
+   "retired": "2026-11-01T00:00:00.000Z",
+   "outcome": "依意見刪除：停藥不會減少復發，反而增加心腎風險"
+  },
+  {
+   "id": "S03",
+   "table": "specialty",
+   "text": "03 外科：L02B",
+   "batch": "2026-10-31",
+   "retired": "2026-11-01T00:00:00.000Z",
+   "outcome": "依意見刪除：這種藥跟診斷走，不算外科常開"
+  }
+ ],
+ "atcZh": {
+  "A01": "口腔用藥",
+  "A02": "胃酸相關疾病用藥",
+  "A02A": "制酸劑",
+  "A02BA": "H2 受體拮抗劑",
+  "A02BC": "質子幫浦抑制劑（PPI）",
+  "A02BX": "其他消化性潰瘍與胃食道逆流用藥",
+  "A03": "功能性腸胃疾病用藥",
+  "A03A": "功能性腸道疾病用藥",
+  "A03AX13": "Silicones（消脹氣）",
+  "A03B": "顛茄及其衍生物（單方）",
+  "A03FA": "腸胃蠕動促進劑",
+  "A04": "止吐劑",
+  "A05": "膽與肝治療",
+  "A05B": "肝臟治療",
+  "A06": "瀉劑",
+  "A06A": "瀉劑",
+  "A07": "止瀉、腸道抗發炎與抗感染",
+  "A07EC": "胺基水楊酸類",
+  "A09": "消化劑（含酵素）",
+  "A10": "糖尿病用藥",
+  "A10BA": "雙胍類",
+  "A10BG03": "Pioglitazone",
+  "A10BK": "SGLT2 抑制劑",
+  "A11": "維生素",
+  "A11CC": "維生素 D 及其類似物",
+  "A12": "礦物質補充劑",
+  "A12A": "鈣",
+  "B01": "抗血栓劑",
+  "B01AA": "維生素 K 拮抗劑",
+  "B01AC": "血小板凝集抑制劑",
+  "B01AC06": "Aspirin",
+  "B01AE": "直接凝血酶抑制劑",
+  "B01AF": "直接 Xa 因子抑制劑",
+  "B02": "抗出血劑",
+  "B02BX05": "Eltrombopag",
+  "B03": "抗貧血製劑",
+  "B03A": "鐵劑",
+  "B03BA": "維生素 B12",
+  "B03BB": "葉酸及其衍生物",
+  "C": "心血管系統",
+  "C01AA": "毛地黃配醣體",
+  "C01B": "第 I、III 類抗心律不整藥",
+  "C01D": "冠狀動脈擴張劑（硝酸鹽類等）",
+  "C02CA": "α1 阻斷劑",
+  "C03": "利尿劑",
+  "C03DA": "醛固酮拮抗劑",
+  "C05BA": "外用 heparin 類",
+  "C07": "β 阻斷劑",
+  "C07AA": "非選擇性 β 阻斷劑",
+  "C07AA05": "Propranolol",
+  "C08": "鈣離子阻斷劑",
+  "C08CA": "Dihydropyridine 類鈣離子阻斷劑",
+  "C08D": "直接作用於心臟的鈣離子阻斷劑",
+  "C09": "作用於腎素-血管收縮素系統（ACEI、ARB 等）",
+  "C10": "調血脂藥",
+  "D": "皮膚用藥",
+  "D02": "潤膚劑與保護劑",
+  "D05BB": "全身性抗乾癬 retinoid 類",
+  "D11AH": "皮膚炎用藥（不含類固醇）",
+  "G01": "婦科抗感染與消毒劑",
+  "G02": "其他婦科用藥",
+  "G03": "性荷爾蒙與生殖系統調節劑",
+  "G03B": "雄性素",
+  "G04": "泌尿用藥",
+  "G04BD": "頻尿與尿失禁用藥",
+  "G04BE": "勃起功能障礙用藥",
+  "G04CA": "α 阻斷劑（攝護腺肥大）",
+  "G04CB": "5α 還原酶抑制劑",
+  "H01BA02": "Desmopressin",
+  "H02": "全身性類固醇",
+  "H02AB": "糖皮質類固醇",
+  "H03": "甲狀腺用藥",
+  "H03AA": "甲狀腺荷爾蒙",
+  "H03B": "抗甲狀腺製劑",
+  "H05": "鈣恆定",
+  "H05BX": "其他抗副甲狀腺藥",
+  "J01": "全身性抗菌劑",
+  "J05AF": "核苷（酸）類反轉錄酶抑制劑（含 B 肝用藥）",
+  "L01": "抗腫瘤藥",
+  "L01XX05": "Hydroxycarbamide",
+  "L01XX35": "Anagrelide",
+  "L02": "內分泌治療",
+  "L02B": "荷爾蒙拮抗劑",
+  "L04": "免疫抑制劑",
+  "L04AD": "Calcineurin 抑制劑",
+  "L04AD01": "Ciclosporin",
+  "L04AX01": "Azathioprine",
+  "L04AX03": "Methotrexate",
+  "M01": "抗發炎與抗風濕藥",
+  "M01A": "非類固醇抗發炎藥（NSAID）",
+  "M02": "外用肌肉關節痛藥",
+  "M02A": "外用肌肉關節痛藥",
+  "M03": "肌肉鬆弛劑",
+  "M04": "痛風用藥",
+  "M05": "骨骼疾病用藥",
+  "M05B": "影響骨骼結構與礦化的藥（骨鬆用藥）",
+  "N02": "止痛劑",
+  "N02A": "鴉片類",
+  "N02B": "其他止痛退燒藥",
+  "N02BA01": "Aspirin",
+  "N02BF": "Gabapentinoids",
+  "N03": "抗癲癇藥",
+  "N03AA": "Barbiturate 類",
+  "N03AB": "Hydantoin 類",
+  "N03AE01": "Clonazepam",
+  "N03AF": "Carboxamide 類",
+  "N03AG": "脂肪酸衍生物（valproate 類）",
+  "N03AX": "其他抗癲癇藥",
+  "N03AX09": "Lamotrigine",
+  "N03AX15": "Zonisamide",
+  "N04": "巴金森用藥",
+  "N04A": "抗膽鹼劑（巴金森）",
+  "N04BA": "Dopa 及其衍生物",
+  "N05": "抗精神病、抗焦慮與安眠藥",
+  "N05A": "抗精神病藥",
+  "N05AN01": "Lithium",
+  "N05BA": "Benzodiazepine 類抗焦慮藥",
+  "N05C": "安眠鎮靜劑",
+  "N05CD": "Benzodiazepine 類安眠藥",
+  "N05CF": "Benzodiazepine 相關藥（Z-drug）",
+  "N06": "抗憂鬱、興奮與失智症用藥",
+  "N06A": "抗憂鬱劑",
+  "N06AA": "三環類等非選擇性單胺再吸收抑制劑",
+  "N06AX21": "Duloxetine",
+  "N06BA": "中樞作用交感神經興奮劑",
+  "N06BX": "其他精神興奮劑與益智藥",
+  "N06D": "失智症用藥",
+  "N06DX": "其他失智症用藥",
+  "N07AB": "膽鹼酯類",
+  "N07AX03": "Cevimeline",
+  "N07CA": "抗暈眩藥",
+  "P01BA": "4-胺基喹啉類",
+  "P01BA02": "Hydroxychloroquine",
+  "R01": "鼻用製劑",
+  "R03": "阻塞性呼吸道疾病用藥",
+  "R05": "咳嗽與感冒用藥",
+  "R06": "全身性抗組織胺",
+  "R06A": "全身性抗組織胺",
+  "S01": "眼科用藥",
+  "S01BA": "眼用類固醇（單方）",
+  "S01E": "青光眼用藥與縮瞳劑",
+  "S01XA": "其他眼科用藥",
+  "S01XA20": "人工淚液等",
+  "V03AE": "高血鉀與高血磷治療藥",
+  "C02L": "降血壓藥＋利尿劑複方",
+  "C07B": "β 阻斷劑＋thiazide 複方",
+  "C07C": "β 阻斷劑＋其他利尿劑複方",
+  "C07D": "β 阻斷劑＋thiazide＋其他利尿劑複方",
+  "C08G": "鈣離子阻斷劑＋利尿劑複方",
+  "C09BA": "ACEI＋利尿劑",
+  "C09BX01": "Perindopril＋amlodipine＋indapamide",
+  "C09DX01": "Valsartan＋amlodipine＋HCTZ",
+  "C09DX03": "Olmesartan＋amlodipine＋HCTZ",
+  "C09XA52": "Aliskiren＋HCTZ",
+  "C09XA54": "Aliskiren＋amlodipine＋HCTZ",
+  "A02BA01": "Cimetidine",
+  "A02BC01": "Omeprazole",
+  "A02BC05": "Esomeprazole",
+  "A03AB": "合成抗膽鹼解痙劑（四級銨）",
+  "A03FA01": "Metoclopramide",
+  "A03FA03": "Domperidone",
+  "B01AA03": "Warfarin",
+  "C01BD01": "Amiodarone",
+  "C01DA": "硝酸鹽類",
+  "C01DX16": "Nicorandil",
+  "C02": "降血壓藥（中樞作用、α 阻斷等）",
+  "C03C": "環利尿劑",
+  "C08DA01": "Verapamil",
+  "C08DB01": "Diltiazem",
+  "C09A": "ACEI 單方",
+  "C09B": "ACEI 複方",
+  "C09C": "ARB 單方",
+  "C09D": "ARB 複方（含 ARNI）",
+  "C09DA": "ARB＋利尿劑",
+  "C09DB": "ARB＋鈣離子阻斷劑",
+  "C09DX04": "Sacubitril/valsartan",
+  "C09XA": "直接腎素抑制劑",
+  "C10AA01": "Simvastatin",
+  "C10AA02": "Lovastatin",
+  "C10AB04": "Gemfibrozil",
+  "C10BA01": "Lovastatin＋菸鹼酸",
+  "C10BA02": "Simvastatin＋ezetimibe",
+  "G04CA03": "Terazosin",
+  "J01EE01": "Sulfamethoxazole＋trimethoprim",
+  "J01FA01": "Erythromycin",
+  "J01FA06": "Roxithromycin",
+  "J01FA09": "Clarithromycin",
+  "J01MA": "Fluoroquinolone",
+  "J01MA02": "Ciprofloxacin",
+  "J02AB02": "Ketoconazole",
+  "J02AC02": "Itraconazole",
+  "L01BB02": "Mercaptopurine",
+  "M01AA": "NSAID（butylpyrazolidine 類）",
+  "M01AB": "NSAID（acetic acid 類）",
+  "M01AC": "NSAID（oxicam 類）",
+  "M01AE": "NSAID（propionic acid 類）",
+  "M01AG": "NSAID（fenamate 類）",
+  "M01AH": "COX-2 抑制劑",
+  "M01AX01": "Nabumetone",
+  "M01AX02": "Niflumic acid",
+  "M01AX07": "Benzydamine",
+  "M01AX17": "Nimesulide",
+  "M01AX91": "其他 NSAID（健保檔的本土碼）",
+  "M03BX02": "Tizanidine",
+  "M04AA01": "Allopurinol",
+  "M04AA03": "Febuxostat",
+  "M04AC01": "Colchicine",
+  "N02CA": "麥角生物鹼（偏頭痛用）",
+  "N03AB02": "Phenytoin",
+  "N03AF01": "Carbamazepine",
+  "N04AA": "抗膽鹼藥（三級胺，trihexyphenidyl、biperiden 等）",
+  "N04AC": "抗膽鹼藥（benztropine 類）",
+  "N05AA": "抗精神病藥（phenothiazine，脂肪族側鏈）",
+  "N05AA01": "Chlorpromazine",
+  "N05AB": "抗精神病藥（phenothiazine，piperazine 側鏈，含 prochlorperazine）",
+  "N05AC": "抗精神病藥（phenothiazine，piperidine 側鏈）",
+  "N05AD": "抗精神病藥（butyrophenone，含 haloperidol）",
+  "N05AE": "抗精神病藥（indole 類）",
+  "N05AF": "抗精神病藥（thioxanthene）",
+  "N05AG": "抗精神病藥（diphenylbutylpiperidine）",
+  "N05AH": "抗精神病藥（diazepine、oxazepine 類）",
+  "N05AH01": "Loxapine",
+  "N05AH02": "Clozapine",
+  "N05AH03": "Olanzapine",
+  "N05AH05": "Asenapine",
+  "N05AH06": "Clothiapine",
+  "N05AL": "抗精神病藥（benzamide，含 sulpiride）",
+  "N05AX": "其他抗精神病藥（risperidone、aripiprazole 等）",
+  "N06AB": "SSRI",
+  "N06AB08": "Fluvoxamine",
+  "R01A": "鼻用製劑（類固醇、抗過敏、去充血）",
+  "R03DA04": "Theophylline",
+  "R03DA05": "Aminophylline",
+  "R06AD02": "Promethazine",
+  "J01FA02": "Spiramycin",
+  "J01FA03": "Midecamycin",
+  "J01FA07": "Josamycin",
+  "J01FA08": "Troleandomycin",
+  "J01FA15": "Telithromycin",
+  "J01FA91": "Leucomycin",
+  "N06AA02": "Imipramine",
+  "N06AA04": "Clomipramine",
+  "N06AA09": "Amitriptyline",
+  "N06AA12": "Doxepin",
+  "N06AB05": "Paroxetine",
+  "N06CA01": "Amitriptyline＋chlordiazepoxide",
+  "R06AA": "第一代抗組織胺（diphenhydramine、doxylamine 類）",
+  "R06AB": "第一代抗組織胺（chlorpheniramine、brompheniramine 類）",
+  "R06AE05": "Meclizine",
+  "R06AE55": "Meclizine 複方",
+  "R06AX02": "Cyproheptadine",
+  "R06AX07": "Triprolidine",
+  "N05BB01": "Hydroxyzine",
+  "A03AB20": "Trospium",
+  "A03AA07": "Dicyclomine",
+  "A03BA": "顛茄生物鹼（atropine、hyoscyamine）",
+  "A03BB06": "Homatropine",
+  "A03CA02": "Clidinium＋chlordiazepoxide",
+  "A04AD01": "Scopolamine",
+  "M03BC": "肌肉鬆弛劑（orphenadrine 類）",
+  "M03BX08": "Cyclobenzaprine",
+  "N05AB03": "Perphenazine",
+  "N05AB04": "Prochlorperazine",
+  "A03BA01": "Atropine",
+  "A03BA03": "Hyoscyamine",
+  "G04BD02": "Flavoxate",
+  "G04BD04": "Oxybutynin",
+  "G04BD06": "Propiverine",
+  "G04BD07": "Tolterodine",
+  "G04BD08": "Solifenacin",
+  "G04BD09": "Trospium",
+  "G04BD10": "Darifenacin",
+  "G04BD11": "Fesoterodine",
+  "G04BD12": "Mirabegron"
+ }
+}

@@ -13,7 +13,8 @@
     "slip-assets": "tsx scripts/slip-assets.ts",
     "nhi-map": "tsx scripts/nhi-map.ts",
     "rx-assets": "tsx scripts/rx-assets.ts",
-    "rx-try": "tsx scripts/rx-try.ts"
+    "rx-try": "tsx scripts/rx-try.ts",
+    "rx-review-page": "tsx scripts/rx-review-page.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",

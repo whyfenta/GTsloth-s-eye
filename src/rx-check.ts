@@ -58,7 +58,7 @@ export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions:
 
 const LEVELS: Level[] = ['紅', '黃', '灰'];
 /** Indications are tried label first, then guidelines, then common practice; another basis comes last. */
-const BASIS_RANK: Record<string, number> = { 仿單: 0, 指引: 1, 常見: 2, 常見仿單外: 3 };
+export const BASIS_RANK: Record<string, number> = { 仿單: 0, 指引: 1, 常見: 2, 常見仿單外: 3 };
 const ATC = /^[A-Z](?:\d\d(?:[A-Z](?:[A-Z](?:\d\d)?)?)?)?$/;
 const ICD = /^[A-Z]\d[0-9A-Z](?:\.?[0-9A-Z]{1,4})?$/;
 
