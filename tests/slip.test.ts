@@ -67,6 +67,8 @@ assert.equal(slip.openDate, '2026-10-15');
 assert.deepEqual(slip.third, { start: '2026-11-09', end: '2026-11-18', prescriptions: 3 });
 slip = buildSlip([entry({ idNumber: '' })], form, '2026-10-15');
 assert.equal(slip.footer, '');
+// A hospital that masks part of the ID number and birth date: the store copy prints them as the QR gives them.
+assert.equal(buildSlip([entry({ idNumber: 'A128***212', birth: '1978-**-17' })], form, '2026-10-15').footer, 'A128***212.1978**17');
 assert.throws(() => buildSlip([entry(), entry({ hospital: ' ' })], form, '2026-10-15'), /第 2 張請填寫醫院名稱/);
 const item = { code: 'TESTCODE01', name: '', quantity: '28', note: '' };
 assert.throws(() => buildSlip([entry()], { ...form, missing: Array(5).fill(item) }, '2026-10-15'), /最多 4 列/);
@@ -141,6 +143,12 @@ assert.equal(samePerson(person(''), person('A123456789')), true, 'no ID number o
 assert.equal(samePerson(person(''), person('', '測試甲', '1950-07-18')), false);
 assert.equal(samePerson(person('', '測試甲', ''), person('', '測試甲', '')), false, 'a name alone is not enough');
 assert.equal(samePerson(person('', ''), person('', '')), false);
+// A masked ID number matches on the characters it shows, and only with the same name: the hidden digits could differ.
+assert.equal(samePerson(person('A128***212'), person('A128***212')), true, 'masked, same name');
+assert.equal(samePerson(person('A128***212'), person('A128456212')), true, 'masked and full, same name');
+assert.equal(samePerson(person('A128***212'), person('A128***212', '測試乙')), false, 'masked, another name');
+assert.equal(samePerson(person('A128***212'), person('A128***213')), false, 'a shown digit differs');
+assert.equal(samePerson(person('A128***212'), person('A128**212')), false, 'another length');
 // Three departments for one patient with a family member scanned between them; a card joins a group only if it matches all of it.
 assert.deepEqual(patientGroups([person('A123456789'), person('B234567890', '測試乙'), person('A123456789'), person('', '測試甲'), person('C123456789')]),
   [[0, 2, 3], [1], [4]]);

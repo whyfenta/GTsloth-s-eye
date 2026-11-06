@@ -88,17 +88,22 @@ export function parsePrescription(scanned: string, scannedAs = '文字輸入'): 
   const { fields, date } = prescriptionFields(text);
   return { date, days: Number(fields[9]), drugCount: (fields.length - 14) / 5, encoding };
 }
-/** Fields 1, 4, 5 and 6 hold the institution code, name, ID number and ROC birth date (checked against a real QR); a malformed ID or birth date is left blank. */
+/**
+ * Fields 1, 4, 5 and 6 hold the institution code, name, ID number and ROC birth date (checked against a real QR). Some hospitals
+ * mask part of the ID number and birth date with * (A128***212; 067**17, written with slashes); those are kept as masked, the birth
+ * date as 1978-**-17.
+ * A malformed ID or birth date is left blank.
+ */
 export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入'): SlipQR {
   const { text, encoding } = repairByteText(scanned, scannedAs);
   const { fields, date } = prescriptionFields(text);
   const idNumber = fields[4].trim().toUpperCase();
   let birth = '';
-  try { birth = rocDate(fields[5].trim()); } catch { /* The store copy then prints the ID number alone. */ }
+  try { birth = rocDate(fields[5].trim()); } catch { birth = maskedBirth(fields[5])?.date ?? ''; /* Blank: the store copy prints the ID number alone. */ }
   const drugs = [];
   for (let i = 14; i < fields.length; i += 5) drugs.push({ code: fields[i].trim(), total: fields[i + 4].trim() });
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
-    idNumber: /^[A-Z][0-9A-D]\d{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7]), sexOf(idNumber)) };
+    idNumber: /^[A-Z][0-9A-D*][0-9*]{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7]), sexOf(idNumber)) };
 }
 /** The layout of a drugs-only QR, as parsePrescriptionLayout for a first QR: a code for every drug, the other four fields may be blank. */
 export function parseDrugsLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } | undefined {
@@ -134,25 +139,57 @@ export function birthShape(value: string): string {
   if (chars.length > 12) return `AGE?len${chars.length}`;
   return `AGE?${chars.map(char => /[0-9]/.test(char) ? '9' : /[A-Za-z]/.test(char) ? 'A' : /[\x20-\x7E]/.test(char) ? char : 'X').join('')}`;
 }
-/** Completed years on the visit date in 10-year bands (AGE0-9 … AGE80-89, AGE90+), with 60–69 split at 65 for the rules on older patients.
- *  An unreadable birth date gives its shape; a blank one, an unreadable visit date or a birth after the visit gives a blank. */
-export function ageBand(birthRoc: string, visitRoc: string): string {
-  let birth: string, visit: string;
-  try { birth = rocDate(birthRoc.trim()); } catch { return birthRoc.trim() ? birthShape(birthRoc) : ''; }
-  try { visit = rocDate(visitRoc.trim()); } catch { return ''; }
-  const age = Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0);
-  if (age < 0) return '';
+/**
+ * A ROC birth date with its month, day or both masked by ** (067**17 or 06701**, or with the same / - or . between the parts), as some
+ * hospitals print it: the
+ * date as shown with the masked part kept (1978-**-17), and every date it can be. The year must be shown; undefined otherwise,
+ * for a date without a mask, or when no date fits.
+ */
+export function maskedBirth(value: string): { date: string; dates: string[] } | undefined {
+  const parts = value.trim().match(/^(\d{3})([/.-]?)(\d{2}|\*\*)\2(\d{2}|\*\*)$/);
+  if (!parts || !value.includes('*')) return undefined;
+  const [, year, , month, day] = parts;
+  const any = (part: string, last: number) => part === '**' ? Array.from({ length: last }, (_, i) => String(i + 1).padStart(2, '0')) : [part];
+  const dates: string[] = [];
+  for (const m of any(month, 12)) for (const d of any(day, 31)) {
+    try { dates.push(rocDate(`${year}${m}${d}`)); } catch { /* Not a date, such as 02/30. */ }
+  }
+  return dates.length ? { date: `${Number(year) + 1911}-${month}-${day}`, dates } : undefined;
+}
+function band(age: number): string {
   if (age >= 90) return 'AGE90+';
   if (age >= 60 && age < 70) return age < 65 ? 'AGE60-64' : 'AGE65-69';
   const low = age - age % 10;
   return `AGE${low}-${low + 9}`;
 }
+/**
+ * Completed years on the visit date in 10-year bands (AGE0-9 … AGE80-89, AGE90+), with 60–69 split at 65 for the rules on older
+ * patients. A birth date with a masked month or day (see maskedBirth) gives the band when every date it can be falls in the same
+ * one, as a known year mostly does; otherwise, and for any other unreadable birth date, its shape. A blank birth date, an
+ * unreadable visit date or a birth after the visit gives a blank.
+ */
+export function ageBand(birthRoc: string, visitRoc: string): string {
+  let births: string[], visit: string;
+  try { births = [rocDate(birthRoc.trim())]; } catch {
+    const masked = maskedBirth(birthRoc);
+    if (!masked) return birthRoc.trim() ? birthShape(birthRoc) : '';
+    births = masked.dates;
+  }
+  try { visit = rocDate(visitRoc.trim()); } catch { return ''; }
+  const bands = new Set(births.filter(birth => birth <= visit)
+    .map(birth => band(Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0))));
+  if (!bands.size) return '';
+  return bands.size === 1 ? [...bands][0] : birthShape(birthRoc);
+}
 /** The second character of an ID number by sex: 身分證 1 and 2, the 統一證號 issued since 2021 8 and 9, the older 統一證號 A and C, B and D. */
 const SEX_DIGIT: Record<string, Sex> = { 1: 'M', 2: 'F', 8: 'M', 9: 'F', A: 'M', B: 'F', C: 'M', D: 'F' };
-/** Sex from an ID number's second character; any other character and a malformed ID are unknown. Only the sex leaves: whether it was a 身分證 or a 統一證號 does not. */
+/**
+ * Sex from an ID number's second character, also when a hospital masks later digits with * (A128***212); any other character, a
+ * masked second character and a malformed ID are unknown. Only the sex leaves: whether it was a 身分證 or a 統一證號 does not.
+ */
 export function sexOf(idNumber: string): Sex {
   const id = idNumber.trim().toUpperCase();
-  return /^[A-Z][1289A-D]\d{8}$/.test(id) ? SEX_DIGIT[id[1]] : '';
+  return /^[A-Z][1289A-D][0-9*]{8}$/.test(id) ? SEX_DIGIT[id[1]] : '';
 }
 /** A de-identified sample keeps only the sex in field 5, as SEXM or SEXF (blank when unknown), never the ID number. */
 export const sexMark = (sex: Sex) => sex && `SEX${sex}`;
