@@ -112,12 +112,17 @@ export function planSlip(entries: SlipEntry[], today: string): SlipPlan {
 export type Person = Pick<SlipEntry, 'idNumber' | 'name' | 'birth'>;
 /**
  * The same patient: the same ID number when both prescriptions have one (a different one is someone else, whatever the name);
- * without one, the same name and birth date. A name alone could be a namesake.
+ * without one, the same name and birth date. A name alone could be a namesake. An ID number a hospital masked with * (A128***212)
+ * matches one whose shown characters are the same, and only with the same name, as the hidden digits could differ.
  */
 export function samePerson(a: Person, b: Person): boolean {
   const id = (person: Person) => person.idNumber.trim().toUpperCase(), name = (person: Person) => person.name.replace(/\s+/g, '');
-  if (id(a) && id(b)) return id(a) === id(b);
-  return !!name(a) && name(a) === name(b) && !!a.birth && a.birth === b.birth;
+  const sameName = !!name(a) && name(a) === name(b);
+  if (id(a) && id(b)) {
+    if (!id(a).includes('*') && !id(b).includes('*')) return id(a) === id(b);
+    return sameName && id(a).length === id(b).length && [...id(a)].every((char, i) => char === id(b)[i] || char === '*' || id(b)[i] === '*');
+  }
+  return sameName && !!a.birth && a.birth === b.birth;
 }
 /**
  * The slip's prescriptions by patient, as card indices in scan order; the groups in the order their first card was scanned.

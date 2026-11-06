@@ -21,6 +21,11 @@ for (const [id, kept] of [['A123456789', 'SEXM'], ['b234567890', 'SEXF'], [' C13
   assert.equal(field(qr({ 5: id }), 5), kept, id);
   assert.ok(!deidentify(qr({ 5: id })).includes(id.trim().slice(2)), `${id} 字號不可輸出`);
 }
+// An ID number masked with * still gives the sex while its second character shows.
+for (const [id, kept] of [['A128***212', 'SEXM'], ['B2********', 'SEXF'], ['a9**3456**', 'SEXF'], ['A*28***212', ''], ['A128**212', ''], ['A128***21X', '']]) {
+  assert.equal(field(qr({ 5: id }), 5), kept, id);
+  assert.ok(!deidentify(qr({ 5: id })).includes(id.slice(2, 4)), `${id} 字號不可輸出`);
+}
 // Fields 3, 7 and 11 keep up to 4 letters or digits.
 for (const [value, kept] of [['', ''], ['1', '1'], ['AB12', 'AB12'], ['ab9', 'ab9'], ['ABCDE', ''], ['12345', ''], ['12-3', ''], [' 12', ''], ['測', ''], ['１２', '']]) {
   for (const n of [3, 7, 11]) assert.equal(field(qr({ [n]: value }), n), kept, `第 ${n} 欄 ${value}`);
@@ -71,6 +76,15 @@ for (const [birth, shape] of [['19610101', 'AGE?99999999'], ['1961/01/01', 'AGE?
   for (const original of [birth, birth.trim(), '1961', '民國']) assert.ok(!line.includes(original), `${birth} 原值不可輸出`);
 }
 assert.equal(ageBand('19610101', '1150230'), 'AGE?99999999');
+// Some hospitals mask the month or day with **: the band when every date it can be falls in one, else the shape as above.
+for (const [birth, at, kept] of [['067/**/17', '1151104', 'AGE40-49'], ['067**17', '1151104', 'AGE40-49'], ['067/11/**', '1151104', 'AGE40-49'],
+  ['067/**/**', '1151104', 'AGE40-49'], ['050/**/**', '1150101', 'AGE?999/**/**'], ['050/01/**', '1150101', 'AGE?999/99/**'], ['050/**/01', '1151231', 'AGE65-69'],
+  ['105/**/17', '1150601', 'AGE?999/**/99'], ['115/**/17', '1150101', ''], ['115/**/17', '1150201', 'AGE0-9'], ['***/01/17', '1150101', 'AGE?***/99/99'],
+  ['067/**/32', '1151104', 'AGE?999/**/99'], ['067/13/**', '1151104', 'AGE?999/99/**'], ['067*/*17', '1151104', 'AGE?999*/*99']]) {
+  assert.equal(ageBand(birth, at), kept, `${birth} ${at}`);
+}
+// Day 17 is after the visit on 01/01 whatever the month: 64, though one day earlier in the year would straddle 65.
+assert.equal(field(qr({ 6: '050/**/17' }), 6), 'AGE60-64');
 const shapes = new SampleLog();
 for (const birth of ['19610101', '1961/01/01', '民國50年1月1日']) shapes.record(birth, qr({ 6: birth }));
 assert.deepEqual([shapes.collected, shapes.text().split('\n').length], [3, 4]);

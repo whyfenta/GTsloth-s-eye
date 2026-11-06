@@ -470,7 +470,9 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scann
   return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。`
     + (rxOn && patient.length ? `與${patient.join('、')}是同一病人，處方警示合併比對全部的診斷與藥品。` : '') + '可調劑次數預設 3 次、本次第幾次依日期推算：'
     + (camera ? '請在卡片上核對；處方有第 2 個 QR 時，再按相機鈕掃描。' : '以方向鍵選擇，Enter 確認後回到掃碼欄。')
-    + (qr.idNumber ? '' : '讀不到身分證字號，門市存查聯不印此人的身分證。'), card: item.element, focus: item.counts.find(radio => radio.checked) };
+    + (!qr.idNumber ? '讀不到身分證字號，門市存查聯不印此人的身分證。'
+      : `${qr.idNumber}.${qr.birth}`.includes('*') ? '這家院所的 QR 遮蔽了部分身分證字號或生日（*），門市存查聯照 QR 所示列印。' : ''),
+    card: item.element, focus: item.counts.find(radio => radio.checked) };
 }
 
 /** A follow-up QR has no patient or date, so it joins the prescription scanned last; nothing in the first QR says one follows. */
