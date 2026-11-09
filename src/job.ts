@@ -6,28 +6,35 @@ export type JobEvents = { state: (state: JobState) => void; page: (report: PageR
   checkpoint?: () => Promise<string | undefined> };
 export class InventoryJob {
   engine: OCREngine; source: PageSource; events: JobEvents; state: JobState = 'idle'; completed=0; current=0;
+  /** Files before this index were read by an earlier job and are skipped; total: pages this job reads. */
+  fromFile: number; total: number;
   pauseRequested=false; cancelled=false; resumeGate?: ()=>void; running=false;
   // Resolves on cancel so a worker that never answers cannot keep run() alive.
   cancelRelease!: ()=>void; cancelGate=new Promise<null>(resolve=>{this.cancelRelease=()=>resolve(null);});
-  constructor(engine: OCREngine, source: PageSource, events: JobEvents) { this.engine=engine;this.source=source;this.events=events; }
+  constructor(engine: OCREngine, source: PageSource, events: JobEvents, fromFile = 0) { this.engine=engine;this.source=source;this.events=events;this.fromFile=fromFile;this.total=this.order().length; }
   setState(state:JobState){this.state=state;this.events.state(state);}
-  /** Reading order: the first page of every file, then the remaining pages, so the files can be checked before the rest is read. */
+  /**
+   * Reading order: the first page of every file, then the remaining pages, so the files can be checked before the rest is read.
+   * With fromFile, only that file and the ones after it (files added to a finished reading) are read.
+   */
   order():number[]{
-    const starts=this.source.starts??[1];const all=Array.from({length:this.source.pages},(_,i)=>i+1);
+    const starts=(this.source.starts??[1]).slice(this.fromFile);const first=starts[0]??this.source.pages+1;
+    const all=Array.from({length:this.source.pages-first+1},(_,i)=>first+i);
     return [...starts,...all.filter(page=>!starts.includes(page))];
   }
   async run():Promise<void>{
     if(this.running)return;this.running=true;this.setState('loading');
     try {
       await Promise.race([this.engine.initialize(),this.cancelGate]); if(this.cancelled)return;this.setState('running');
-      const files=(this.source.starts??[1]).length;
+      // The store check compares every file, including those read before; it runs once the first page of each new file is read.
+      const files=(this.source.starts??[1]).length;const reading=files-this.fromFile;
       for(const [index,page] of this.order().entries()){
         if(this.cancelled)break;
         if(this.pauseRequested){await new Promise<void>(resolve=>{this.resumeGate=resolve;this.setState('paused');});this.resumeGate=undefined;if(this.cancelled)break;this.setState('running');}
         this.current=page;const result=await Promise.race([this.engine.extract(this.source,page),this.cancelGate]); if(this.cancelled||!result)break;
         this.completed=index+1;this.events.page(result.report,result.rows);
         if(result.report.status==='rejected'&&!this.engine.layout&&!this.engine.textLayout){this.setState('error');this.events.error(result.report.reason,page);return;}
-        if(files>1&&index===files-1&&this.events.checkpoint){
+        if(files>1&&index===reading-1&&this.events.checkpoint){
           const reason=await Promise.race([this.events.checkpoint(),this.cancelGate]);if(this.cancelled)break;
           if(reason){this.setState('error');this.events.error(reason);return;}
         }
