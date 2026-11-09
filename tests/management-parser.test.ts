@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive,listAlerts,listRows,listSpec,NO_STOCK,SAFETY_ALERT_NOTE} from '../src/management-report';
+import {derive,listAlerts,listRows,listSpec,NO_STOCK,RESTOCK_EMPTY,RESTOCK_NOTE,restockAlerts,restockRows,SAFETY_ALERT_NOTE} from '../src/management-report';
 import {formatFrac} from '../src/management-model';
 import type {TextItem,TextPage} from '../src/textlayer';
 import {readFileSync} from 'node:fs';
@@ -103,7 +103,8 @@ test('strategy selection reaches derived rows and the printed PDF, while list me
     for(const kind of ['dead','empty'] as const)assert.deepEqual(listRows(kind,result),listRows(kind,baseline));
     const spec=listSpec('safety',result,{files:{usage:['u.pdf'],inventory:['s.pdf']},version:2,appVersion:'test',time:'now'});
     assert.equal(spec.title,`安全量調整及採購建議清單 · ${name}（係數 ${range}）`);
-    assert.equal(spec.note,SAFETY_ALERT_NOTE,'the footer repeats no formula');
+    assert.equal(spec.note,SAFETY_ALERT_NOTE+RESTOCK_NOTE,'the footer repeats no formula');
+    assert.deepEqual([spec.tail?.rows,spec.tail?.tone,spec.tail?.empty],[[],'warm',RESTOCK_EMPTY],'no code has 6 ≤ A ≤ 8: the second part only says so');
     assert.equal(SAFETY_ALERT_NOTE,'紅色：品名保有「缺貨」前綴（供應商缺貨）；紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > 1,000 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。');
     assert.deepEqual(spec.columns.map(c=>c.label),['六編碼','品名','現有庫存量','調劑頻率(/月)','均月銷','建議安全量','待採量']);
     const pdf=await generateListPDF(spec,font);const printed=(await pdfText(pdf.bytes))[0].text;
@@ -234,4 +235,40 @@ const sideways=(p:TextPage):TextPage=>({...p,width:p.height,height:p.width,viewp
 test('a sideways-printed page is read in its text direction',()=>{
   const upright=fix(stockPage());const turned=sideways(upright);
   assert.deepEqual(parsed(turned,'inventory',1,1).stock.map(r=>[r.sku,r.qty]),parsed(upright,'inventory',1,1).stock.map(r=>[r.sku,r.qty]));
+});
+
+test('the second part follows the safety list in the same PDF: 6 ≤ A ≤ 8 and stock under 0.25 months, the strategy\'s one coefficient, red 待採量 above 1,000',async()=>{
+  // Four months, so A = count / 4; 36 rare codes make N = 45 and the first part K = 2 (000206 and 300006).
+  const usage=parsed(page([...usageHead(1,1),...line(120,'000206','C-EZETROL怡妥錠10MG','粒','165','4287'),
+    ...line(140,'300001','C-A八','粒','32','320','3'),...line(160,'300002','C-A六足','粒','24','240'),...line(180,'300003','C-A六','粒','24','240'),
+    ...line(200,'300004','C-A五七五','粒','23','230'),...line(220,'300005','C-無列','粒','28','280'),...line(240,'300006','C-八點二五','粒','33','330'),
+    ...line(260,'300007','C-管制','粒','28','280','100'),...line(280,'300008','C-貴','粒','30','600','10'),
+    ...Array.from({length:36},(_,i)=>line(300+i*20,String(400000+i),'C-低頻','粒','1','1')).flat()]),'usage',0,1);
+  const extra=([['300001','C-A八錠','19'],['300002','C-A六足錠','15'],['300003','冷藏C-A六針','14'],['300006','C-八點二五錠','2'],['300007','缺貨C-28粒/盒管制錠5MG(管4)','0'],['300008','C-貴錠','20']] as const)
+    .flatMap(([sku,name,qty],i):Cell[]=>{const y=200+i*20;return [[sku,5,y],[name,95,y],['4710000'+sku,395,y],['A-測試',665,y],[`B${i}`,745,y],[qty,840,y],['0',890,y]];});
+  const stock=parsed(page([...stockCells().filter(c=>!c[0].startsWith('0026庫別小計')),...extra,['0026庫別小計:',600,330]],700),'inventory',1,1);
+  const nhi=new Map([['300008','A012345100']]);
+  const ctx={files:{usage:['u.pdf'],inventory:['s.pdf']},version:3,appVersion:'test',time:'now'};
+  const font=new Uint8Array(readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
+  for(const [strategy,coefficient,safety,order,red] of [
+    ['hamster','0.9',['72','135','63','63','54'],['53','115','—','63','40'],[false,true,false,false,false]],
+    ['balanced','0.6',['48','90','42','42','36'],['29','70','—','42','22'],[false,false,false,false,false]],
+    ['antelope','0.5',['40','75','35','35','30'],['21','55','—','35','16'],[false,false,false,false,false]],
+  ] as const){
+    const data=derive([usage,stock],[],{...decisions,safetyStrategy:strategy},{y:2026,m:10,d:16},nhi);
+    assert.equal(data.ready,true);assert.deepEqual(listRows('safety',data).map(r=>r[0]),['000206','300006']);
+    const rows=restockRows(data);
+    assert.deepEqual(rows.map(r=>r[0]),['300001','300008','300005','300007','300003'],'A 8, 7.5, 7, 7, 6; 300002 holds exactly 0.25 months, 300004 has A 5.75');
+    assert.deepEqual(rows.map(r=>r[2]),['19','20',NO_STOCK,'0','14']);
+    assert.deepEqual(rows.map(r=>r[5]),safety,`建議安全量 = ceil(均月銷 × ${coefficient}), with no other factor`);
+    assert.deepEqual(rows.map(r=>r[6]),order);
+    assert.deepEqual(restockAlerts(data).map(r=>r[6]),red,'(管4) 300007 is never marked, whatever its order is worth');
+    assert.deepEqual(restockAlerts(data).map(r=>r[1]),[false,false,false,true,false],'the leading 缺貨 is red as on the list');
+    const spec=listSpec('safety',data,ctx);
+    assert.match(spec.tail!.heading,new RegExp(`^第二部份：調劑頻率 A 介於 6～8（含）、現有庫存量 < 0.25 倍均月銷的品項.*均月銷 × ${coefficient}（`));
+    assert.ok(spec.meta[0].includes('安全量調整及採購建議清單 2 筆（另附第二部份 5 筆）'));
+    const text=(await pdfText((await generateListPDF(spec,font)).bytes)).map(p=>p.text).join('\n');
+    assert.deepEqual(text.match(/^\d{6}$/gm),['000206','300006',...rows.map(r=>r[0])],'one file: the list, then its second part');
+    for(const value of [...safety,'第二部份','橘棕色：第二部份'])assert.ok(text.includes(value),value);
+  }
 });

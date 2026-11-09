@@ -19,6 +19,9 @@
 .mg-partner{border:1px solid #dce5d9;border-radius:8px;padding:14px;margin:18px 0 14px}.mg-partner>.mg-warning:first-child{margin-top:0}.mg-partner .mg-confirm{margin-top:12px}
 .mg-output{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px}.mg-output small{font-size:10px;color:#8b958e}
 .mg-preview{min-width:560px;margin-top:12px}.mg-preview td{padding:8px}.mg-preview .num{text-align:right;font-variant-numeric:tabular-nums}.mg-preview .mg-alert{color:#c71212;font-weight:800}
+/* The safety list's second part, orange-brown as in the PDF: cream and tan rows under a deeper tan heading. */
+.mg-preview .mg-restock-heading td{background:#f2d1a8;color:#8c4a12;font-weight:600;line-height:1.7;white-space:normal}.mg-preview .mg-restock td{color:#8c4a12;background:#fff5e8}.mg-preview .mg-restock.mg-alt td{background:#fae3c7}.mg-preview .mg-restock .mg-alert{color:#c71212}
+.mg-strategy-restock{display:block;margin-top:4px;font-size:11px;color:#8c4a12}.mg-restock-note{color:#8c4a12}
 .mg-reason{display:flex;flex-direction:column;gap:7px;font-size:12px;color:#6b7f72;margin:-6px 0 18px}
 .mg-strategies{min-width:0;border:0;padding:0;margin:26px 0 0}.mg-strategies legend{font-size:16px;font-weight:600;color:var(--green);padding:0}.mg-strategies>.preview-note{margin:10px 0 16px}
 .mg-strategy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.mg-strategy-card{position:relative;display:flex;cursor:pointer;min-width:0}

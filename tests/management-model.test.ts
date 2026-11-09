@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {add,mul,NHI_A_FACTOR,aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,largeOrder,LOW_COVER,WIDE_COVER,overstock,toOrder,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
+import {add,mul,NHI_A_FACTOR,RESTOCK_COVER,RESTOCK_MINIMUM,THRESHOLD,aggregateStock,aggregateUsage,assembleReports,mergeStockReports,COLD_FACTOR,CONTROLLED_FACTOR,controlled,largeOrder,LOW_COVER,WIDE_COVER,overstock,toOrder,assemble,coefficient,cmp,formatFrac,frac,longPeriod,matchStores,parseDay,parseDecimal,unheldOnList,partnerSupplied,PARTNER_LIMIT,SAFETY_STRATEGIES,safetyList,slotLists,disposition,statMonths,stockDuplicates,storeId,usageCodes,usageErrors,autoExclusion,type ReportPage,type SafetyStrategy,type StockRow,type UsageRow} from '../src/management-model';
 import {cleanProductName} from '../src/model';
 const day=(text:string)=>parseDay(text)!;
 const months=(a:string,b:string)=>{const m=statMonths(day(a),day(b));return m&&formatFrac(m,6);};
@@ -291,4 +291,47 @@ test('management keeps 缺貨 and still removes what follows it; the inventory s
   assert.equal(cleanProductName(raw,true).name,'PENTOP循妥斯持續性錠400MG');
   assert.equal(cleanProductName('避光缺貨C-100粒/瓶TEST錠(管4)-高價藥',true,['缺貨']).name,'缺貨 TEST錠(管4)');
   assert.equal(cleanProductName('C-SERETIDE EVO使肺泰250',true,['缺貨']).name,'SERETIDE EVO使肺泰250');
+});
+
+test('second part: 6 ≤ A ≤ 8 with stock under 0.25 months of use, highest A first, ties by code; no stock line counts as none',()=>{
+  assert.deepEqual([formatFrac(RESTOCK_MINIMUM),formatFrac(THRESHOLD),formatFrac(RESTOCK_COVER)],['6','8','0.25']);
+  const fill=Array.from({length:30},(_,i)=>use(String(200000+i),1,1));
+  // Four months: A = count / 4, A × B = quantity / 4 when quantity / count is whole.
+  const items=aggregateUsage([...fill,
+    use('300001',32,320),               // A 8, included; A×B 80, stock 19 < 20
+    use('300002',24,240),               // A 6; stock exactly 15 = 0.25 × 60 is not under it
+    use('300003',24,240),               // A 6, included; stock 14; 冷藏 name, no × 0.8
+    use('300004',23,230),               // A 5.75: below the band, even without a stock line
+    use('300005',28,280),               // A 7, no stock line: listed
+    use('300006',33,330),               // A 8.25: the first part's band only
+    use('300007',28,280,'粒',{price:'100'}), // A 7, stock -3; 缺貨 and (管4): no +1, no × 1.2, never red
+    use('300008',30,600,'粒',{price:'10'}),  // A 7.5, B 20, A×B 150, stock 20; 健保碼 A: no × 0.85
+    use('300009',26,10),                // A 6.5 but B 0: A×B 0, so not even no stock is under it
+  ]).items;
+  const shelf=aggregateStock([stock('300001',19),stock('300002',15),stock('300003',14,'','冷藏 品三'),stock('300006',0),stock('300007',-3,'','缺貨 品七(管4)'),stock('300008',20)]);
+  const nhi=new Map([['300008','A012345100']]);
+  const expected={hamster:['0.9',[72n,135n,63n,63n,54n]],balanced:['0.6',[48n,90n,42n,42n,36n]],antelope:['0.5',[40n,75n,35n,35n,30n]]} as const;
+  for(const strategy of Object.keys(SAFETY_STRATEGIES) as SafetyStrategy[]){
+    const result=safetyList(items,frac(4n),shelf,false,strategy,undefined,nhi);
+    assert.equal(formatFrac(SAFETY_STRATEGIES[strategy].restock),expected[strategy][0]);
+    const {rows,skipped}=result.restock;
+    assert.deepEqual(rows.map(r=>r.sku),['300001','300008','300005','300007','300003'],strategy);assert.equal(skipped,0);
+    assert.ok(rows.every(r=>formatFrac(r.coefficient)===expected[strategy][0]),'one coefficient, whatever the name or 健保碼');
+    assert.deepEqual(rows.map(r=>r.safety),expected[strategy][1],'ceil(A × B × coefficient)');
+    assert.deepEqual(rows.map(r=>[r.shortage,r.controlled]),[[false,false],[false,false],[false,false],[true,true],[false,false]]);
+    assert.ok(!result.rows.some(r=>rows.some(o=>o.sku===r.sku)),'no code is in both parts');
+  }
+  const balanced=safetyList(items,frac(4n),shelf,false,'balanced',undefined,nhi).restock.rows;
+  assert.deepEqual(balanced.map(r=>{const o=toOrder(r);return o&&formatFrac(o);}),['29','70',undefined,'45','22'],'待採量 = safety − stock; − (−3) adds; none without a stock line');
+  assert.deepEqual(balanced.map(largeOrder),[false,false,false,false,false],'70 × 10 = 700; the (管4) order of 4,500 is never marked');
+  assert.deepEqual(safetyList(items,frac(4n),shelf,false,'hamster',undefined,nhi).restock.rows.map(largeOrder),[false,true,false,false,false],'115 × 10 = 1,150 > 1,000');
+});
+test('second part at a partner-clinic store: codes the mask leaves to the clinic are skipped and counted',()=>{
+  const items=aggregateUsage([...Array.from({length:30},(_,i)=>use(String(200000+i),1,1)),use('300001',32,320),use('300003',24,240),use('300005',28,280),use('300007',28,280),use('300008',30,600)]).items;
+  const shelf=aggregateStock([stock('300001',19),stock('300003',14),stock('300007',-3),stock('300008',20)]);
+  // 300005 has no stock and 300007 under 0.1 month: the clinic's. 300008 holds 20 of 150 (0.13 month): kept at 0.1, the clinic's at 0.2.
+  const standard=safetyList(items,frac(4n),shelf,true,'balanced',LOW_COVER).restock;
+  assert.deepEqual([standard.rows.map(r=>r.sku),standard.skipped],[['300001','300008','300003'],2]);
+  const wide=safetyList(items,frac(4n),shelf,true,'balanced',WIDE_COVER).restock;
+  assert.deepEqual([wide.rows.map(r=>r.sku),wide.skipped],[['300001','300003'],3]);
 });

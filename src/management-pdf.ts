@@ -1,5 +1,5 @@
 // 樹懶的管理: the three A4 lists. No barcodes, so rows are only as tall as their wrapped text.
-import { PDFDocument, rgb, StandardFonts, pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setTextRenderingMode, TextRenderingMode } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, type Color, pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setTextRenderingMode, TextRenderingMode } from 'pdf-lib';
 import { embedNoto, mm, wrapText } from './pdf-common';
 
 export type ListColumn = { label: string; width: number; align?: 'left' | 'right' };
@@ -8,14 +8,26 @@ export type ListColumn = { label: string; width: number; align?: 'left' | 'right
  * alerts marks cells printed in red, row by row like rows: a plain number in heavy type, a name only at its leading 缺貨 (regular font).
  */
 export type ListSpec = { title: string; columns: ListColumn[]; rows: string[][]; alerts?: boolean[][]; meta: string[]; warning?: string; note: string; empty: string; subject?: string;
-  /** Rows printed after the list in grey, under a heading that spans the table (the self-pay lines after the dead stock). */
-  tail?: { heading: string; rows: string[][] } };
+  /**
+   * Rows printed after the list under a heading that spans the table: in grey (`muted`, the default: the self-pay lines after
+   * the dead stock) or in orange-brown on orange-brown stripes (`warm`: the second part of the safety list). `alerts` marks red
+   * cells as on the list. Without rows the heading still prints, followed by `empty`, when `empty` is given.
+   */
+  tail?: { heading: string; rows: string[][]; alerts?: boolean[][]; tone?: TailTone; empty?: string } };
+export type TailTone = 'muted' | 'warm';
 export type ListResult = { bytes: Uint8Array; pageCount: number; rowCount: number };
 const ALERT = rgb(.78, .07, .07);
 /** The part of a marked name printed in red. */
 export const ALERT_WORD = '缺貨';
 /** One step lighter than the black body text: set apart, still easy to read. */
 const MUTED = rgb(.45, .45, .45);
+const STRIPE = rgb(.92, .95, .93);
+/**
+ * The second part of the safety list: orange-brown text on alternating cream and tan rows, so even a single row stands apart
+ * from the green-grey list above it; the heading sits on a deeper tan band. The red alerts stay red.
+ */
+export const WARM = { text: rgb(.55, .29, .07), stripes: [rgb(1, .96, .91), rgb(.98, .89, .78)], heading: rgb(.95, .82, .66) };
+const TONES = { muted: { text: MUTED, stripes: [undefined, STRIPE], heading: undefined }, warm: WARM } as const;
 export const LIST_PRINT = { size: 10, leading: 13, padding: 1.8, top: 262, bottom: 25, header: 7 };
 
 export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): Promise<ListResult> {
@@ -35,18 +47,24 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
   const warningHeight = warningLines.length ? warningLines.length*15+mm(3) : 0;
   const pageTop = (index:number) => mm(LIST_PRINT.top)-(index===0?warningHeight:0);
   const top = pageTop(0); const bottom = mm(LIST_PRINT.bottom) - unused;
-  type Item = { lines: string[][]; alerts: boolean[]; height: number; muted: boolean; heading?: string[]; stripe: boolean };
-  const prepare = (cells: string[], alerts: boolean[], muted: boolean, stripe: boolean): Item => {
+  // color: the text colour (black when absent); fill: the row's background (none when absent).
+  type Item = { lines: string[][]; alerts: boolean[]; height: number; color?: Color; fill?: Color; heading?: string[] };
+  const prepare = (cells: string[], alerts: boolean[], color?: Color, fill?: Color): Item => {
     const lines = cells.map((cell, i) => wrapText(cell, heavy(cell, alerts[i]) ? bold : font, size, mm(spec.columns[i].width) - pad * 2));
     const height = Math.max(...lines.map(list => list.length)) * leading + pad * 2;
     if (height > top - bottom) throw new Error(`「${cells[0]}」內容過長，無法放入一頁。`);
-    return { lines, alerts, height, muted, stripe };
+    return { lines, alerts, height, color, fill };
   };
-  const prepared: Item[] = spec.rows.map((cells, row) => prepare(cells, cells.map((_, i) => Boolean(spec.alerts?.[row]?.[i])), false, row % 2 === 1));
-  if (spec.tail?.rows.length) {
-    const heading = wrapText(spec.tail.heading, font, size, mm(190) - pad * 2);
-    prepared.push({ lines: [], alerts: [], height: heading.length * leading + pad * 4, muted: true, heading, stripe: false });
-    prepared.push(...spec.tail.rows.map((cells, row) => prepare(cells, cells.map(() => false), true, row % 2 === 1)));
+  const marks = (cells: string[], alerts: boolean[][] | undefined, row: number) => cells.map((_, i) => Boolean(alerts?.[row]?.[i]));
+  const prepared: Item[] = spec.rows.map((cells, row) => prepare(cells, marks(cells, spec.alerts, row), undefined, row % 2 === 1 ? STRIPE : undefined));
+  const tail = spec.tail;
+  if (tail && (tail.rows.length || tail.empty)) {
+    // An empty list still says why before its tail, as a row spanning the table.
+    if (!spec.rows.length) { const why = wrapText(spec.empty, font, size, mm(190) - pad * 2); prepared.push({ lines: [], alerts: [], height: why.length * leading + pad * 4, heading: why }); }
+    const tone = TONES[tail.tone ?? 'muted'];
+    const heading = wrapText(tail.heading + (tail.rows.length ? '' : tail.empty), font, size, mm(190) - pad * 2);
+    prepared.push({ lines: [], alerts: [], height: heading.length * leading + pad * 4, color: tone.text, fill: tone.heading, heading });
+    prepared.push(...tail.rows.map((cells, row) => prepare(cells, marks(cells, tail.alerts, row), tone.text, tone.stripes[row % 2])));
   }
   // A whole row always stays on one page, and the tail heading stays with its first row.
   const groups: Item[][] = []; let group: Item[] = []; let available = top - bottom;
@@ -87,20 +105,20 @@ export async function generateListPDF(spec: ListSpec, notoBytes?: Uint8Array): P
     for (const x of xs) if (groups[p].length) line(page, x, headerTop, x, top);
     for (const item of groups[p]) {
       const next = y - item.height;
+      if (item.fill) page.drawRectangle({ x: xs[0], y: next, width: mm(190), height: item.height, color: item.fill });
       if (item.heading) {
         // The heading spans the whole table, so only the outer lines run beside it.
-        item.heading.forEach((text, i) => page.drawText(text, { x: xs[0] + pad, y: y - pad * 2 - size * .88 - i * leading, size, font, color: MUTED }));
+        item.heading.forEach((text, i) => page.drawText(text, { x: xs[0] + pad, y: y - pad * 2 - size * .88 - i * leading, size, font, color: item.color }));
         line(page, xs[0], y, xs[0], next); line(page, xs.at(-1)!, y, xs.at(-1)!, next);
       } else {
-        if (item.stripe) page.drawRectangle({ x: xs[0], y: next, width: mm(190), height: item.height, color: rgb(.92, .95, .93) });
         item.lines.forEach((cellLines, column) => cellLines.forEach((text, i) => {
           const right = spec.columns[column].align === 'right'; const face = heavy(text, item.alerts[column]) ? bold : font;
           const x = right ? xs[column + 1] - pad - face.widthOfTextAtSize(text, size) : xs[column] + pad; const base = y - pad - size * .88 - i * leading;
           if (item.alerts[column] && face === font) {
             const word = i === 0 && text.startsWith(ALERT_WORD) ? ALERT_WORD : '';
             if (word) page.drawText(word, { x, y: base, size, font, color: ALERT });
-            page.drawText(text.slice(word.length), { x: x + font.widthOfTextAtSize(word, size), y: base, size, font, color: item.muted ? MUTED : undefined });
-          } else page.drawText(text, { x, y: base, size, font: face, color: item.alerts[column] ? ALERT : item.muted ? MUTED : undefined });
+            page.drawText(text.slice(word.length), { x: x + font.widthOfTextAtSize(word, size), y: base, size, font, color: item.color });
+          } else page.drawText(text, { x, y: base, size, font: face, color: item.alerts[column] ? ALERT : item.color });
         }));
         for (const x of xs) line(page, x, y, x, next);
       }

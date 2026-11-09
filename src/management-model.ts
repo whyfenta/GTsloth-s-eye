@@ -236,12 +236,13 @@ export function stockDuplicates(rows: StockRow[]): StockRow[][] {
 // ---- Safety stock ----------------------------------------------------------
 export const THRESHOLD = frac(8n);
 export const DEFAULT_SAFETY_STRATEGY = 'balanced';
+/** `restock`: the one coefficient of the second part of the safety list (see restockList), the same for every row. */
 export const SAFETY_STRATEGIES = {
-  hamster: { name: '倉鼠派', symbol: '🐹', maximum: frac(7n, 2n), minimum: frac(6n, 5n),
+  hamster: { name: '倉鼠派', symbol: '🐹', maximum: frac(7n, 2n), minimum: frac(6n, 5n), restock: frac(9n, 10n),
     focus: '充足備貨，應對供貨波動', advantage: '供貨不穩定時，保有較充足的貨源。', need: '需要較大的調劑與儲存空間。' },
-  balanced: { name: '平衡派', symbol: '⚖️', maximum: frac(5n, 2n), minimum: frac(4n, 5n),
+  balanced: { name: '平衡派', symbol: '⚖️', maximum: frac(5n, 2n), minimum: frac(4n, 5n), restock: frac(3n, 5n),
     focus: '高頻多備，低頻省空間', advantage: '較寬的係數梯度保留高頻用藥，並從較低頻用藥節省儲存空間。', need: '需要兼顧備貨餘裕與儲存空間。' },
-  antelope: { name: '羚羊派', symbol: '🦌', maximum: frac(6n, 5n), minimum: frac(3n, 5n),
+  antelope: { name: '羚羊派', symbol: '🦌', maximum: frac(6n, 5n), minimum: frac(3n, 5n), restock: frac(1n, 2n),
     focus: '精控庫存，配合空間限制', advantage: '精確控制備貨量，配合固定的倉儲空間。', need: '需要更密切、頻繁地關注貨源。' },
 } as const;
 export type SafetyStrategy = keyof typeof SAFETY_STRATEGIES;
@@ -291,7 +292,11 @@ export type UsageRate = { sku: string; name: string; unit: string; count: Frac; 
 export type SafetyRow = UsageRate & { coefficient: Frac; controlled: boolean; nhiA: boolean; shortage: boolean; cold: boolean; safety: bigint };
 export type SafetyResult = { strategy: SafetyStrategy; n: number; limit: number; eligible: number; k: number; rows: SafetyRow[]; all: UsageRate[];
   /** Partner-clinic stores only: A > 8 codes left out because the store holds no stock or under `cover` months of it, and how many later codes moved up. */
-  outside?: { none: number; low: number; filled: number; cover: Frac } };
+  outside?: { none: number; low: number; filled: number; cover: Frac };
+  /** The second part, printed after the rows; `skipped`: partner-clinic stores only, running-low codes of the band left to the clinic. */
+  restock: { rows: RestockRow[]; skipped: number } };
+/** A row of the second part: its coefficient is the strategy's `restock`, never adjusted; the flags only mark the printed cells. */
+export type RestockRow = UsageRate & { coefficient: Frac; controlled: boolean; shortage: boolean; safety: bigint };
 /**
  * A = count / months, B = round(quantity / count), monthly use A × B, safety = ceil(A × B × coefficient by rank),
  * the coefficient multiplied by CONTROLLED_FACTOR for a (管3)/(管4) name and by NHI_A_FACTOR for a 健保碼 starting with A
@@ -321,7 +326,29 @@ export function safetyList(items: UsageItem[], months: Frac, stock: Map<string, 
   });
   const none = qualifying.filter(row => !held(row)).length;
   const outside = partner ? { none, low: qualifying.length - eligible.length - none, filled: picked.filter(row => qualifying.indexOf(row) >= limit).length, cover } : undefined;
-  return { strategy, n, limit, eligible: eligible.length, k, rows, all, outside };
+  return { strategy, n, limit, eligible: eligible.length, k, rows, all, outside, restock: restockList(all, strategy, partner ? cover : undefined) };
+}
+
+// ---- Second part: running low below the safety list -----------------------
+/** The second part takes A from RESTOCK_MINIMUM to THRESHOLD, both included: A > 8 belongs to the first part. */
+export const RESTOCK_MINIMUM = frac(6n);
+/** ...and stock under RESTOCK_COVER months of the code's monthly use (about a week). */
+export const RESTOCK_COVER = frac(1n, 4n);
+export const inRestockBand = (row: UsageRate) => cmp(row.a, RESTOCK_MINIMUM) >= 0 && cmp(row.a, THRESHOLD) <= 0;
+/** No stock line counts as no stock, as it does for a partner clinic; the row still prints 簡表無此碼 and no 待採量. */
+export const runningLow = (row: UsageRate) => cmp(row.stock ?? ZERO, mul(row.ab, RESTOCK_COVER)) < 0;
+/**
+ * The second part of the safety list: codes with 6 ≤ A ≤ 8 and stock under 0.25 months of use, highest A first, ties by code
+ * (`all` is in that order). Safety = ceil(A × B × the strategy's `restock`); for now no (管3)/(管4), 健保碼, 缺貨 or 冷藏
+ * factor changes it. With a partner clinic (`cover` given), codes its mask leaves to the clinic (no stock, or under `cover`
+ * months) are skipped here too.
+ */
+export function restockList(all: UsageRate[], strategy: SafetyStrategy, cover?: Frac): SafetyResult['restock'] {
+  const low = all.filter(row => inRestockBand(row) && runningLow(row));
+  const clinic = (row: UsageRate) => cover !== undefined && (!held(row) || lowCover(row, cover));
+  const c = SAFETY_STRATEGIES[strategy].restock;
+  const rows = low.filter(row => !clinic(row)).map(row => ({ ...row, coefficient: c, controlled: controlled(row.name), shortage: shortage(row.name), safety: ceil(mul(row.ab, c)) }));
+  return { rows, skipped: low.length - rows.length };
 }
 /**
  * The store holds stock of a code when the stock sheet prints it with a total other than 0. A 0 total means the same as
@@ -352,8 +379,10 @@ export const PARTNER_LIMIT = 10;
  */
 export const OVERSTOCK_MONTHS = frac(4n);
 export const overstock = (row: UsageRate) => row.stock !== undefined && cmp(row.stock, mul(row.ab, OVERSTOCK_MONTHS)) > 0;
+/** What 待採量 needs of a row of either part of the safety list. */
+type OrderRow = { stock?: Frac; safety: bigint; price?: Frac; controlled: boolean };
 /** 待採量: safety minus stock on hand, 0 when the stock already covers it; unknown when the stock sheet has no line for the code. */
-export function toOrder(row: SafetyRow): Frac | undefined {
+export function toOrder(row: OrderRow): Frac | undefined {
   if (!row.stock) return undefined; const need = sub(frac(row.safety), row.stock); return cmp(need, ZERO) > 0 ? need : ZERO;
 }
 /**
@@ -361,7 +390,7 @@ export function toOrder(row: SafetyRow): Frac | undefined {
  * supplier's free-shipping amount sooner. A (管3)/(管4) controlled drug can only be requested, never bought separately, so it is never marked.
  */
 export const LARGE_ORDER = frac(1000n);
-export function largeOrder(row: SafetyRow): boolean {
+export function largeOrder(row: OrderRow): boolean {
   const order = toOrder(row); return !row.controlled && order !== undefined && row.price !== undefined && cmp(mul(order, row.price), LARGE_ORDER) > 0;
 }
 export const unheldOnList = (result: SafetyResult) => result.rows.filter(row => !held(row)).length;

@@ -5,9 +5,9 @@ import { usageImportGuide } from './usage-import-guide';
 declare const __APP_VERSION__: string;
 const appVersion = __APP_VERSION__;
 import { formatQuantity, LIMITS } from './model';
-import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, matchStores, NHI_A_FACTOR, PARTNER_COVERS, SAFETY_STRATEGIES, safetyStrategyRange, SIX, stockErrors, today, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
+import { autoExclusion, COLD_FACTOR, CONTROLLED_FACTOR, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, LARGE_ORDER, matchStores, NHI_A_FACTOR, PARTNER_COVERS, RESTOCK_COVER, RESTOCK_MINIMUM, SAFETY_STRATEGIES, safetyStrategyRange, THRESHOLD, SIX, stockErrors, today, usageErrors, type SafetyStrategy, type StockRow, type UsageRow } from './management-model';
 import { KIND_LABEL, parsePage, type ParsedPage, type ReportKind } from './management-parser';
-import { derive, LIST_TITLE, listRows, listSpec, SAFETY_ALERT_NOTE, type Decisions, type Derived, type ListKind } from './management-report';
+import { derive, LIST_TITLE, listRows, listSpec, restockRows, RESTOCK_NOTE, SAFETY_ALERT_NOTE, type Decisions, type Derived, type ListKind } from './management-report';
 import { feedbackKey, feedbackRecord, sendFeedback, worthSending } from './management-feedback';
 import { FEEDBACK_ENDPOINT } from './feedback-config';
 import { DocumentSource } from './source';
@@ -309,7 +309,7 @@ function renderLists() {
     return `<label class="mg-strategy-card">
       <input id="strategy-${key}" type="radio" name="safety-strategy" value="${key}" ${strategy === key ? 'checked' : ''} aria-labelledby="strategy-name-${key}" aria-describedby="strategy-range-${key} strategy-detail-${key}">
       <span class="mg-strategy-body"><span class="mg-strategy-heading"><span class="mg-strategy-symbol" aria-hidden="true">${option.symbol}</span><strong id="strategy-name-${key}">${option.name}</strong><span class="mg-strategy-check" aria-hidden="true">✓</span></span>
-        <span class="mg-strategy-focus">${option.focus}</span><span id="strategy-range-${key}" class="mg-strategy-range">係數 <b>${safetyStrategyRange(key)}</b><small>個月用量</small></span>
+        <span class="mg-strategy-focus">${option.focus}</span><span id="strategy-range-${key}" class="mg-strategy-range">係數 <b>${safetyStrategyRange(key)}</b><small>個月用量</small><span class="mg-strategy-restock">第二部份係數 ${formatFrac(option.restock)}</span></span>
         <span id="strategy-detail-${key}" class="mg-strategy-detail"><span><b>主要優勢</b>${option.advantage}</span><span><b>主要需求</b>${option.need}</span></span>
       </span></label>`;
   }).join('');
@@ -321,7 +321,8 @@ function renderLists() {
     <p id="strategy-help" class="preview-note">依供貨穩定度與儲存空間，選擇適合門市的備貨方式。預設為平衡派。</p>
     <div class="mg-strategy-grid">${strategyCards}</div>
     <p class="preview-note">三種策略皆依本清單的用藥頻率排名：前 1/3 採最高係數，其餘逐步降至最低係數；同頻率採相同係數。名稱尾綴含「(管3)」或「(管4)」的管制藥，係數 × ${formatFrac(CONTROLLED_FACTOR)}；健保碼為 A 開頭的品項，係數 × ${formatFrac(NHI_A_FACTOR)}（非 A 開頭或查無健保碼者維持原量）；品名保有「缺貨」前綴的品項，係數再 +1（先乘完上述係數再 +1，缺貨品名於清單以紅字標示）；保有「冷藏」前綴的品項，因冷藏空間固定不容超量，係數再 × ${formatFrac(COLD_FACTOR)}（冷藏在最外層：最後才乘，含缺貨的 +1）。</p>
-    </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}），本清單與 PDF 依此計算。</p></div>`;
+    <p class="preview-note mg-restock-note">同一份 PDF 緊接著以橘棕色印出<b>第二部份</b>：調劑頻率 A 介於 ${formatFrac(RESTOCK_MINIMUM)}～${formatFrac(THRESHOLD)}（含）、現有庫存量 &lt; ${formatFrac(RESTOCK_COVER)} 倍均月銷的品項，建議安全量 = 均月銷 × 係數（倉鼠派 ${formatFrac(SAFETY_STRATEGIES.hamster.restock)}、平衡派 ${formatFrac(SAFETY_STRATEGIES.balanced.restock)}、羚羊派 ${formatFrac(SAFETY_STRATEGIES.antelope.restock)}），暫不依管制藥、健保碼、缺貨、冷藏調整；待採量 × 健保價 &gt; ${formatFrac(LARGE_ORDER)} 元同樣以紅字標示。</p>
+    </fieldset>${partnerOptions}<p id="strategy-status" class="mg-strategy-status" role="status">目前採用：${SAFETY_STRATEGIES[strategy].name}（係數 ${safetyStrategyRange(strategy)}；第二部份 ${formatFrac(SAFETY_STRATEGIES[strategy].restock)}），本清單與 PDF 依此計算。</p></div>`;
   const descriptions: Record<ListKind, string> = {
     safety: '預防常用藥物臨時缺貨，建議您的安全及採購量',
     dead: '找出停滯並應釋放回倉的醫療資源',
@@ -334,14 +335,19 @@ function renderLists() {
     const spec = chosen ? listSpec(kind, data!, context()) : undefined; const rows = spec?.rows ?? listRows(kind, data!); const output = outputs[kind];
     let preview = '';
     if (spec) {
-      const alerts = spec.alerts ?? [];
-      const body = rows.slice(0, 8).map((cells, row) => `<tr>${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] && /^[-\d,.]+$/.test(cell) ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>').replace(alerts[row]?.[i] ? /^缺貨/ : /(?!)/, '<span class="mg-alert">缺貨</span>')}</td>`).join('')}</tr>`).join('');
-      preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}</tbody></table></div>${rows.length > 8 ? `<p class="preview-note">只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。</p>` : ''}${kind === 'safety' ? `<p class="preview-note">${escape(SAFETY_ALERT_NOTE)}</p>` : ''}</details>`;
+      const cellsOf = (list: string[][], alerts: boolean[][] = [], cls = '') => list.slice(0, 8).map((cells, row) => `<tr class="${cls && `${cls}${row % 2 ? ' mg-alt' : ''}`}">${cells.map((cell, i) => `<td class="${spec.columns[i].align === 'right' ? 'num' : ''}${alerts[row]?.[i] && /^[-\d,.]+$/.test(cell) ? ' mg-alert' : ''}">${escape(cell).replace(/\n/g, '<br>').replace(alerts[row]?.[i] ? /^缺貨/ : /(?!)/, '<span class="mg-alert">缺貨</span>')}</td>`).join('')}</tr>`).join('');
+      const body = cellsOf(rows, spec.alerts);
+      // The safety list's second part follows in orange-brown, as in the PDF; the dead list's self-pay lines are only counted.
+      const tail = kind === 'safety' && spec.tail ? spec.tail : undefined;
+      const tailBody = tail ? `<tr class="mg-restock-heading"><td colspan="${spec.columns.length}">${escape(tail.heading + (tail.rows.length ? '' : tail.empty ?? ''))}</td></tr>${cellsOf(tail.rows, tail.alerts, 'mg-restock')}` : '';
+      const more = !tail ? (rows.length > 8 ? `只顯示前 8 筆，PDF 列出全部 ${rows.length} 筆。` : '')
+        : [rows.length > 8 ? `第一部份前 8 筆（共 ${rows.length} 筆）` : '', tail.rows.length > 8 ? `第二部份前 8 筆（共 ${tail.rows.length} 筆）` : ''].filter(Boolean).join('、').replace(/.+/, '只顯示$&，PDF 列出全部。');
+      preview = `<details class="mg-list-preview"><summary>查看資料預覽・${rows.length} 筆${tail ? `＋第二部份 ${tail.rows.length} 筆` : ''}</summary><div class="table-scroll"><table class="review-table mg-preview"><thead><tr>${spec.columns.map(c => `<th class="${c.align === 'right' ? 'num' : ''}">${escape(c.label)}</th>`).join('')}</tr></thead><tbody>${body || `<tr><td colspan="${spec.columns.length}" class="empty-table">${escape(spec.empty)}</td></tr>`}${tailBody}</tbody></table></div>${more ? `<p class="preview-note">${more}</p>` : ''}${kind === 'safety' ? `<p class="preview-note">${escape(SAFETY_ALERT_NOTE)}<br>${escape(RESTOCK_NOTE)}</p>` : ''}</details>`;
     }
     return `<article class="mg-list ${available ? chosen ? 'mg-selected' : '' : 'mg-disabled'} ${kind === 'safety' && chosen ? 'mg-list-expanded' : ''}" aria-labelledby="list-title-${kind}">
       <label class="mg-list-choice"><input type="checkbox" data-select="${kind}" ${chosen ? 'checked' : ''} ${available && !busy() ? '' : 'disabled'} aria-describedby="list-description-${kind} list-state-${kind}" ${kind === 'safety' && chosen ? 'aria-controls="safety-options"' : ''}>
         <span class="mg-list-copy"><strong id="list-title-${kind}">${LIST_TITLE[kind]}</strong><span id="list-description-${kind}" class="mg-list-description">${descriptions[kind]}</span></span><span class="mg-list-state">${available ? chosen ? '已選擇' : '可選擇' : '無法產生'}</span></label>
-      <p id="list-state-${kind}" class="mg-list-meta">${available ? `${rows.length} 筆${kind === 'safety' && chosen ? `・${SAFETY_STRATEGIES[strategy].name}・係數 ${safetyStrategyRange(strategy)}` : kind === 'dead' && data!.selfPay.length ? `（另附自費品 ${data!.selfPay.length} 筆）` : ''}` : escape(data!.reasons[kind])}</p>
+      <p id="list-state-${kind}" class="mg-list-meta">${available ? `${rows.length} 筆${kind === 'safety' ? `（另附第二部份 ${s?.restock.rows.length ?? 0} 筆）${chosen ? `・${SAFETY_STRATEGIES[strategy].name}・係數 ${safetyStrategyRange(strategy)}` : ''}` : kind === 'dead' && data!.selfPay.length ? `（另附自費品 ${data!.selfPay.length} 筆）` : ''}` : escape(data!.reasons[kind])}</p>
       ${kind === 'safety' && chosen ? strategyOptions : ''}${preview}
       ${kind === 'dead' && chosen && data!.selfPay.length ? `<p class="preview-note">PDF 另以灰字在清單末附上 ${data!.selfPay.length} 筆偵測為自費品的品項（名稱前綴含「自費」、庫存不為 0），不計入呆藥筆數，請過目。</p>` : ''}
       ${output && chosen ? `<div class="mg-output"><button class="button secondary" data-preview="${kind}">預覽 PDF</button><button class="button primary" data-download="${kind}">${icon('file')}下載</button><small>${output.pages} 頁・版本 ${output.version}</small></div>` : ''}</article>`;
@@ -480,7 +486,7 @@ el('dialog-download').addEventListener('click', () => { try { if (previewKind) s
 function qaSnapshot() {
   return { parsed, parsing, error: errorMessage, generation, pages: pages.length, rejected, blockers: data?.blockers, warnings: data?.warnings, partner: data?.partner, ready: data?.ready, available: data?.available, reasons: data?.reasons,
     safetyStrategy: data?.safety?.strategy, months: data?.months && formatFrac(data.months), n: data?.safety?.n, k: data?.safety?.k, eligible: data?.safety?.eligible, missing: data?.missing.length, review: reviewItems().length,
-    lists: data && Object.fromEntries(LISTS.map(kind => [kind, listRows(kind, data!)])), outputs: Object.fromEntries(Object.entries(outputs).map(([kind, output]) => [kind, { pages: output.pages, rows: output.rows, version: output.version, bytes: output.bytes.length }])) };
+    lists: data && Object.fromEntries(LISTS.map(kind => [kind, listRows(kind, data!)])), restock: data && restockRows(data), outputs: Object.fromEntries(Object.entries(outputs).map(([kind, output]) => [kind, { pages: output.pages, rows: output.rows, version: output.version, bytes: output.bytes.length }])) };
 }
 if (import.meta.env.DEV) Object.defineProperty(window, 'managementQA', { get: qaSnapshot });
 render();
