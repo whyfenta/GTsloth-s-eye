@@ -1,7 +1,7 @@
 // 樹懶的管理: everything the page shows and prints, derived from the parsed pages and the reviewer's edits.
 import { formatQuantity } from './model';
-import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, largeOrder, LARGE_ORDER, longPeriod, matchStores, NHI_A_FACTOR, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, today, toOrder, unheldOnList, usageCodes, usageErrors,
-  type Assembly, type Day, type Frac, type PartnerCover, type SafetyResult, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
+import { aggregateStock, aggregateUsage, assemble, assembleReports, assemblyComplete, cmp, dayBefore, disposition, daysBetween, DEFAULT_SAFETY_STRATEGY, formatDay, formatFrac, frac, largeOrder, LARGE_ORDER, longPeriod, matchStores, NHI_A_FACTOR, overstock, parseDecimal, PARTNER_COVERS, partnerSupplied, RESTOCK_COVER, RESTOCK_MINIMUM, SAFETY_STRATEGIES, safetyList, safetyStrategyRange, THRESHOLD, SELF_PAY_DISPOSITION, mergeStockReports, slotLists, STALE_DAYS, statMonths, stockDuplicates, stockErrors, today, toOrder, unheldOnList, usageCodes, usageErrors,
+  type Assembly, type Day, type Frac, type PartnerCover, type RestockRow, type SafetyResult, type SafetyRow, type SafetyStrategy, type SlotRow, type StockRow, type UsageRow, type UsageSummary } from './management-model';
 import type { ParsedPage } from './management-parser';
 import type { ListSpec } from './management-pdf';
 
@@ -112,10 +112,22 @@ export function derive(pages: ParsedPage[], rejected: { kind: 'usage' | 'invento
 
 export const NO_STOCK = '簡表無此碼';
 const show = (value: Frac) => formatFrac(value);
+const safetyCells = (row: SafetyRow | RestockRow) => { const order = toOrder(row); return [row.sku, row.name, row.stock ? show(row.stock) : NO_STOCK, show(row.a), show(row.ab), show(frac(row.safety)), order ? show(order) : '—']; };
 export function listRows(kind: ListKind, data: Derived): string[][] {
-  if (kind === 'safety') return (data.safety?.rows ?? []).map(row => { const order = toOrder(row); return [row.sku, row.name, row.stock ? show(row.stock) : NO_STOCK, show(row.a), show(row.ab), show(frac(row.safety)), order ? show(order) : '—']; });
+  if (kind === 'safety') return (data.safety?.rows ?? []).map(safetyCells);
   return kind === 'dead' ? data.dead.map(deadCells) : data.empty.map(row => [row.sku, row.name, row.location]);
 }
+/** The second part of the safety list, printed after it in orange-brown; cells as on the list. */
+export const restockRows = (data: Derived) => (data.safety?.restock.rows ?? []).map(safetyCells);
+/** Red cells of the second part: the leading 缺貨 of a name, and 待採量 worth more than LARGE_ORDER (never a (管3)/(管4) drug). */
+export const restockAlerts = (data: Derived) => (data.safety?.restock.rows ?? []).map(row => [false, row.shortage, false, false, false, false, largeOrder(row)]);
+/** The heading printed above the second part; the coefficient follows the chosen strategy. */
+export function restockHeading(s: SafetyResult): string {
+  const strategy = SAFETY_STRATEGIES[s.strategy];
+  return `第二部份：調劑頻率 A 介於 ${formatFrac(RESTOCK_MINIMUM)}～${formatFrac(THRESHOLD)}（含）、現有庫存量 < ${formatFrac(RESTOCK_COVER)} 倍均月銷的品項，依 A 由高到低；建議安全量 = 均月銷 × ${formatFrac(strategy.restock)}（${strategy.name}），暫不依管制藥、健保碼、缺貨、冷藏調整係數。`
+    + (s.restock.skipped ? `合作診所供貨：略過無庫存或不足 ${formatFrac(s.outside!.cover)} 月 ${s.restock.skipped} 筆。` : '');
+}
+export const RESTOCK_EMPTY = '本次沒有符合的品項。';
 const slotCells = (row: SlotRow) => [row.sku, row.name + (row.negative ? '\n【負庫存異常】' : ''), row.location, formatQuantity(row.qty)];
 const deadCells = (row: SlotRow) => [...slotCells(row), disposition(row)];
 /** The self-pay lines printed after the dead stock, cells as on the dead-stock list; their handling is left to a person. */
@@ -130,22 +142,26 @@ export function listAlerts(kind: ListKind, data: Derived): boolean[][] {
 }
 /** The footer line explaining the red cells of the safety list. */
 export const SAFETY_ALERT_NOTE = `紅色：品名保有「缺貨」前綴（供應商缺貨）；紅色粗體：現有庫存量 > 4 倍均月銷，醫院換藥致用量銳減時易逾期耗損；待採量 × 健保價 > ${formatFrac(LARGE_ORDER)} 元，優先採購可更快達免運門檻（(管3)(管4)管制藥只能申請，不標示）。`;
+/** The footer line telling the orange-brown second part apart from the list above it. */
+export const RESTOCK_NOTE = `橘棕色：第二部份，A 介於 ${formatFrac(RESTOCK_MINIMUM)}～${formatFrac(THRESHOLD)}、現有庫存量 < ${formatFrac(RESTOCK_COVER)} 倍均月銷的品項（紅字規則同上）。`;
 export type SpecContext = { files: Record<'usage' | 'inventory', string[]>; version: number; appVersion: string; time: string };
 export function listSpec(kind: ListKind, data: Derived, context: SpecContext): ListSpec {
   const rows = listRows(kind, data); const s = data.safety!;
   const warn = data.stale.length ? `【警語】${data.stale.map(item => `${label[item.kind]}列印於 ${formatDay(item.printed)}（距產生日 ${item.days} 天）`).join('、')}，輸出結果可能失真。` : '';
   const files = (kind: 'usage' | 'inventory') => { const names = context.files[kind]; return names.length > 1 ? `${names[0]} 等 ${names.length} 個檔案` : names[0] ?? ''; };
   const meta = [
-    `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆${kind === 'dead' && data.selfPay.length ? `（另附自費品 ${data.selfPay.length} 筆）` : ''}`,
+    `${data.storeLabel || '門市未填'}  |  統計期間 ${data.period ?? ''}（${data.months ? formatFrac(data.months) : '?'} 個月）  |  給付方式 ${data.payment ?? ''}  |  ${LIST_TITLE[kind]} ${rows.length} 筆${kind === 'dead' && data.selfPay.length ? `（另附自費品 ${data.selfPay.length} 筆）` : kind === 'safety' ? `（另附第二部份 ${s.restock.rows.length} 筆）` : ''}`,
     `來源：調劑表 ${files('usage')}（${data.usage.pages.length} 頁）；庫存簡表 ${files('inventory')}（${data.stock.pages.length} 頁）  |  校對版本 ${context.version}  |  樹懶的管理 ${context.appVersion}  |  ${context.time} 產生`,
   ];
   // The header has room for three meta lines, so a partner store's skip and backfill counts replace the tie note.
   const order = () => s.outside ? `A > 8 共 ${s.eligible + s.outside.none + s.outside.low} 筆；合作診所供貨，略過無庫存 ${s.outside.none}、不足 ${formatFrac(s.outside.cover)} 月 ${s.outside.low} 筆，遞補 ${s.outside.filled} 筆；取 K = ${s.k} 筆，依 A 由高到低`
     : `A > 8 共 ${s.eligible} 筆；取 K = ${s.k} 筆，依 A 由高到低（同值依六碼）`;
   if (kind === 'safety') return { title: `${LIST_TITLE.safety} · ${SAFETY_STRATEGIES[s.strategy].name}（係數 ${safetyStrategyRange(s.strategy)}）`, rows, alerts: listAlerts(kind, data), meta: [...meta, `品項數 N = ${s.n}；前 10% = ${s.limit} 筆；${order()}`],
+    // The second part follows in the same file; its heading prints even when nothing qualifies, so the check is seen to be done.
+    tail: { heading: restockHeading(s), rows: restockRows(data), alerts: restockAlerts(data), tone: 'warm', empty: RESTOCK_EMPTY },
     columns: [{ label: '六編碼', width: 18 }, { label: '品名', width: 68 }, { label: '現有庫存量', width: 22, align: 'right' }, { label: '調劑頻率(/月)', width: 24, align: 'right' }, { label: '均月銷', width: 18, align: 'right' }, { label: '建議安全量', width: 20, align: 'right' }, { label: '待採量', width: 20, align: 'right' }],
     // Formulas are on the web page; the footer keeps only what the reader needs beside the red cells and any risk.
-    warning: warn, note: SAFETY_ALERT_NOTE + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
+    warning: warn, note: SAFETY_ALERT_NOTE + RESTOCK_NOTE + (s.outside && cmp(s.outside.cover, PARTNER_COVERS.standard) > 0 ? `合作診所遮罩放寬至 ${formatFrac(s.outside.cover)} 個月：本店庫存偏低、確需採購的品項也可能被略過。` : ''),
     empty: `沒有符合的品項：品項數 N = ${s.n}，前 10% 為 ${s.limit} 筆，A > 8 的品項 ${s.eligible} 筆。` };
   if (kind === 'dead') return { title: LIST_TITLE.dead, rows, meta,
     columns: [{ label: '六碼', width: 20 }, { label: '清理後名稱', width: 84 }, { label: '儲位', width: 40 }, { label: '庫存量', width: 24, align: 'right' }, { label: '建議處置', width: 22 }],

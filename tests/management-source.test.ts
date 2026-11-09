@@ -1,13 +1,18 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {createHash} from 'node:crypto';
 import {parsePage,type ParsedPage} from '../src/management-parser';
-import {derive,listRows,listSpec,NO_STOCK,SELF_PAY_HEADING,selfPayRows,type Decisions} from '../src/management-report';
+import {derive,listRows,listSpec,NO_STOCK,restockAlerts,restockRows,SELF_PAY_HEADING,selfPayRows,type Decisions} from '../src/management-report';
 import {formatFrac} from '../src/management-model';
 import {generateListPDF} from '../src/management-pdf';
 import type {TextPage} from '../src/textlayer';
 import {pdfText} from './pdf-text';
 // The attached templates stay private: set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to run this file.
+// Two pairs are known by SHA-256: the 2026/10 pair (HASH) and the 2026/11/09 pair (NOV, 1109_cal.pdf and 1109test2.pdf).
 const usageFile=process.env.MANAGEMENT_USAGE_PDF;const stockFile=process.env.MANAGEMENT_INVENTORY_PDF;
 const HASH={usage:'5fcf152365bb160fab59c048bf749deee0c4b45bec275e2db107badd58c07cb1',inventory:'5cbc643b3069aa1e9dc55c75a0ab7787fb74b129fafb00de7ba40353b5297e05'};
+const NOV={usage:'892c2de5d2afa42b9cb7a1a9f40f8407e56d46bf1f91f1a450a5961810f67af0',inventory:'f0d8bc3c9bee140785debbe47ced6ee117399342fa7f1dcf818fddd90aec2024'};
+const sha=(file:string)=>createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const given=()=>Boolean(usageFile&&stockFile&&fs.existsSync(usageFile)&&fs.existsSync(stockFile));
+const november=()=>given()&&sha(usageFile!)===NOV.usage&&sha(stockFile!)===NOV.inventory;
 async function readPages(file:string){
   const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
   const images=new Set([pdfjs.OPS.paintImageXObject,pdfjs.OPS.paintInlineImageXObject,pdfjs.OPS.paintImageMaskXObject,pdfjs.OPS.paintImageXObjectRepeat,pdfjs.OPS.paintInlineImageXObjectGroup,pdfjs.OPS.paintImageMaskXObjectGroup,pdfjs.OPS.paintImageMaskXObjectRepeat]);
@@ -20,6 +25,7 @@ const parseAll=(pages:TextPage[],kind:'usage'|'inventory',file:number)=>pages.ma
 const none:Decisions={storeConfirmed:false,safetyStrategy:'hamster'};
 test('attached templates: every page parses and the documented baseline is reproduced',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
+  if(november())return t.skip('The 2026/11/09 pair is checked by its own test below.');
   assert.equal(createHash('sha256').update(fs.readFileSync(usageFile)).digest('hex'),HASH.usage);
   assert.equal(createHash('sha256').update(fs.readFileSync(stockFile)).digest('hex'),HASH.inventory);
   const usage=parseAll(await readPages(usageFile),'usage',0);const stock=parseAll(await readPages(stockFile),'inventory',1);
@@ -43,6 +49,7 @@ test('attached templates: every page parses and the documented baseline is repro
 });
 test('attached templates: eligible lists after the reviewer\'s decisions, printed as A4 PDFs',async t=>{
   if(!usageFile||!stockFile||!fs.existsSync(usageFile)||!fs.existsSync(stockFile))return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private templates.');
+  if(november())return t.skip('The 2026/11/09 pair is checked by its own test below.');
   const pages=[...parseAll(await readPages(usageFile),'usage',0),...parseAll(await readPages(stockFile),'inventory',1)];
   const data=derive(pages,[],none);
   assert.deepEqual(data.available,{safety:true,dead:true,empty:false});assert.match(data.reasons.empty,/庫存為 0/);
@@ -69,5 +76,26 @@ test('attached templates: eligible lists after the reviewer\'s decisions, printe
     const tail=kind==='dead'?selfPayRows(source).map(r=>r[0]):[];
     assert.deepEqual(codes,[...listRows(kind,source).map(r=>r[0]),...tail],`${kind}: every code once, in list order, self-pay last`);
     assert.equal(text.some(page=>page.text.includes(SELF_PAY_HEADING)),tail.length>0);
+  }
+});
+test('2026/11/09 templates: the safety list\'s second part (6 ≤ A ≤ 8, stock under 0.25 months) follows it in the same PDF',async t=>{
+  if(!november())return t.skip('Set MANAGEMENT_USAGE_PDF and MANAGEMENT_INVENTORY_PDF to the private 2026/11/09 pair (1109_cal.pdf, 1109test2.pdf).');
+  const pages=[...parseAll(await readPages(usageFile!),'usage',0),...parseAll(await readPages(stockFile!),'inventory',1)];
+  assert.equal(pages.filter(p=>p.kind==='usage').length,29);assert.equal(pages.filter(p=>p.kind==='inventory').length,28);
+  const font=new Uint8Array(fs.readFileSync('public/assets/fonts/NotoSansTC-PDF.ttf'));
+  const context={files:{usage:['1109_cal.pdf'],inventory:['1109test2.pdf']},version:1,appVersion:'test',time:'2026/11/09 18:00'};
+  const out=process.env.MANAGEMENT_OUTPUT_DIR;
+  // 191111 TULIP: A 7.4, B 29, 均月銷 214.6, stock 30 (< 53.65), 健保價 14.4 and 15.4 (the lower counts).
+  // 177183 ACCU-CHEK: A 6, 均月銷 588, no stock-sheet line: listed as 簡表無此碼, no 待採量.
+  for(const [strategy,safety,order,red] of [['hamster',['194','530'],'164',true],['balanced',['129','353'],'99',true],['antelope',['108','294'],'78',true]] as const){
+    const data=derive(pages,[],{storeConfirmed:false,safetyStrategy:strategy},{y:2026,m:11,d:9});
+    assert.deepEqual(data.blockers,[]);assert.equal(data.ready,true);assert.equal(data.period,'2026/06/09～2026/11/08');assert.equal(formatFrac(data.months!),'5');
+    const s=data.safety!;assert.deepEqual([s.n,s.limit,s.eligible,s.k],[1113,111,177,111]);assert.equal(data.partner,undefined);
+    assert.deepEqual(restockRows(data),[['191111','TULIP妥寧"山德士"膜衣錠40MG','30','7.4','214.6',safety[0],order],['177183','ACCU-CHEK',NO_STOCK,'6','588',safety[1],'—']]);
+    assert.deepEqual(restockAlerts(data).map(r=>r[6]),[red,false],`${order} × 14.4 > 1,000`);
+    const result=await generateListPDF(listSpec('safety',data,context),font);const text=await pdfText(result.bytes);
+    if(out){fs.mkdirSync(out,{recursive:true});fs.writeFileSync(`${out}/safety-${strategy}-1109.pdf`,result.bytes);}
+    assert.deepEqual(text.flatMap(page=>page.text.match(/^\d{6}$/gm)??[]),[...listRows('safety',data).map(r=>r[0]),'191111','177183'],'the list, then its second part');
+    assert.ok(text.at(-1)!.text.includes('第二部份'));
   }
 });

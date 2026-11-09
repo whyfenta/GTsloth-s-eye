@@ -67,3 +67,36 @@ test('stale warnings are enlarged and bold on the first page, above the table',a
     const ops=await page.getOperatorList();assert.ok(ops.fnArray.some((op,i)=>op===pdfjs.OPS.setTextRenderingMode&&ops.argsArray[i][0]===2));
   }finally{await doc.loadingTask.destroy();}
 });
+
+const fills=async(bytes:Uint8Array)=>{
+  const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc=await pdfjs.getDocument({data:bytes.slice(),verbosity:0}).promise;const colors:string[][]=[];
+  try{for(let n=1;n<=doc.numPages;n++){const ops=await (await doc.getPage(n)).getOperatorList();colors.push(ops.fnArray.flatMap((op,i)=>op===pdfjs.OPS.setFillRGBColor?[String(ops.argsArray[i][0])]:[]));}}
+  finally{await doc.loadingTask.destroy();}
+  return colors;
+};
+test('a warm tail (the safety list\'s second part) prints orange-brown text on cream and tan rows under a tan heading; its red cells stay red',async()=>{
+  const rows=Array.from({length:3},(_,i)=>[String(i+1).padStart(6,'0'),'EZETROL怡妥錠10MG','1,990','41.25','1,072.5','3,754','1,764']);
+  const tail=[['300001','品一','19','8','80','48','29'],['300008','品八','20','7.5','150','135','115'],['300007','缺貨 品七(管4)','-3','7','70','42','45']];
+  const alerts=[[],[false,false,false,false,false,false,true],[false,true]];
+  const result=await generateListPDF({...spec(rows),tail:{heading:'第二部份：測試。',rows:tail,alerts,tone:'warm',empty:'沒有。'}},font);
+  const [page]=await pdfText(result.bytes);
+  assert.deepEqual(page.text.match(/^\d{6}$/gm),[...rows,...tail].map(r=>r[0]),'the second part follows the list in the same file');
+  assert.ok(page.text.includes('第二部份：測試。')&&!page.text.includes('沒有。'),'the empty text only prints without rows');
+  const [colors]=await fills(result.bytes);
+  for(const color of ['#8c4a12','#fff5e8','#fae3c7','#f2d1a8'])assert.ok(colors.includes(color),color);
+  assert.equal(colors.filter(c=>c==='#c71212').length,2,'115 in red bold and the leading 缺貨 in red');
+  const muted=await generateListPDF({...spec(rows),tail:{heading:'以下品項偵測應為自費品，請過目。',rows:tail}},font);
+  assert.ok(!(await fills(muted.bytes))[0].some(c=>['#8c4a12','#fff5e8','#fae3c7','#f2d1a8'].includes(c)),'a grey tail keeps its own look');
+});
+test('a tail without rows prints its heading with the empty text when one is given, and nothing otherwise',async()=>{
+  const rows=[['000001','品一','5','10','100','350','345']];
+  const withText=await pdfText((await generateListPDF({...spec(rows),tail:{heading:'第二部份：測試。',rows:[],tone:'warm',empty:'本次沒有符合的品項。'}},font)).bytes);
+  assert.ok(withText[0].text.includes('第二部份：測試。本次沒有符合的品項。'));
+  const without=await pdfText((await generateListPDF({...spec(rows),tail:{heading:'以下品項偵測應為自費品。',rows:[]}},font)).bytes);
+  assert.ok(!without[0].text.includes('以下品項偵測應為自費品'));
+  // An empty first part still says why, above the second part's heading.
+  const emptyList=(await pdfText((await generateListPDF({...spec([]),tail:{heading:'第二部份：測試。',rows:[['300001','品一','19','8','80','48','29']],tone:'warm'}},font)).bytes))[0].text;
+  assert.ok(emptyList.indexOf('沒有符合的品項。')>=0&&emptyList.indexOf('沒有符合的品項。')<emptyList.indexOf('第二部份：測試。'));
+  assert.deepEqual(emptyList.match(/^\d{6}$/gm),['300001']);
+});
