@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {compareStores,emptyBox,mergeRows,sortRows,storeKey,type InventoryRow,type PageReport} from '../src/model';
+import {compareStores,dropZeroRows,emptyBox,mergeRows,sortRows,storeKey,type InventoryRow,type PageReport} from '../src/model';
 import {SourceSet} from '../src/sourceset';
 import {InventoryJob} from '../src/job';
 import {OCREngine} from '../src/ocr';
@@ -82,6 +82,21 @@ test('the first page of every file is read first, then the checkpoint, then the 
   const single=new InventoryJob(engine as any,{pages:3} as any,{state:()=>{},page:()=>{},error:m=>assert.fail(m),checkpoint:async()=>{asked=true;return 'x';}});
   await single.run();assert.deepEqual(calls,[1,2,3]);assert.equal(asked,false,'one file needs no store check');
 });
+test('files added to a finished reading: only their pages are read, the store check runs after their first pages',async()=>{
+  const calls:number[]=[];let checked:number[]=[];
+  const engine={layout:{},initialize:async()=>{},extract:async(_s:unknown,n:number)=>{calls.push(n);return report(n);},terminate:async()=>{}};
+  const events={state:()=>{},page:()=>{},error:(m:string)=>assert.fail(m),checkpoint:async()=>{checked=[...calls];return undefined;}};
+  const two=new InventoryJob(engine as any,{pages:7,starts:[1,4,6]} as any,events,1);
+  assert.equal(two.total,4);await two.run();
+  assert.deepEqual(calls,[4,6,5,7],'pages 1-3 of the first file were read before');assert.deepEqual(checked,[4,6]);
+  assert.equal(two.completed,4);assert.equal(two.state,'complete');
+  calls.length=0;checked=[];
+  const one=new InventoryJob(engine as any,{pages:5,starts:[1,4]} as any,events,1);
+  await one.run();assert.deepEqual(calls,[4,5]);assert.deepEqual(checked,[4],'one added file is still checked against the file read before');
+  calls.length=0;
+  const all=new InventoryJob(engine as any,{pages:5,starts:[1,4]} as any,events);
+  assert.equal(all.total,5);await all.run();assert.deepEqual(calls,[1,4,2,3,5]);
+});
 // Synthetic system-printed report pages (upright, 1000 x 700), as in textlayer.test.ts.
 const W=1000,H=700,size=10;const weight=(s:string)=>Array.from(s).reduce((n,c)=>n+(c.codePointAt(0)!>=0x2e80?2:1),0);
 function textPage(store:string,items:[string,string,string,string][],header=true):TextPage{
@@ -136,4 +151,22 @@ test('a file never reuses the columns learnt from another file',async()=>{
   const b=document('b.pdf',[textPage('',[['000004','FOURTH','A04','2']],false)]);
   const {job,rows,errors}=await read([a,b]);
   assert.equal(job.state,'error');assert.deepEqual(errors,['這一頁需要 OCR']);assert.deepEqual(rows.map(r=>r.sku),['000001']);
+});
+test('a supplementary report added after the first one is read merges its own items and drops lines already read',async()=>{
+  // a.pdf: class 09 items. b.pdf: one storage area, printed by location: the same drugs there plus test strips and a negative line.
+  const a=document('a.pdf',[textPage('26北-測試店',[['000001','FIRST','7水4','5'],['000002','SECOND','7外41','8']]),textPage('26北-測試店',[['000003','THIRD','7粉3','1,234']])]);
+  const b=document('b.pdf',[textPage('26北-測試店',[['000001','FIRST','7水4','5'],['000003','THIRD','7粉3','1,234'],['000004','FOURTH','7外41','-1'],['000005','TEST STRIP 50','7紙2','3'],['000006','TEST STRIP 10','7紙1','0']])]);
+  const first=await read([a]);assert.equal(first.job.state,'complete');
+  const confirmed=first.rows.find(r=>r.sku==='000001')!;confirmed.name='已校對的名稱';
+  const set=new SourceSet([a,b] as any);const pages=[...first.pages];let rows=[...first.rows];const errors:string[]=[];let checked:string[]=[];
+  const engine=new OCREngine(()=>{});
+  const job=new InventoryJob(engine,set,{state:()=>{},error:m=>errors.push(m),
+    page:(report,pageRows)=>{const {kept}=dropZeroRows(pageRows);const merged=mergeRows(rows,kept,r=>set.fileIndex(r.page));rows=merged.rows;report.duplicates=merged.duplicates;pages.push(report);},
+    checkpoint:async()=>{checked=set.starts.map(start=>pages.find(p=>p.page===start)!.storeName);return compareStores(checked.map(storeName=>({storeName,exact:true}))).result==='same'?undefined:'different';}},1);
+  await job.run();
+  assert.equal(job.state,'complete');assert.deepEqual(errors,[]);assert.deepEqual(checked,['26北-測試店','26北-測試店']);
+  assert.deepEqual(pages.map(p=>[p.page,p.duplicates??0]),[[1,0],[2,0],[3,2]],'only the page of b.pdf was read; two of its lines were read from a.pdf');
+  assert.deepEqual(rows.map(r=>[r.sku,r.bookQty]),[['000001','5'],['000002','8'],['000003','1234'],['000004','-1'],['000005','3']]);
+  const kept=rows.find(r=>r.sku==='000001')!;
+  assert.equal(kept.name,'已校對的名稱','the line reviewed before is kept, not replaced by the new reading');assert.deepEqual(kept.sourceFiles,[0,1]);
 });

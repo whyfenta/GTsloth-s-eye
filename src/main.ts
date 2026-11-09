@@ -42,7 +42,7 @@ app.innerHTML = `
         <div id="start-row" class="start-row" hidden><span id="queue-summary" aria-live="polite"></span><button id="clear-queue" class="button quiet">全部移除</button><button id="start" class="button primary"><span id="start-label">開始辨識</span>${icon('arrow')}</button></div>
         <div id="error" role="alert" class="error-box" hidden></div>
         <div id="progress-panel" hidden><div class="progress-line"><strong id="progress-title"></strong><span id="progress-counter"></span></div><div class="progress-track"><div id="progress-bar"></div></div><p id="progress-description" aria-live="polite"></p><div class="job-controls"><button id="pause" class="button secondary">暫停</button><button id="resume" class="button secondary" hidden>繼續辨識</button><button id="cancel" class="button quiet">取消辨識</button></div></div>
-        <div class="import-note"><span>合計最多 200 頁・200 MB</span><p>可分次加入多份庫存表，全部加入後按「開始辨識」。多份檔案會先確認是同一門市，再合併資料、刪除重複品項。大檔會逐頁處理，請保持頁面開啟；重新整理後，這次資料會清除。</p></div>
+        <div class="import-note"><span>合計最多 200 頁・200 MB</span><p>可分次加入多份庫存表，全部加入後按「開始辨識」。多份檔案會先確認是同一門市，再合併資料、刪除重複品項。辨識完成後仍可加入補件附檔（如針頭、試紙的儲位），按「辨識新加入的檔案」只讀新檔案並合併，已校對的結果保留。大檔會逐頁處理，請保持頁面開啟；重新整理後，這次資料會清除。</p></div>
         ${inventoryImportGuide()}
       </section>
       <aside class="guide-card card"><span class="eyebrow">BEFORE THE COUNT</span><h2>年度盤點小提醒</h2><ol class="reminder-list"><li>預盤時應同時整理儲位，避免藥品錯置與分散，並補上新入庫藥品的儲位。</li><li>歸屬於內場項目、卻不屬於第 9 類品項（處方藥品）者，如針頭、試紙等，應訂一儲位大項。匯入製作本盤點表時，可作為第二份補充文件（第一份文件即設定第 9 類品項）。</li><li>預盤及正式盤點前，應對預包處方（含欠藥區）做全面檢查，避免調劑錯誤被計算成盤差，並留意預包區間內都已完成「預包給藥」（扣帳）。</li><li>300 顆以上已拆封的罐裝藥品，應做預點及貼封，加快當日整理速度。</li><li>應確認有無尚不可驗收的盤商貨單。如無急迫，可整份不歸入庫存，或實際盤點量填寫歸入前的總量。</li><li>應確認有無「已批價但客人尚未取走的冷藏藥或客訂品」。</li></ol><button id="scan-test" class="text-button">下載掃描器測試頁 ${icon('arrow')}</button></aside>
@@ -67,28 +67,35 @@ function showError(message:string){el('error').hidden=!message;el('error').textC
 function updateProgress(){
   const state=job?.state ?? 'idle';el('progress-panel').hidden=state==='idle';
   const titles={idle:'',loading:'準備辨識',running:'正在辨識',paused:'已暫停',cancelled:'辨識已取消',complete:'辨識完成，請校對',error:'辨識中止'};
-  el('progress-title').textContent=titles[state];el('progress-counter').textContent=source?`${job?.completed??0} / ${source.pages} 頁`:'';
-  el('progress-bar').style.width=source?`${((job?.completed??0)/source.pages)*100}%`:'0%';
+  const total=job?.total??source?.pages??0;
+  el('progress-title').textContent=titles[state];el('progress-counter').textContent=source?`${job?.completed??0} / ${total} 頁`:'';
+  el('progress-bar').style.width=source&&total?`${((job?.completed??0)/total)*100}%`:'0%';
   const where=job?.current&&source&&source.files.length>1?`${pageLabel(job.current)}：`:'';
   el('progress-description').textContent=`${where}${processingMessage}${elapsedSeconds?` · 已用 ${Math.floor(elapsedSeconds/60)} 分 ${elapsedSeconds%60} 秒`:''}`;
   el('pause').hidden=state!=='running';el<HTMLButtonElement>('pause').disabled=job?.pauseRequested??false;
   el('pause').textContent=job?.pauseRequested?'完成目前頁後暫停':'暫停';el('resume').hidden=state!=='paused';
   el('cancel').hidden=!['loading','running','paused'].includes(state);
   el('drop-zone').classList.toggle('disabled',Boolean(busy()));el<HTMLButtonElement>('clear').disabled=generating;
-  // Recognition starts only from the button, after every file is added; a finished job is kept until the files change.
-  el('start-row').hidden=!queue.length;el<HTMLButtonElement>('start').disabled=Boolean(busy())||state==='complete';el<HTMLButtonElement>('clear-queue').disabled=Boolean(busy());
-  el('start-label').textContent=job?.running?'辨識中…':state==='complete'?'已完成辨識':state==='error'||state==='cancelled'?'重新開始辨識':'開始辨識';
+  // Recognition starts only from the button, after every file is added; a finished job is kept, and files added to it are read on their own.
+  const added=addedFiles().length;
+  el('start-row').hidden=!queue.length;el<HTMLButtonElement>('start').disabled=Boolean(busy())||(state==='complete'&&!added);el<HTMLButtonElement>('clear-queue').disabled=Boolean(busy());
+  el('start-label').textContent=job?.running?'辨識中…':state==='complete'?(added?'辨識新加入的檔案':'已完成辨識'):state==='error'||state==='cancelled'?'重新開始辨識':'開始辨識';
   document.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach(button=>button.disabled=Boolean(busy()));
-  el('queue-summary').textContent=queue.length?`${queue.length} 份檔案・共 ${queue.reduce((total,file)=>total+file.pages,0)} 頁${storeNote?`・${storeNote}`:''}`:'';
+  el('queue-summary').textContent=queue.length?`${queue.length} 份檔案・共 ${queue.reduce((total,file)=>total+file.pages,0)} 頁${storeNote?`・${storeNote}`:''}${added?`・${added} 份新加入，尚未辨識`:''}`:'';
 }
 function renderQueue(){
   el('file-list').hidden=!queue.length;
-  el('file-list').innerHTML=queue.map((file,i)=>`<li class="file-details"><span class="file-index">${i+1}</span>${icon('file')}<div><strong>${escape(file.file.name)}</strong><span>${file.pages} 頁 · ${(file.file.size/1024/1024).toFixed(1)} MB</span></div><button type="button" class="text-button file-remove" data-remove="${i}" aria-label="移除 ${escape(file.file.name)}">移除</button></li>`).join('');
+  const added=addedFiles();
+  el('file-list').innerHTML=queue.map((file,i)=>`<li class="file-details"><span class="file-index">${i+1}</span>${icon('file')}<div><strong>${escape(file.file.name)}</strong><span>${file.pages} 頁 · ${(file.file.size/1024/1024).toFixed(1)} MB${added.includes(file)?' · 新加入，尚未辨識':''}</span></div><button type="button" class="text-button file-remove" data-remove="${i}" aria-label="移除 ${escape(file.file.name)}">移除</button></li>`).join('');
   updateProgress();
 }
 /** "第 3 頁"; with several files "第 2 份・第 3 頁", the page number inside that file. */
 const pageLabel=(page:number)=>source&&source.files.length>1?`第 ${source.fileIndex(page)+1} 份・第 ${source.localPage(page)} 頁`:`第 ${page} 頁`;
 const fileOf=(row:InventoryRow)=>source?.fileIndex(row.page)??0;
+/** Files added after the reading finished, such as a supplementary report of non-09 items; only these are read next and merged into the results. */
+function addedFiles():DocumentSource[]{return job?.state==='complete'&&source?queue.slice(source.files.length):[];}
+/** Every page of every queued file has been read by a finished job. */
+const readComplete=()=>job?.state==='complete'&&pages.length===source?.pages&&!addedFiles().length;
 /** Admits one page's rows: a line already read from another file is dropped, a different quantity for it is flagged on both rows. */
 function admitPage(report:PageReport,pageRows:InventoryRow[]){
   const merged=mergeRows(rows,admit(pageRows),fileOf);rows=merged.rows;report.duplicates=merged.duplicates;flagConflicts(merged.conflicts);
@@ -149,10 +156,10 @@ function updateReview(){
 }
 function updateExport(){
   const warning=inventoryWarning(pages);el('report-warning').hidden=!warning;el('report-warning').textContent=warning;
-  const ready=canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages);
+  const ready=canExport(rows,pages,readComplete());const added=addedFiles().length;
   const pending=rows.filter(r=>!r.reviewed||validationErrors(r).length).length;const rejected=pages.filter(p=>p.status==='rejected').length;
   el<HTMLButtonElement>('preview-pdf').disabled=!ready||generating;el<HTMLButtonElement>('download-pdf').disabled=!ready||generating;
-  el('export-hint').textContent=retrying?'正在重新辨識這一頁，請稍候。':generating?'正在產生 PDF，請稍候。':rejected?`${rejected} 頁無法確認格式，修正前不能輸出。`:job?.state!=='complete'||pages.length!==source?.pages?'整份辨識完成後才能輸出。':pending?`還有 ${pending} 筆待確認；請調整後逐筆勾選確認。`:'全部資料已確認，可以產生 PDF。';
+  el('export-hint').textContent=retrying?'正在重新辨識這一頁，請稍候。':generating?'正在產生 PDF，請稍候。':rejected?`${rejected} 頁無法確認格式，修正前不能輸出。`:added?`有 ${added} 份新加入的檔案尚未辨識；按「辨識新加入的檔案」合併後才能輸出。`:job?.state!=='complete'||pages.length!==source?.pages?'整份辨識完成後才能輸出。':pending?`還有 ${pending} 筆待確認；請調整後逐筆勾選確認。`:'全部資料已確認，可以產生 PDF。';
   const output=printable(rows);const preview=sortRows(output.rows,sortMode).slice(0,3);const negatives=output.rows.filter(row=>isNegativeQuantity(row.bookQty)).length;
   el('output-preview').innerHTML=preview.map(row=>`<div class="preview-row"><div class="preview-code"><span class="barcode-font" aria-hidden="true">${escape(barcodeFontText(row.sku))}</span><span>${escape(row.sku)}</span></div><span>${escape(row.name)}</span><span>${escape(row.location)||'—'}</span><span>${escape(formatQuantity(row.bookQty))}</span><span class="handwriting-preview"></span></div>`).join('')+`<p>輸出 ${output.rows.length} 筆${negatives?` · 負數帳量 ${negatives} 筆排在最前`:''} · 略過帳量 0 共 ${output.zero} 筆${output.duplicates?` · 刪除重複 ${output.duplicates} 筆`:''} · 名稱依長度換行 · 實量欄留白供手寫</p>`;
   document.querySelectorAll<HTMLElement>('[data-step]').forEach(step=>step.classList.toggle('active',Number(step.dataset.step)===(ready?3:rows.length?2:1)));
@@ -166,31 +173,47 @@ async function clear(){
   await resetResults();const files=queue;queue=[];forcedRotations.clear();await Promise.all(files.map(file=>file.dispose()));
   el<HTMLInputElement>('file-input').value='';showError('');renderQueue();updateReview();
 }
-function startJob(){
-  if(!queue.length)return;const set=new SourceSet([...queue]);source=set;const docNo=++documentNumber;const engine=new OCREngine(message=>{processingMessage=message;updateProgress();});
+/**
+ * Reads the queue. more: read only the files added after the finished job and merge them into its results; if that
+ * reading stops (another store, an unreadable first page, cancelled), the earlier results are put back unchanged.
+ */
+function startJob(more=false){
+  if(!queue.length)return;const set=new SourceSet([...queue]);
+  const before=more&&job&&source?{job,source,rows:structuredClone(rows),pages:structuredClone(pages),storeNote,selectedPage}:undefined;
+  source=set;const docNo=++documentNumber;const engine=new OCREngine(message=>{processingMessage=message;updateProgress();});
+  // Pages of earlier files keep the columns they were read with, for a later retry of one of them.
+  if(before)for(const [index,learnt] of before.job.engine.files)engine.files.set(index,{...learnt});
   // A file whose first page was retried by hand keeps that orientation.
   set.files.forEach((file,i)=>{const rotation=forcedRotations.get(file);if(rotation!==undefined)engine.fileLayout(i).rotation=rotation;});
-  rows=[];pages=[];storeNote='';selectedPage=1;filterIssues=true;el<HTMLInputElement>('issues-only').checked=true;invalidatePDF();
+  if(!before){rows=[];pages=[];storeNote='';selectedPage=1;filterIssues=true;el<HTMLInputElement>('issues-only').checked=true;}
+  invalidatePDF();
   // Callbacks from a job of an earlier document must never write into this one.
   const current=()=>docNo===documentNumber;
-  job=new InventoryJob(engine,set,{state:()=>{if(!current())return;updateProgress();updateReview();if(job?.state==='complete'||job?.state==='error'||job?.state==='cancelled'){if(timer)clearInterval(timer);timer=undefined;}if(job?.state==='complete'||job?.state==='error')scrollToNextAction();},
+  let restored=false;
+  const restore=()=>{if(!before||restored)return;restored=true;({job,source,rows,pages,storeNote,selectedPage}=before);invalidatePDF();};
+  const notMerged='新加入的檔案沒有合併，原有結果不變。';
+  const label=(page:number)=>set.files.length>1?`第 ${set.fileIndex(page)+1} 份・第 ${set.localPage(page)} 頁`:`第 ${page} 頁`;
+  job=new InventoryJob(engine,set,{state:state=>{if(!current())return;const finished=['complete','error','cancelled'].includes(state);
+      if(state==='error'||state==='cancelled')restore();
+      if(state==='cancelled'&&before)showError(`已取消辨識。${notMerged}`);
+      renderQueue();updateReview();if(finished){if(timer)clearInterval(timer);timer=undefined;}if(state==='complete'||(state==='error'&&!before))scrollToNextAction();},
     page:(report,pageRows)=>{if(!current())return;admitPage(report,pageRows);pages.push(report);pages.sort((a,b)=>a.page-b.page);stats.renderedPages++;stats.peakOCRCanvases=Math.max(stats.peakOCRCanvases,engine.peakCanvases);
       if(report.storeName&&!storeName){storeName=report.storeName;el<HTMLInputElement>('store-name').value=storeName;}
       invalidatePDF();updateProgress();updateReview();},
-    error:(message,page)=>{if(current())showError(page!==undefined&&set.files.length>1?`${pageLabel(page)}（${set.files[set.fileIndex(page)].file.name}）：${message}`:message);},
-    checkpoint:()=>checkStores(set,current)});
-  if(timer)clearInterval(timer);startedAt=Date.now();timer=setInterval(()=>{elapsedSeconds=Math.round((Date.now()-startedAt)/1000);updateProgress();},1000);updateReview();void job.run();
+    error:(message,page)=>{if(current())showError(`${page!==undefined&&set.files.length>1?`${label(page)}（${set.files[set.fileIndex(page)].file.name}）：${message}`:message}${before?notMerged:''}`);},
+    checkpoint:()=>checkStores(set,current,Boolean(before))},before?before.source.files.length:0);
+  if(timer)clearInterval(timer);startedAt=Date.now();elapsedSeconds=0;timer=setInterval(()=>{elapsedSeconds=Math.round((Date.now()-startedAt)/1000);updateProgress();},1000);renderQueue();updateReview();void job.run();
 }
 /**
  * Several files are merged only when they are reports of one store. Runs after
  * the first page of every file is read, before the remaining pages.
  */
-async function checkStores(set:SourceSet,current:()=>boolean):Promise<string|undefined>{
+async function checkStores(set:SourceSet,current:()=>boolean,more=false):Promise<string|undefined>{
   if(!current())return undefined;processingMessage='確認各檔案是否為同一門市';updateProgress();
   const files=set.files.map((file,i)=>{const report=pages.find(page=>page.page===set.starts[i]);return {name:file.file.name,storeName:report?.storeName??'',exact:report?.mode==='text'};});
   const check=compareStores(files);const unread='未能辨識門市名稱';
   if(check.result==='same'){storeNote=`同一門市「${check.name}」`;updateProgress();return undefined;}
-  const stop='請移除不屬於同一門市的檔案，再按「重新開始辨識」。';
+  const stop=more?'請移除新加入、不屬於同一門市的檔案。':'請移除不屬於同一門市的檔案，再按「重新開始辨識」。';
   if(check.result==='different')return `各檔案的門市不同，已停止辨識：${files.map((file,i)=>`第 ${i+1} 份 ${file.name}「${file.storeName||unread}」`).join('、')}。${stop}`;
   const list=`<ul class="store-list">${files.map((file,i)=>`<li><span>第 ${i+1} 份 · ${escape(file.name)}</span><strong>${escape(file.storeName||unread)}</strong></li>`).join('')}</ul>`;
   const same=await ask('確認是同一門市',`<p>多份庫存表必須是同一門市才能合併。下列門市名稱無法自動確認一致（掃描辨識的文字可能有誤），請對照原始報表後決定。</p>${list}`,'不是，停止辨識','是同一門市，繼續');
@@ -212,15 +235,18 @@ function ask(title:string,html:string,cancel:string,ok:string):Promise<boolean>{
 function confirmLowResolution(name:string,dpi:number,estimated:boolean):Promise<boolean>{
   return ask('掃描解析度偏低',`<p>${escape(name)}：這份掃描${estimated?'估計':'約'}為 ${dpi} dpi，低於建議的 ${MIN_SCAN_DPI} dpi。解析度越低，代號、帳量與名稱的辨識錯誤越多，需要更多人工校對（實測 200 dpi 的掃描：名稱完全正確只有 7/61 筆，帳量讀錯 2 筆；600 dpi 為 0 筆）。建議以 ${MIN_SCAN_DPI} dpi 以上、灰階重新掃描。${estimated?'圖片檔以整張 A4 估算，若只拍到部分頁面，實際解析度可能較高。':''}</p>`,'不加入，重新掃描','仍要加入');
 }
-/** Changing the files after a finished job discards its results; ask first so review work is not lost by accident. */
-const confirmDiscard=()=>job?.state!=='complete'?Promise.resolve(true):ask('清除目前結果？','<p>加入或移除檔案會清除目前的辨識與校對結果，之後需重新按「開始辨識」。</p>','保留目前結果','清除並更新檔案');
+/** Removing a file that was read discards the results; ask first so review work is not lost by accident. */
+const confirmDiscard=()=>job?.state!=='complete'?Promise.resolve(true):ask('清除目前結果？','<p>移除已辨識的檔案會清除目前的辨識與校對結果，之後需重新按「開始辨識」。</p>','保留目前結果','清除並更新檔案');
 const sameFile=(a:File,b:File)=>a.name===b.name&&a.size===b.size&&a.lastModified===b.lastModified;
 /** Adds files to the queue only; recognition waits for the start button. Files chosen while others are still opening join them. */
 let pendingFiles:File[]=[];
 async function addFiles(files:File[]){
   if(adding){pendingFiles.push(...files);return;}
-  if(busy()||!files.length||!(await confirmDiscard()))return;
-  adding=true;pendingFiles=[...files];showError('');await resetResults();updateProgress();updateReview();const problems:string[]=[];
+  if(busy()||!files.length)return;
+  // Files added to a finished reading (e.g. a supplementary report of needles and test strips) are read on their own
+  // and merged into the results, so the review already done is kept.
+  const keep=job?.state==='complete';
+  adding=true;pendingFiles=[...files];showError('');if(!keep)await resetResults();updateProgress();updateReview();const problems:string[]=[];
   try{
     while(pendingFiles.length){const file=pendingFiles.shift()!;
       if(queue.some(item=>sameFile(item.file,file))){problems.push(`${file.name} 已在清單中。`);continue;}
@@ -240,11 +266,15 @@ async function addFiles(files:File[]){
   showError(problems.join('\n'));renderQueue();updateReview();
 }
 async function removeFile(index:number){
-  if(busy()||!queue[index]||!(await confirmDiscard()))return;
-  await resetResults();const [removed]=queue.splice(index,1);forcedRotations.delete(removed);await removed.dispose();showError('');renderQueue();updateReview();
+  if(busy()||!queue[index])return;
+  // A file added after the reading and not read yet leaves the results as they are.
+  const added=addedFiles().includes(queue[index]);
+  if(!added&&!(await confirmDiscard()))return;
+  if(!added)await resetResults();const [removed]=queue.splice(index,1);forcedRotations.delete(removed);await removed.dispose();showError('');renderQueue();updateReview();
 }
 async function start(){
-  if(busy()||!queue.length||job?.state==='complete')return;
+  if(busy()||!queue.length)return;
+  if(job?.state==='complete'){if(addedFiles().length){showError('');startJob(true);}return;}
   await resetResults();showError('');startJob();renderQueue();
 }
 el('drop-zone').addEventListener('click',()=>{if(!busy())el<HTMLInputElement>('file-input').click();});
@@ -327,7 +357,7 @@ el('retry-controls').addEventListener('click',async event=>{
 el<HTMLInputElement>('store-name').addEventListener('input',event=>{storeName=(event.target as HTMLInputElement).value.trim();invalidatePDF();updateExport();});
 el<HTMLSelectElement>('sort').addEventListener('change',event=>{sortMode=(event.target as HTMLSelectElement).value as SortMode;invalidatePDF();updateExport();});
 el<HTMLSelectElement>('row-height').addEventListener('change',event=>{rowHeight=Number((event.target as HTMLSelectElement).value) as RowHeight;invalidatePDF();updateExport();});
-const exportReady=()=>canExport(rows,pages,job?.state==='complete'&&pages.length===source?.pages);
+const exportReady=()=>canExport(rows,pages,readComplete());
 const pdfName=()=>`${storeName||'門市'}_盤點表_${sortMode==='sku'?'六編碼':'儲位'}.pdf`;
 async function preparePDF(){
   if(!exportReady())throw new Error('請先完成全部資料與格式校對。');
