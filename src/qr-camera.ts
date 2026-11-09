@@ -1,4 +1,5 @@
 import jsQR from 'jsqr';
+import { SMOOTHING, smoothFrame } from './qr-smooth';
 
 /**
  * The side of the square read from each frame: the middle of the picture, scaled down to this many pixels at most. A 1080p
@@ -72,6 +73,8 @@ export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: Cam
     close.addEventListener('click', closeNow);
     dialog.addEventListener('close', closeNow);
     // The middle square of each frame, where the guide is: a portrait picture is cropped top and bottom, a landscape one at the sides.
+    // Each frame is read one way: as it is, or blurred by the next radius in SMOOTHING for a QR printed in halftone.
+    let attempt = 0;
     const scan = () => {
       if (settled) return;
       const { videoWidth: width, videoHeight: height } = video;
@@ -79,7 +82,9 @@ export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: Cam
         const side = Math.min(width, height), size = Math.round(side * Math.min(1, MAX_SIDE / side));
         if (canvas.width !== size) canvas.width = canvas.height = size;
         context.drawImage(video, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
-        const code = jsQR(context.getImageData(0, 0, size, size).data, size, size, { inversionAttempts: 'dontInvert' });
+        const frame = context.getImageData(0, 0, size, size).data;
+        const radius = SMOOTHING[attempt++ % SMOOTHING.length];
+        const code = jsQR(radius ? smoothFrame(frame, size, size, radius) : frame, size, size, { inversionAttempts: 'dontInvert' });
         if (code) {
           const value = read(Uint8Array.from(code.binaryData));
           if (value !== undefined) { finish(value); return; }
