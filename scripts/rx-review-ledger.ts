@@ -1,16 +1,22 @@
 import { createHash } from 'node:crypto';
 import { RULE_FILES, type RuleFile, type RuleTables } from '../src/rx-check';
 
-// docs/reference/rx-rules-review.json remembers, for the pharmacist's review page, which rule has which id, when its content
-// last changed and why it was proposed. A decision made before a rule's `changed` no longer counts, so an edited rule comes back
-// for review. Decisions themselves stay on the page. No sample content goes in here: the repository is public.
+// docs/reference/rx-rules-review.json remembers, for the pharmacists' review page (review/), which rule has which id, when its
+// content last changed, why it was proposed and how its review ended. A decision made before a rule's `changed` no longer counts,
+// so an edited rule comes back for review. Votes in progress stay in the team's sheet (docs/rx-review-apps-script.gs); what is
+// written here is the close of a review: `approved` (the reviewers agreed, nothing changed) or `outcome` (an opinion carried out).
+// No sample content and no reviewer's name goes in here: the repository is public.
 export interface ReviewLink { t: string; u: string }
-export interface ReviewNotes { why?: string; ref?: string; links?: ReviewLink[]; flags?: string[]; outcome?: string }
+/** A review closed as it stands: the day it was closed and how many reviewers agreed (nobody objected). */
+export interface Approval { at: string; n: number }
+export interface ReviewNotes { why?: string; ref?: string; links?: ReviewLink[]; flags?: string[]; outcome?: string; approved?: Approval }
+/** A weekly-review proposal (P + the week's date + a number) once the team has dealt with it; open ones live in the team's Drive folder. */
+export interface ClosedProposal { id: string; title: string; status: '已採用' | '不採用' | '需更多樣本'; decided: string; note?: string; rules?: string[] }
 export interface LedgerRule extends ReviewNotes { id: string; table: RuleFile; key: string; fp: string; text: string; batch: string; changed: string; prev?: string }
 export interface LedgerQuestion extends ReviewNotes { id: string; title: string; desc: string; batch: string; changed: string }
 export interface RetiredRule { id: string; table: RuleFile; text: string; batch: string; retired: string; outcome?: string }
 export interface Batch { id: string; title: string; note?: string }
-export interface Ledger { batches: Batch[]; rules: LedgerRule[]; questions: LedgerQuestion[]; retired: RetiredRule[]; atcZh: Record<string, string> }
+export interface Ledger { batches: Batch[]; rules: LedgerRule[]; questions: LedgerQuestion[]; retired: RetiredRule[]; atcZh: Record<string, string>; proposals?: ClosedProposal[] }
 export interface LedgerRow { table: RuleFile; row: Record<string, string>; rule: LedgerRule }
 
 type Row = Record<string, string>;
@@ -37,8 +43,8 @@ function newId(table: RuleFile, key: string, used: Set<string>): string {
 
 /**
  * The ledger after the tables as they are now. A row keeps its id when its content is unchanged (wherever it moved in the file) or
- * when it shares the ledger row's key. A changed row comes back for review, unless `applied` names it: then the change is the
- * pharmacist's own decision, recorded as its outcome. A rule no longer in the tables is retired.
+ * when it shares the ledger row's key. A changed row comes back for review (its outcome and approval are dropped), unless `applied`
+ * names it: then the change is the pharmacists' own decision, recorded as its outcome. A rule no longer in the tables is retired.
  */
 export function reconcile(tables: RuleTables, ledger: Ledger, options: { batch: string; now: string; applied?: Record<string, string> }) {
   const { batch, now, applied = {} } = options;
@@ -65,7 +71,7 @@ export function reconcile(tables: RuleTables, ledger: Ledger, options: { batch: 
       } else if (d.known.fp === d.fp) rule = { ...d.known, text: d.text };
       else {
         changed.push(d.known.id);
-        const { outcome: _old, ...kept } = d.known;
+        const { outcome: _old, approved: _closed, ...kept } = d.known;
         rule = applied[d.known.id] ? { ...d.known, fp: d.fp, text: d.text, prev: d.known.text, outcome: applied[d.known.id] }
           : { ...kept, fp: d.fp, text: d.text, prev: d.known.text, changed: now };
       }

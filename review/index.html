@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="robots" content="noindex" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#234d43" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="description" content="處方警示規則審核：藥師團隊逐條審核規則與每週檢查的提案。" />
+  <title>處方警示規則審核</title>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1>處方警示規則審核</h1>
+      <p class="lede">每條規則與每週檢查的提案都可以選「同意」「不同意」或「其他意見」並寫下原因，選了就自動存檔，團隊成員看得到彼此的決定。達到門檻的規則由負責人結案；有不同意見的由負責人決定怎麼改。這一頁沒有任何處方或病人資料。</p>
+    </header>
+
+    <section class="me" id="me" aria-label="審核者">
+      <label for="name">你的名字（團隊成員看得到）</label>
+      <div class="me-row"><input id="name" type="text" maxlength="30" autocomplete="name" placeholder="例如：王藥師" /><button class="action" id="save-name" type="button">儲存名字</button></div>
+      <p class="status" id="store" role="status">正在讀取…</p>
+      <div class="team" id="team" hidden></div>
+    </section>
+
+    <section class="latest" id="latest" hidden aria-label="最新一批"></section>
+
+    <details class="basis">
+      <summary>規則的依據是什麼、怎麼審</summary>
+      <p class="intro">規則由 Claude 依藥學知識與文獻起草，<strong>大多沒有逐條對照國內仿單</strong>；卡片上的「依據」是起草時的判斷類別，較新的條文另附出處連結。未審的規則已經在網站上生效，審核後依決定調整。你在這裡按下的「同意」，就是藥師的審核紀錄。</p>
+      <dl class="legend">
+        <dt><span class="badge b-label">仿單</span></dt><dd>起草者認為是仿單上的適應症。注意事項裡的「仿單禁忌」「仿單警語」「仿單黑框警語」指仿單的禁忌、警語段落。</dd>
+        <dt><span class="badge">指引</span></dt><dd>臨床治療指引建議的用法，卡片上列出參考的指引名稱；指引的版本見 <code>docs/reference/rx-sources.md</code>。</dd>
+        <dt><span class="badge">常見</span></dt><dd>臨床常見的用法，不一定寫在仿單上。</dd>
+        <dt><span class="badge b-off">常見仿單外</span></dt><dd>仿單外但常見的用法。同意的話，這類處方就不會被提醒，可能放過真正的錯誤。</dd>
+        <dt><span class="badge">Beers／FDA／EMA</span></dt><dd>注意事項引用的具名來源。</dd>
+        <dt><span class="badge">起草者判斷</span></dt><dd>沒有單一出處，是依門診常見處方型態判斷的，例如科別常用、低風險藥的分類。</dd>
+        <dt><span class="badge">提案</span></dt><dd>每週檢查處方樣本後提出、還沒進規則表的建議：附張數、依據等級與試跑結果。採用的才會寫進規則表。</dd>
+      </dl>
+      <p class="intro"><strong>怎麼算審完：</strong>同意的人數達到門檻、而且沒有人不同意或有其他意見，就是「達門檻」，由負責人結案；只要有一位不同意或有其他意見，就是「有分歧」，由負責人看過意見後決定。規則內容改過以後，先前的決定不算，會回到待審。</p>
+      <p class="intro"><strong>藥名怎麼來的：</strong>ATC 代碼後面的中文類別名，是 Claude 依 WHO ATC 分類翻譯的。後面列的成分取自健保藥品檔中帶這個 ATC 碼的藥，樣本中出現過的排前面，括號內是樣本中最常見的商品名。</p>
+    </details>
+
+    <div class="bar">
+      <div class="progress">
+        <strong id="todo">我的待審 —</strong>
+        <div class="meter" aria-hidden="true"><i class="m-closed" id="m-closed"></i><i class="m-yes" id="m-agreed"></i><i class="m-no" id="m-split"></i><i class="m-other" id="m-going"></i></div>
+        <div class="counts"><span>已結案 <b id="c-closed">0</b></span><span>達門檻 <b id="c-agreed">0</b></span><span>有分歧 <b id="c-split">0</b></span><span>審核中 <b id="c-going">0</b></span><span>未審 <b id="c-none">0</b></span></div>
+      </div>
+      <div class="tabs" id="tabs" role="group" aria-label="規則表"></div>
+      <div class="tools">
+        <div class="filters" id="filters" role="group" aria-label="篩選"></div>
+        <div class="filters" id="batches" role="group" aria-label="批次"></div>
+      </div>
+      <div class="tools">
+        <input class="search" id="search" type="search" placeholder="搜尋 ATC、ICD、藥名或中文，例如 C10、I50、心衰竭、Forxiga" aria-label="搜尋規則" />
+        <button class="action" id="copy-mine" type="button">複製我的審核結果</button>
+        <button class="action" id="copy-team" type="button">複製團隊統計</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </div>
+
+    <main class="list" id="list"><p class="empty">正在讀取規則清單…</p></main>
+    <footer id="foot"></footer>
+  </div>
+  <script type="module" src="/src/review.ts"></script>
+</body>
+</html>

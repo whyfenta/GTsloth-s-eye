@@ -1,29 +1,31 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { atcHit, BASIS_RANK, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion } from '../src/rx-data';
 import { isFailure } from '../src/rx-sample';
-import { reconcile, type Batch, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
+import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
 
 // Usage: npm run rx-review-page -- 樣本1.txt [樣本2.txt …] [--notes 說明.json] [--batch YYYY-MM-DD] [--out 檔案]
-// Brings docs/reference/rx-rules-review.json up to date with docs/reference/rx-rules/*.csv and writes what the pharmacist's review
-// page shows (default tmp/rx-review/catalog.json): every rule with its Chinese drug and diagnosis names, how often the samples
-// used it (counts only, no sample content), and whether it needs review. Writing that file into the page is a separate step:
-// see docs/reference/rx-rules.md「審核頁」. Without samples the counts are left out.
-// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {C42: {why, ref, links, flags, outcome, applied}},
-// questions: [{id, title, desc, why, links, outcome}], atcZh: {N05AX: "…"} }. `applied` marks an edit as the pharmacist's own decision.
+// Brings docs/reference/rx-rules-review.json up to date with docs/reference/rx-rules/*.csv and writes what the pharmacists' review
+// page (review/) shows, public/assets/rx/review.json: every rule with its Chinese drug and diagnosis names, how often the samples
+// used it (counts only, no sample content), and whether its review is closed. The page reads that file, so a rule change reaches
+// the reviewers when it is published; npm test fails while the file is behind. Without samples the counts of the last run are
+// kept for the rules that did not change, and a new or changed rule shows none.
+// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {C42: {why, ref, links, flags, outcome,
+// applied, approved: {at, n}}}, questions: [{id, title, desc, why, links, outcome}], proposals: [{id, title, status, decided, note,
+// rules}], atcZh: {N05AX: "…"} }. `applied` marks an edit as the pharmacists' own decision; `approved` closes a review the team
+// agreed on (the day and how many agreed); `proposals` records what became of a weekly-review proposal.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const flag = (name: string) => { const at = args.indexOf(name); return at < 0 ? undefined : args.splice(at, 2)[1]; };
-const notesFile = flag('--notes'), batchFlag = flag('--batch'), out = flag('--out') ?? path.join(root, 'tmp', 'rx-review', 'catalog.json');
+const notesFile = flag('--notes'), batchFlag = flag('--batch'), out = flag('--out') ?? path.join(root, 'public', 'assets', 'rx', 'review.json');
 const sampleFiles = args;
 const LEDGER = path.join(root, 'docs', 'reference', 'rx-rules-review.json');
-const MAX_BYTES = 240 * 1024; // A page document may hold 256 KiB.
 
-interface Notes { batch?: Omit<Batch, 'id'>; rules?: Record<string, ReviewNotes & { applied?: string }>; questions?: (ReviewNotes & { id: string; title: string; desc: string })[]; atcZh?: Record<string, string> }
+interface Notes { batch?: Omit<Batch, 'id'>; rules?: Record<string, ReviewNotes & { applied?: string }>; questions?: (ReviewNotes & { id: string; title?: string; desc?: string })[]; proposals?: ClosedProposal[]; atcZh?: Record<string, string> }
 const notes: Notes = notesFile ? JSON.parse(readFileSync(notesFile, 'utf8')) : {};
 const now = new Date().toISOString();
 const batch = batchFlag ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
@@ -45,9 +47,14 @@ const questions: LedgerQuestion[] = [...ledger.questions];
 for (const { id, ...rest } of notes.questions ?? []) {
   const at = questions.findIndex(question => question.id === id);
   if (at >= 0) questions[at] = { ...questions[at], ...rest };
-  else questions.push({ id, ...rest, batch, changed: now });
+  else if (rest.title && rest.desc) questions.push({ id, ...rest, title: rest.title, desc: rest.desc, batch, changed: now });
+  else throw new Error(`--notes 的問題 ${id} 不在紀錄裡，新問題要有 title 與 desc。`);
 }
 ledger.questions = questions;
+// What became of the weekly review's proposals: a later note for the same id replaces the earlier one.
+const closedProposals = new Map((ledger.proposals ?? []).map(item => [item.id, item]));
+for (const item of notes.proposals ?? []) closedProposals.set(item.id, item);
+if (closedProposals.size) ledger.proposals = [...closedProposals.values()].sort((a, b) => a.id.localeCompare(b.id));
 const batches = [...ledger.batches];
 const usedBatches = new Set([...ledger.rules.map(rule => rule.batch), ...questions.map(question => question.batch)]);
 if (usedBatches.has(batch) && !batches.some(item => item.id === batch)) batches.push({ id: batch, title: notes.batch?.title ?? `${batch} 新增` });
@@ -92,7 +99,12 @@ for (const file of sampleFiles) {
     }
   }
 }
-const hitCount = (id: string) => sampleFiles.length ? hits.get(id) ?? 0 : null;
+// Without samples: the counts the last catalog had, for the rules that have not changed since.
+interface Earlier { samples: unknown; items: { id: string; changed: string; hits: number | null }[]; atc?: Record<string, { zh: string; ex: string[]; n: number; seen: number }> }
+const earlier: Earlier | undefined = !sampleFiles.length && existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : undefined;
+const earlierHits = new Map((earlier?.items ?? []).map(item => [item.id, item]));
+const hitCount = (id: string, changed: string) => sampleFiles.length ? hits.get(id) ?? 0
+  : earlierHits.get(id)?.changed === changed ? earlierHits.get(id)!.hits : null;
 
 // Chinese names for diagnoses: a code or a range, as the rules write them.
 const icd: { codes: Record<string, string>; deleted: Record<string, string> } = json('icd10cm');
@@ -130,7 +142,8 @@ function atcInfo(prefix: string) {
 }
 
 const common = ({ rule }: LedgerRow) => ({ id: rule.id, batch: rule.batch, changed: rule.changed, flags: rule.flags ?? [], ...(rule.why ? { why: rule.why } : {}), ...(rule.ref ? { ref: rule.ref } : {}),
-  ...(rule.links?.length ? { links: rule.links } : {}), ...(rule.outcome ? { outcome: rule.outcome } : {}), ...(rule.prev ? { prev: rule.prev } : {}), hits: hitCount(rule.id) });
+  ...(rule.links?.length ? { links: rule.links } : {}), ...(rule.outcome ? { outcome: rule.outcome } : {}), ...(rule.approved ? { approved: rule.approved } : {}),
+  ...(rule.prev ? { prev: rule.prev } : {}), hits: hitCount(rule.id, rule.changed) });
 const items = [
   ...rowsOf('indications').map(entry => ({ ...common(entry), table: 'indications', atc: entry.row['ATC'], cls: entry.row['藥理類別'], icd: chips(entry.row['可解釋的ICD-10']), basis: entry.row['依據'], note: entry.row['備註'] })),
   ...rowsOf('co-drugs').map(entry => ({ ...common(entry), table: 'co', atc: entry.row['ATC'], partners: entry.row['可由同處方的ATC解釋'], basis: entry.row['依據'], note: entry.row['備註'] })),
@@ -142,7 +155,7 @@ const items = [
   ...rowsOf('specialty').map(entry => ({ ...common(entry), table: 'specialty', dept: entry.row['科別代碼'], name: entry.row['科別'], atc: entry.row['該科常開的ATC'], basis: '起草者判斷' })),
   ...rowsOf('drug-classes').map(entry => ({ ...common(entry), table: 'classes', atc: entry.row['ATC'], kind: entry.row['類型'], desc: entry.row['說明'], basis: entry.row['類型'] === '低風險' ? '起草者判斷' : 'ISMP 高警訊藥品概念' })),
   ...rowsOf('settings').map(entry => ({ ...common(entry), table: 'settings', name: entry.row['設定'], value: entry.row['值'], options: entry.row['可選的值'], desc: entry.row['說明'], basis: '設計選擇' })),
-  ...questions.map(({ id, title, desc, batch: from, changed, why, links, outcome, flags }) => ({ id, table: 'questions', title, desc, batch: from, changed, basis: '待決定', flags: flags ?? [], hits: null, ...(why ? { why } : {}), ...(links?.length ? { links } : {}), ...(outcome ? { outcome } : {}) })),
+  ...questions.map(({ id, title, desc, batch: from, changed, why, links, outcome, approved, flags }) => ({ id, table: 'questions', title, desc, batch: from, changed, basis: '待決定', flags: flags ?? [], hits: null, ...(why ? { why } : {}), ...(links?.length ? { links } : {}), ...(outcome ? { outcome } : {}), ...(approved ? { approved } : {}) })),
 ];
 const prefixes = new Set<string>();
 for (const item of items) {
@@ -151,14 +164,18 @@ for (const item of items) {
     for (const token of tokens(spec)) prefixes.add(token.split('@')[0]);
   }
 }
-const atc = Object.fromEntries([...prefixes].sort().map(prefix => [prefix, atcInfo(prefix)]));
+// Which ingredients come first, and the brand in brackets, come from the samples: without samples the last catalog's stand.
+const atc = Object.fromEntries([...prefixes].sort().map(prefix => {
+  const before = earlier?.atc?.[prefix];
+  return [prefix, before?.n ? { ...before, zh: ledger.atcZh[prefix] ?? before.zh } : atcInfo(prefix)];
+}));
 const missing = Object.entries(atc).filter(([, info]) => !info.zh).map(([prefix]) => prefix);
 
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const version = rulesVersion({ sourceSha256: Object.fromEntries(RULE_FILES.map(file => [`${file}.csv`, sha256(csvBytes[file])])) } as Parameters<typeof rulesVersion>[0]);
-const catalog = { format: 'gtsloth-rx-review', generatedAt: now, rulesVersion: version, batches, samples: sampleFiles.length ? { rx: sampleCount, drugs: drugCount, files: sampleFiles.length } : null, items, retired: ledger.retired, atc };
-const text = JSON.stringify(catalog);
-if (Buffer.byteLength(text) > MAX_BYTES) throw new Error(`審核頁資料 ${Buffer.byteLength(text)} bytes，超過 ${MAX_BYTES}（頁面單一文件上限 256 KiB）。`);
+const catalog = { format: 'gtsloth-rx-review', generatedAt: now, rulesVersion: version, batches, samples: sampleFiles.length ? { rx: sampleCount, drugs: drugCount, files: sampleFiles.length } : earlier?.samples ?? null,
+  items, retired: ledger.retired, proposals: ledger.proposals ?? [], atc };
+const text = JSON.stringify(catalog) + '\n';
 writeFileSync(LEDGER, JSON.stringify(ledger, null, 1) + '\n');
 mkdirSync(path.dirname(out), { recursive: true });
 writeFileSync(out, text);
@@ -167,6 +184,6 @@ console.log(`審核頁資料：${path.relative(root, out)}（${Math.round(Buffer
 console.log(`新增 ${result.added.length} 條${result.added.length ? `：${result.added.join(' ')}` : ''}`);
 console.log(`內容改變 ${result.changed.length} 條${result.changed.length ? `：${result.changed.join(' ')}` : ''}`);
 console.log(`移除 ${result.retired.length} 條${result.retired.length ? `：${result.retired.join(' ')}` : ''}`);
-console.log(sampleFiles.length ? `樣本：${sampleCount} 張、${drugCount} 個藥（${sampleFiles.length} 個檔案）` : '沒有指定樣本：這次不含命中次數。');
+console.log(sampleFiles.length ? `樣本：${sampleCount} 張、${drugCount} 個藥（${sampleFiles.length} 個檔案）` : earlier ? '沒有指定樣本：沒改過的規則沿用上次的命中次數，新增或改過的規則沒有次數。' : '沒有指定樣本：這次不含命中次數。');
 if (missing.length) console.log(`缺中文類別名（請在 --notes 的 atcZh 補上）：${missing.join(' ')}`);
-console.log('下一步：把這個檔寫進審核頁（docs/reference/rx-rules.md「審核頁」）。');
+console.log('審核頁（review/）讀這個檔：和規則表一起 commit、發布後，審核者就看得到。');

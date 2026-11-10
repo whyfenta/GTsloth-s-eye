@@ -1,0 +1,26 @@
+﻿編號,名稱,發布單位,目前版本,版本日期,更新頻率,確認週期月,上次確認,狀態,用途,引用寫法,網址,備註
+S01,AGS Beers Criteria（老人潛在不適當用藥）,American Geriatrics Society,2023,2023-05,約每 3 年；2026 年預定更新,3,2026-11-10,使用中,cautions.csv：表 2（應避免）、表 3（藥品與疾病）、表 5（藥品併用）、表 6（腎功能）,Beers 2023,https://doi.org/10.1111/jgs.18372,115/11/10 查詢：尚未看到 2026 版發表，只有預定更新的消息；新版出來時要重新核對所有引用 Beers 的條文（npm test 會列出）。
+S02,AGS Beers 替代藥物清單,American Geriatrics Society,2025,2025,不定期,12,2026-11-10,僅供查證,提示文字要建議替代藥時查閱；不直接產生規則,,https://doi.org/10.1111/jgs.19500,全文尚未讀到。
+S03,STOPP/START criteria,European Geriatric Medicine（O'Mahony 等）,v3,2023-08,約每 8 年（v2 是 2015）,12,2026-11-10,建議加入,每週檢查找漏報：STOPP 的藥品與疾病、重複用藥條文；START（應開而未開）單張處方判斷不了，不做規則,STOPP,https://pubmed.ncbi.nlm.nih.gov/37256475/,115/11/10 查詢：沒有 v4。133 條 STOPP、57 條 START；和 Beers 重疊的條文以 Beers 為準，只取 Beers 沒有的。
+S04,PIM-Taiwan criteria（台灣老人潛在不適當用藥準則）,國內專家共識（Chang 等）,2018 版（2019 發表）,2019-10,不定期,12,2026-11-10,建議加入,每週檢查找漏報：依健保收載品項整理的老人應避免藥品與疾病別清單，比 Beers 貼近國內品項,PIM-Taiwan,https://doaj.org/article/52b4b42eaaf14059ba9a4e58e580dde6,115/11/10 查詢：沒有看到比 2018 版更新的版本。
+S05,藥品仿單（食藥署許可證與仿單）,衛生福利部食品藥物管理署,各品項現行仿單,,隨時,12,,使用中,indications.csv 的「仿單」；cautions.csv 的仿單禁忌、警語、黑框警語,仿單,https://www.fda.gov.tw/,多數條文起草時沒有逐條對照國內仿單（依據欄寫「待核對」「美國」「英國 SmPC」的）；確認時以這些條文為優先。
+S06,藥品安全資訊風險溝通表,衛生福利部食品藥物管理署,逐則公告,,不定期（每月數則）,1,,建議加入,國內的藥品安全通報；每月確認有沒有和現有規則或常見處方相關的新通報,風險溝通表,https://www.fda.gov.tw/,尚未建立逐則核對的紀錄。
+S07,FDA Drug Safety Communications 與黑框警語,U.S. Food and Drug Administration,逐則公告,,不定期,3,,使用中,cautions.csv：C16、C19、C21、C22、C49 等,FDA,https://www.fda.gov/drugs/drug-safety-and-availability/drug-safety-communications,部分條文只查到二手轉述（見 rx-rules.md）。
+S08,EMA 安全性建議（PRAC、轉介程序）,European Medicines Agency,逐則公告,,不定期,3,,使用中,cautions.csv：C30、C37、C46,EMA,https://www.ema.europa.eu/,
+S09,全民健康保險藥物給付項目及支付標準（藥品給付規定）,衛生福利部中央健康保險署,現行公告,,每月公告修訂,3,,待決定,和安全性警示不同類：不符給付規定會被核刪（例如重複用藥、限定適應症）。要不要另做一類「給付提醒」由藥師決定,給付規定,https://www.nhi.gov.tw/,
+S10,ISMP 高警訊藥品清單（社區與門診）,Institute for Safe Medication Practices,,,數年一次,24,,使用中,drug-classes.csv 的「高警訊」,ISMP,https://www.ismp.org/recommendations,規則表引用的是概念，沒有逐項對照清單。
+S11,台灣高血壓治療指引,中華民國心臟學會、台灣高血壓學會,2022,2022,數年一次；新版研擬中,6,2026-11-10,建議加入,適應症解釋（降血壓藥配高血壓與合併症）；避免的組合（ACEI＋ARB、β 阻斷劑＋非 DHP 類鈣離子阻斷劑）多已由仿單涵蓋,台灣高血壓,,115/11/10 查詢：報導提到新版研擬中，沒有看到正式發布。JNC 8（2014）已不再更新，美國由 ACC/AHA 指引接續，所以不列 JNC。
+S12,AHA/ACC 高血壓指引,American Heart Association、American College of Cardiology,2025（取代 2017 版）,2025-08,數年一次,12,2026-11-10,僅供查證,國內指引沒寫到時參考,AHA/ACC 2025 高血壓,https://doi.org/10.1016/j.jacc.2025.05.007,
+S13,心衰竭指引,AHA/ACC/HFSA；ESC；中華民國心臟學會,AHA/ACC/HFSA 2022；ESC 2021＋2023 更新,2023,數年一次,12,,建議加入,藥品與疾病：心衰竭應避免的藥（NSAID、非 DHP 類鈣離子阻斷劑、pioglitazone、saxagliptin、IC 類抗心律不整藥、dronedarone、cilostazol）,心衰竭指引,https://www.escardio.org/Guidelines,版本依起草者知識填寫，尚未上網確認。
+S14,ESC 急性冠心症與抗血栓治療指引,European Society of Cardiology,2023 ACS,2023-08,數年一次,12,,使用中,cautions.csv：C60、C61（抗凝血劑併用抗血小板藥）,ESC,https://www.escardio.org/Guidelines,C60、C61 起草時連不上原文，內容待核對。
+S15,心房顫動指引,ACC/AHA/ACCP/HRS；ESC,ACC/AHA 2023；ESC 2024,2024,數年一次,12,,建議加入,抗凝血劑：機械瓣膜不用 DOAC、DOAC 的劑量條件（劑量功能做出來以後）,心房顫動指引,https://www.escardio.org/Guidelines,版本依起草者知識填寫，尚未上網確認。
+S16,Standards of Care in Diabetes,American Diabetes Association,2026,2025-12,每年 12 月,12,2026-11-10,建議加入,藥品併用與疾病：GLP-1 促效劑＋DPP-4 抑制劑不併用、metformin 與腎功能、老人的磺醯尿素類、pioglitazone 與心衰竭,ADA,https://professional.diabetes.org/standards-of-care,2027 版預計 2026 年 12 月發表，下次確認時換版。
+S17,糖尿病臨床照護指引,中華民國糖尿病學會,2022,2022,數年一次,12,,建議加入,同上，國內版本優先,糖尿病臨床照護指引,,版本依起草者知識填寫，尚未上網確認。
+S18,KDIGO 慢性腎病指引,Kidney Disease: Improving Global Outcomes,CKD 2024；Diabetes in CKD 2022（2026 更新草案已徵求意見）,2024,數年一次,6,2026-11-10,建議加入,慢性腎病避免 NSAID、雙重 RAS 阻斷；腎功能劑量調整的門檻（C68–C77 的門檻待核對）,KDIGO,https://kdigo.org/guidelines/,115/11/10 查詢：Diabetes in CKD 2026 版還在草案；CKD 2024 沒有另外查。
+S19,GINA 氣喘治療策略報告,Global Initiative for Asthma,2026,2026,每年（約 5 月）,12,2026-11-10,建議加入,只取明確的避免事項：長效 β2 促效劑單方而沒有吸入性類固醇、氣喘配非選擇性 β 阻斷劑。階梯治療要看病史與控制程度，單張處方判斷不了，不做規則,GINA,https://ginasthma.org/,115/11/10 查詢：官網已列 2026 版，發布日期沒有查到。
+S20,GOLD 慢性阻塞性肺病報告,Global Initiative for Chronic Obstructive Lung Disease,2026,2025-11,每年 11 月,12,2026-11-10,僅供查證,明確的避免事項很少（吸入性類固醇單方不建議）；先供查證,GOLD,https://goldcopd.org/,2027 版預定 2026-11-18 發布，下次確認時換版。
+S21,CredibleMeds QTdrugs 清單,AZCERT,線上清單,,持續更新,6,,待決定,延長 QT 間期的藥品併用（現有 C26 只管 macrolide）；清單很長，要不要做、做到哪一級由藥師決定,CredibleMeds,https://crediblemeds.org/,
+S22,抗膽鹼負荷量表（Anticholinergic Cognitive Burden）,Regenstrief Institute 等,,,不定期,24,,待決定,「2 種以上抗膽鹼藥」的清單（同類數條件已能寫，清單要先審）；目前強抗膽鹼藥照 Beers 表 7,抗膽鹼負荷,, 
+S23,WHO ATC/DDD Index,WHO Collaborating Centre for Drug Statistics Methodology,2026,2026-01,每年 1 月,12,,使用中,規則表以 ATC 前綴寫藥品；DDD 之後可用於劑量上限,ATC,https://atcddd.fhi.no/atc_ddd_index/,規則用的是健保用藥品項裡的 ATC（見 nhi-drug-codes.md），新版 ATC 改碼時要一併檢查前綴。
+S24,健保用藥品項與 ICD-10-CM 中文版,衛生福利部中央健康保險署,見 nhi-drug-codes.md、icd10cm-zh.md,,每月（用藥品項）,3,,使用中,藥品碼對 ATC 與成分、診斷碼中文名；週檢查出現「查無藥品碼」時更新,健保用藥品項,https://www.nhi.gov.tw/,資料日期記在各自的說明檔。
+S90,藥師的審核決定,本站審核團隊,,,,,,使用中,審核頁的決定與意見；起草者沒有單一出處的判斷,藥師決定|藥師審核意見|起草者判斷,,不需要定期確認。
