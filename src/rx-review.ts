@@ -4,7 +4,7 @@
  * prescriptions a caution would have caught had it looked inside combination products. Pure functions: no DOM, no network, no files.
  */
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
-import { ageAtLeast, atcHit, checkPrescription, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
+import { ageAtLeast, atcHit, checkPrescription, kidneyBelow, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 import { sampleCheck } from './rx-sample';
 
@@ -44,7 +44,8 @@ export function componentAtcs(info: DrugInfo, index: ComponentIndex): string[] {
 /** How a drug or condition is there: as the rule is written, only inside a combination product, not judgeable (age, sex), or not. */
 type Match = 'direct' | 'combo' | 'unknown' | '';
 const conditionLabel = (condition: Condition) => condition.kind === '年齡' ? `年齡${condition.below ? '<' : '>='}${condition.years}`
-  : condition.kind === '性別' ? `性別${condition.sex === 'M' ? '男' : '女'}` : condition.kind;
+  : condition.kind === '性別' ? `性別${condition.sex === 'M' ? '男' : '女'}` : condition.kind === '腎功能' ? `腎功能<${condition.below}`
+  : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind;
 export interface CautionCoverage {
   id: string; level: Level;
   /** Prescriptions where the page shows it (any level, a 無法判斷 grey included). */
@@ -96,6 +97,10 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
           }
           return found;
         }
+        case '未同處方': return condition.partners.some(partner => partner.code ? rx.drugs.some(drug => drug.code === partner.code && drug.code !== self)
+          : codes.some(({ code, info }) => code !== self && info.atc.startsWith(partner.atc))) ? '' : 'direct';
+        case '同類數': return codes.filter(({ info }) => atcHit(info.atc, condition.atc)).length >= condition.min ? 'direct' : '';
+        case '腎功能': { const hit = kidneyBelow(rx.dx, rx.age, rx.sex, condition.below).hit; return hit === undefined ? 'unknown' : hit ? 'direct' : ''; }
       }
     };
     data.rules.cautions.forEach((caution, k) => {

@@ -364,13 +364,21 @@ function showChecks() {
   if (!rxOn) return;
   for (const item of items) renderPatient(item.patient, item.rx, rxData);
   if (!rxData) {
-    for (const item of items) item.check.replaceChildren(rxError ? make('p', 'error', rxError) : make('p', 'hint', '處方警示資料載入中…'));
+    for (const item of items) {
+      item.check.replaceChildren(rxError ? make('p', 'error', rxError) : make('p', 'hint', '處方警示資料載入中…'));
+      delete item.element.dataset.rxLevel;
+    }
     return;
   }
   const data = rxData;
   for (const group of patientGroups(items.map(item => item.person))) {
     const cards = group.map(index => `第 ${index + 1} 張`), last = items[group.at(-1)!];
-    renderRxCheck(last.check, group.map(index => ({ rx: items[index].rx, names: drugNames(items[index]), label: `第 ${index + 1} 張` })), data);
+    const level = renderRxCheck(last.check, group.map(index => ({ rx: items[index].rx, names: drugNames(items[index]), label: `第 ${index + 1} 張` })), data);
+    // Every card of the patient takes the colour of the highest red or yellow warning, a pale one the eye catches while typing.
+    for (const index of group) {
+      if (level) items[index].element.dataset.rxLevel = level;
+      else delete items[index].element.dataset.rxLevel;
+    }
     for (const index of group.slice(0, -1)) {
       items[index].check.replaceChildren(make('p', 'rx-title', `處方警示：${cards.join('、')}是同一病人，診斷與藥品合併比對，結果在${cards.at(-1)}下方。`));
     }

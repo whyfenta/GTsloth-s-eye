@@ -19,6 +19,11 @@
    "id": "2026-11-05",
    "title": "第二次驗證",
    "note": "依 97 張沒看過的新樣本提出；C51–C53 是核對 Beers 2023 原文後補的，362 張樣本裡沒有黃色命中；C54、C55 是藥師決定把 mirabegron 從 C13 分出來。這批規則在 data/rx-rules-second-validation 分支，合併前不影響線上警示。"
+  },
+  {
+   "id": "2026-11-10",
+   "title": "週檢查 20261109 審閱",
+   "note": "依 115/11/09 週檢查（155 張）審閱報告提出：可能漏報且現有寫法做得到的 C56–C65；新寫法同類數（C66）、未同處方（C67，胰島素沒有針頭）、腎功能（C68–C77，依 CKD 分期診斷；沒有分期時以年齡性別粗估，只會給灰色問句，實際上不會觸發）；適應症補 cabergoline、dienogest、warfarin（心肌梗塞後）。"
   }
  ],
  "rules": [
@@ -1015,6 +1020,33 @@
    ]
   },
   {
+   "id": "I101",
+   "table": "indications",
+   "key": "G02CB03",
+   "fp": "ced5ba6b7972",
+   "text": "G02CB03 Cabergoline：E22.1（仿單）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z"
+  },
+  {
+   "id": "I102",
+   "table": "indications",
+   "key": "G03DB08",
+   "fp": "053c267a37f5",
+   "text": "G03DB08 Dienogest：N80（仿單）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z"
+  },
+  {
+   "id": "I103",
+   "table": "indications",
+   "key": "B01AA03",
+   "fp": "ad1a9655cd64",
+   "text": "B01AA03 Warfarin：I21 I22 I25.2（仿單）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z"
+  },
+  {
    "id": "D01",
    "table": "co-drugs",
    "key": "A02BA A02BC A02BX",
@@ -1669,6 +1701,226 @@
    ]
   },
   {
+   "id": "C56",
+   "table": "cautions",
+   "key": "C56",
+   "fp": "c27d938ee819",
+   "text": "C56 C02CA01 C02CA04 G04CA03 診斷 R55 → 黃：α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "週檢查 155 張有 1 張：doxazosin 配 R55。Beers 2023 表 3 昏厥時避免周邊 α1 阻斷劑。"
+  },
+  {
+   "id": "C57",
+   "table": "cautions",
+   "key": "C57",
+   "fp": "d939d27043e2",
+   "text": "C57 M04AB03 診斷 B15-B19 K70-K77 → 黃：Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 2 張（2 院所）benzbromarone 配 B 型肝炎；多國因肝毒性撤市或限制，台灣仿單待核對。"
+  },
+  {
+   "id": "C58",
+   "table": "cautions",
+   "key": "C58",
+   "fp": "f6c765174d61",
+   "text": "C58 C01BC 診斷 I50 I11.0 I13.0 I13.2 → 黃：Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 propafenone 配 I11.0（含心衰竭的合併碼）。IC 類抗心律不整藥在結構性心臟病有死亡率疑慮（CAST）。"
+  },
+  {
+   "id": "C59",
+   "table": "cautions",
+   "key": "C59",
+   "fp": "b5f7447b235e",
+   "text": "C59 B01AC23 診斷 I50 I11.0 I13.0 I13.2 N18.5 N18.6 → 黃：Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 cilostazol 配 N18.6。心衰竭禁用（美國黑框、Beers 表 3），重度腎功能不全不建議。"
+  },
+  {
+   "id": "C60",
+   "table": "cautions",
+   "key": "C60",
+   "fp": "3b4c94c5c818",
+   "text": "C60 B01AA B01AE B01AF 同處方 B01AC04 B01AC06 → 灰：口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "抗凝血劑＋抗血小板藥的出血風險；155 張沒有命中，與 C61 分開以便給不同等級。"
+  },
+  {
+   "id": "C61",
+   "table": "cautions",
+   "key": "C61",
+   "fp": "1436d410f9a8",
+   "text": "C61 B01AA B01AE B01AF 同處方 B01AC22 B01AC24 → 黃：口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 warfarin＋ticagrelor（第 102 行）。ESC 2023 ACS 指引：與口服抗凝血劑併用時不建議 ticagrelor、prasugrel，P2Y12 抑制劑用 clopidogrel（本次未能上網核對原文）。"
+  },
+  {
+   "id": "C62",
+   "table": "cautions",
+   "key": "C62",
+   "fp": "de6327618bc4",
+   "text": "C62 C08DA C08DB 同處方 C07 → 灰：Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 propranolol＋diltiazem。"
+  },
+  {
+   "id": "C63",
+   "table": "cautions",
+   "key": "C63",
+   "fp": "b6f3493b6674",
+   "text": "C63 R06AA R06AB R06AD R06AE05 年齡 >=65 → 灰：65 歲以上使用第一代抗組織胺／meclizine：抗膽鹼作用（意識混亂、便秘、尿滯留），老人應避免",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 65 歲以上 meclizine TID；C52 只在失智症時提示。"
+  },
+  {
+   "id": "C64",
+   "table": "cautions",
+   "key": "C64",
+   "fp": "99061b502af3",
+   "text": "C64 A10BB A10BD02 A10BD04 A10BD06 年齡 >=65 → 灰：65 歲以上使用磺醯尿素類：低血糖風險",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 2 張 65 歲以上 glimepiride；台灣臨床常見，只給灰色。"
+  },
+  {
+   "id": "C65",
+   "table": "cautions",
+   "key": "C65",
+   "fp": "c75b30cfadc7",
+   "text": "C65 C09 診斷 E87.5 → 灰：ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 olmesartan 配 E87.5。"
+  },
+  {
+   "id": "C66",
+   "table": "cautions",
+   "key": "C66",
+   "fp": "e673e5dfe55f",
+   "text": "C66 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B 年齡+同類數 >=65;>=3 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B → 黃：65 歲以上同時使用 3 種以上中樞神經藥（抗癲癇、抗憂鬱、抗精神病、BZD／Z-drug、鴉片類、肌肉鬆弛劑）：跌倒與骨折風險增加",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "155 張有 1 張 65 歲以上同時 5 種中樞神經藥（duloxetine、escitalopram、quetiapine、clonazepam、alprazolam）。新寫法「同類數」：同一張算到幾種，只在第一個藥提示一次。"
+  },
+  {
+   "id": "C67",
+   "table": "cautions",
+   "key": "C67",
+   "fp": "a11d50c3d435",
+   "text": "C67 A10A 未同處方 =NAN02A1000ZZ → 黃：胰島素沒有同時開注射針頭：處方不尋常，請確認病人是否還有針頭或由其他處方領取",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "藥師說明（115/11/10）：NAN02A1000ZZ 是胰島素注射針頭，所有規格共用此碼，不與任何藥品或診斷衝突；有胰島素卻沒有針頭是不尋常的處方。155 張有 1 張。新寫法「未同處方」，可寫 =健保碼。"
+  },
+  {
+   "id": "C68",
+   "table": "cautions",
+   "key": "C68",
+   "fp": "1942bf9da6c6",
+   "text": "C68 B01AE07 腎功能 <30 → 黃：Dabigatran＋腎功能 eGFR<30：禁用或避免（出血風險）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "新寫法「腎功能」。以 CKD 分期診斷判斷；155 張沒有命中。"
+  },
+  {
+   "id": "C69",
+   "table": "cautions",
+   "key": "C69",
+   "fp": "63b198e3b49a",
+   "text": "C69 B01AF01 B01AF02 B01AF03 腎功能 <30 → 黃：Xa 因子抑制劑＋腎功能 eGFR<30：需依腎功能調整劑量，<15 不建議",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C70",
+   "table": "cautions",
+   "key": "C70",
+   "fp": "6af9787300b5",
+   "text": "C70 N02BF01 N02BF02 腎功能 <60 → 灰：Gabapentin／pregabalin＋腎功能 eGFR<60：需減量（嗜睡、跌倒）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C71",
+   "table": "cautions",
+   "key": "C71",
+   "fp": "52ded2253bcc",
+   "text": "C71 A02BA 腎功能 <50 → 灰：H2 阻斷劑＋腎功能 eGFR<50：需減量（意識混亂）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C72",
+   "table": "cautions",
+   "key": "C72",
+   "fp": "a3b1c1f6ec6c",
+   "text": "C72 N06AX21 腎功能 <30 → 黃：Duloxetine＋腎功能 eGFR<30：避免使用",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C73",
+   "table": "cautions",
+   "key": "C73",
+   "fp": "c4fb9ec09f92",
+   "text": "C73 N02AX02 腎功能 <30 → 灰：Tramadol＋腎功能 eGFR<30：延長給藥間隔，每日最多 200 mg",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C74",
+   "table": "cautions",
+   "key": "C74",
+   "fp": "27f768507318",
+   "text": "C74 M03BX01 腎功能 <60 → 黃：Baclofen＋腎功能 eGFR<60：避免（腦病變），需要時大幅減量",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68；baclofen 是 Beers 2023 新增。"
+  },
+  {
+   "id": "C75",
+   "table": "cautions",
+   "key": "C75",
+   "fp": "d1c5b9eeba1e",
+   "text": "C75 N03AX14 腎功能 <80 → 灰：Levetiracetam＋腎功能 eGFR<80：需依腎功能減量",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C76",
+   "table": "cautions",
+   "key": "C76",
+   "fp": "c9d01c83304c",
+   "text": "C76 J01EE01 腎功能 <30 → 灰：TMP-SMX＋腎功能 eGFR<30：需減量，<15 避免（高血鉀、腎功能惡化）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
+   "id": "C77",
+   "table": "cautions",
+   "key": "C77",
+   "fp": "95821899b77f",
+   "text": "C77 C03DB 腎功能 <30 → 黃：保鉀利尿劑（amiloride、triamterene）＋腎功能 eGFR<30：避免（高血鉀）",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z",
+   "why": "同 C68。"
+  },
+  {
    "id": "S02",
    "table": "specialty",
    "key": "02",
@@ -2120,6 +2372,14 @@
    "why": "新的 97 張有 1 張：methylphenidate 長效加短效 PRN。先前的同成分重複多半是 amlodipine 單方加複方，這種是常見的刻意組合。",
    "batch": "2026-11-05",
    "changed": "2026-11-05T00:00:00.000Z"
+  },
+  {
+   "id": "Q9",
+   "title": "沒有 CKD 分期診斷時，要不要用年齡與性別粗估的腎功能提示？",
+   "desc": "同意：維持現狀（粗估只會給灰色問句，實際上不會觸發）。其他意見：例如改成 80 歲以上一律灰色提醒確認 eGFR。",
+   "why": "只用年齡與性別等於假設肌酸酐正常：CKD-EPI 2021 在 95 歲男性約 79、70–79 歲女性約 88，不會低於規則用的 30／50／60，所以 155 張多出 0 則提示。要真的估腎功能需要肌酸酐（Cockcroft-Gault 另需體重）。",
+   "batch": "2026-11-10",
+   "changed": "2026-11-10T06:08:05.299Z"
   }
  ],
  "retired": [
@@ -2414,6 +2674,38 @@
   "G04BD09": "Trospium",
   "G04BD10": "Darifenacin",
   "G04BD11": "Fesoterodine",
-  "G04BD12": "Mirabegron"
+  "G04BD12": "Mirabegron",
+  "A10A": "胰島素",
+  "A10BB": "磺醯尿素類",
+  "A10BD02": "磺醯尿素＋metformin 複方",
+  "A10BD04": "glimepiride＋rosiglitazone 複方",
+  "A10BD06": "glimepiride＋pioglitazone 複方",
+  "B01AC04": "clopidogrel",
+  "B01AC22": "prasugrel",
+  "B01AC23": "cilostazol",
+  "B01AC24": "ticagrelor",
+  "B01AE07": "dabigatran",
+  "B01AF01": "rivaroxaban",
+  "B01AF02": "apixaban",
+  "B01AF03": "edoxaban",
+  "C01BC": "IC 類抗心律不整藥",
+  "C02CA01": "prazosin",
+  "C02CA04": "doxazosin",
+  "C03DB": "其他保鉀利尿劑（amiloride、triamterene）",
+  "C08DA": "phenylalkylamine 類鈣離子阻斷劑（verapamil）",
+  "C08DB": "benzothiazepine 類鈣離子阻斷劑（diltiazem）",
+  "G02CB03": "cabergoline",
+  "G03DB08": "dienogest",
+  "M03B": "中樞作用肌肉鬆弛劑",
+  "M03BX01": "baclofen",
+  "M04AB03": "benzbromarone",
+  "N02AX02": "tramadol",
+  "N02BF01": "gabapentin",
+  "N02BF02": "pregabalin",
+  "N03AX14": "levetiracetam",
+  "N06AX16": "venlafaxine",
+  "N06AX17": "milnacipran",
+  "N06AX23": "desvenlafaxine",
+  "R06AD": "phenothiazine 類抗組織胺"
  }
 }

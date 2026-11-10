@@ -50,7 +50,13 @@ interface Indication { atc: string[]; dx: string[]; basis: string }
 interface CoDrug { atc: string[]; partners: string[]; basis: string; note: string }
 /** One condition of a caution; key is its type and written value, to tell when one caution has all of another's conditions. */
 export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | { kind: '年齡'; below: boolean; years: number } | { kind: '性別'; sex: 'M' | 'F' }
-  | { kind: '同處方'; partners: { atc: string; frequency: string }[] });
+  | { kind: '同處方'; partners: { atc: string; frequency: string }[] }
+  /** Holds when no other drug on the prescription is one of these: an ATC prefix, or an exact 健保碼 (a 特材 has no ATC). */
+  | { kind: '未同處方'; partners: { atc: string; code: string }[] }
+  /** Holds when at least min distinct drugs (this one included) have one of these ATCs; only the first of them carries the note. */
+  | { kind: '同類數'; min: number; atc: string[] }
+  /** Holds when kidney function is below this eGFR (mL/min/1.73 m²): from the CKD stage diagnosed, else a rough age and sex estimate. */
+  | { kind: '腎功能'; below: number });
 export interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
@@ -86,6 +92,50 @@ export function ageAtLeast(band: string, n: number): boolean | undefined {
   if (!match) return undefined;
   const low = Number(match[1]), high = match[2] ? Number(match[2]) : 200;
   return low >= n ? true : high < n ? false : undefined;
+}
+
+/**
+ * 特材 the check knows by 健保碼: not in the NHI drug list, so they never explain or clash with a drug or a diagnosis, but a rule can
+ * ask for one (未同處方). Every size of insulin pen needle is claimed under the one code.
+ */
+export const SUPPLIES: Record<string, string> = { NAN02A1000ZZ: '胰島素注射針頭' };
+
+/** eGFR ranges (mL/min/1.73 m²) of the CKD stages ICD-10-CM codes; N18.9 is CKD of no stated stage, Z99.2 dialysis. */
+const KIDNEY: [string, number, number][] = [['N181', 90, 999], ['N182', 60, 90], ['N1830', 30, 60], ['N1831', 45, 60], ['N1832', 30, 45],
+  ['N183', 30, 60], ['N184', 15, 30], ['N185', 0, 15], ['N186', 0, 15], ['N189', 0, 90], ['Z992', 0, 15]];
+/** The worst CKD stage diagnosed, as the code and its eGFR range; undefined when there is none. */
+export function kidneyStage(dx: string[]): { code: string; low: number; high: number } | undefined {
+  let worst: { code: string; low: number; high: number } | undefined;
+  for (const code of dx) {
+    const stage = KIDNEY.find(([prefix]) => code.startsWith(prefix));
+    if (stage && (!worst || stage[2] < worst.high || (stage[2] === worst.high && stage[1] < worst.low))) worst = { code, low: stage[1], high: stage[2] };
+  }
+  return worst;
+}
+/**
+ * A rough eGFR from the age band and sex alone: CKD-EPI 2021 with serum creatinine at the equation's reference (0.7 mg/dL for
+ * women, 0.9 for men), so 142 × 0.9938^age (× 1.012 for women), at the band's oldest age (95 for 90+); a man's when the sex is
+ * unknown, which is lower. It is what age alone predicts for a normal creatinine, never a measurement: at 95 it is still about 78,
+ * so it never reaches the thresholds the cautions use. undefined under 18 or without a band.
+ */
+export function roughEgfr(band: string, sex: Sex): number | undefined {
+  const match = /^AGE(\d+)(?:-(\d+)|\+)$/.exec(band);
+  if (!match || Number(match[1]) < 18) return undefined;
+  const age = match[2] ? Number(match[2]) : Number(match[1]) + 5;
+  return Math.round(142 * 0.9938 ** age * (sex === 'F' ? 1.012 : 1));
+}
+/** Kidney function below this eGFR: a stage's range decides, or cannot (undefined, with why); without a stage, the rough estimate can only raise a question. */
+export function kidneyBelow(dx: string[], band: string, sex: Sex, below: number): { hit: boolean | undefined; code?: string; range?: string; why?: string } {
+  const stage = kidneyStage(dx);
+  if (stage) {
+    const range = stage.high >= 999 ? `≥${stage.low}` : `${stage.low}–${stage.high - 1}`;
+    if (stage.high <= below) return { hit: true, code: stage.code, range };
+    if (stage.low >= below) return { hit: false };
+    return { hit: undefined, code: stage.code, range, why: `腎功能無法判斷：${stage.code}（eGFR ${range}）不能確定是否 <${below}，請確認 eGFR` };
+  }
+  const estimate = roughEgfr(band, sex);
+  if (estimate === undefined || estimate >= below) return { hit: false };
+  return { hit: undefined, why: `依年齡性別粗估 eGFR 約 ${estimate}（假設肌酸酐正常），可能 <${below}，請確認腎功能` };
 }
 
 // Python's \b and \d are Unicode-aware; these keep the same word boundaries for the prototype's expressions.
@@ -164,7 +214,24 @@ export function compileRules(tables: RuleTables): Rules {
           return { atc, frequency };
         }) };
       }
-      return fail('條件類型', '要是診斷、年齡、性別或同處方，多種條件以 + 連接。');
+      if (kind === '未同處方') {
+        if (!tokens(part).length) bad('不能空白。');
+        // =NAN02A1000ZZ: that exact 健保碼, for a 特材 without an ATC.
+        return { key, kind, partners: tokens(part).map(token => {
+          if (token.startsWith('=')) return /^=[0-9A-Z]{10,12}$/.test(token) ? { atc: '', code: token.slice(1) } : bad(`「${token}」不是健保碼，寫成 =NAN02A1000ZZ 這樣。`);
+          return ATC.test(token) ? { atc: token, code: '' } : bad(`「${token}」不是 ATC 前綴或 =健保碼。`);
+        }) };
+      }
+      if (kind === '同類數') {
+        const [count = '', ...atcs] = tokens(part), match = /^>=(\d+)$/.exec(count);
+        if (!match || Number(match[1]) < 2) bad('同類數寫成 >=3 N05A N05B 這樣：先寫至少幾種（2 以上），再寫算在內的 ATC。');
+        return { key, kind, min: Number(match![1]), atc: list(atcs.join(' '), 'ATC', bad) };
+      }
+      if (kind === '腎功能') {
+        const match = /^<(\d+)$/.exec(part);
+        return match ? { key, kind, below: Number(match[1]) } : bad('腎功能條件寫成 <30 這樣（eGFR，mL/min/1.73 m²）。');
+      }
+      return fail('條件類型', '要是診斷、年齡、性別、同處方、未同處方、同類數或腎功能，多種條件以 + 連接。');
     });
     return { id: cell('編號'), atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
   });
@@ -233,7 +300,8 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
   const notes: Note[] = dx.length ? [] : [{ level: '灰', text: `${many ? '各張處方都' : '處方'}沒有診斷碼，無法解釋的藥不另提示` }];
   const checked = list.map(({ code, frequency, route, part, dept }): DrugCheck => {
     const info = drugs.get(code);
-    if (!info) return { code, frequency, route, part, verdict: '低風險', reason: '不在健保用藥品項（可能是特材）', notes: [] };
+    if (!info) return { code, frequency, route, part, verdict: '低風險',
+      reason: SUPPLIES[code] ? `特材（${SUPPLIES[code]}），不與藥品或診斷衝突` : '不在健保用藥品項（可能是特材）', notes: [] };
     const { atc } = info;
     const others = [...atcs].filter(([other]) => other !== code);
     const dxText = (codes: string[]) => codes.map(hit => `${elsewhere(dxFrom.get(hit)!, part)}${labels.dx(hit)}`).join(labels.join);
@@ -274,6 +342,23 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
           const hits = others.filter(([other, value]) => condition.partners.some(partner => value.startsWith(partner.atc)
             && (!partner.frequency || frequencies.get(other)!.some(frequency => frequency.includes(partner.frequency)))));
           return { hit: hits.length > 0, detail: `${hits.every(onOwn) ? '同處方' : '併用'}：${hits.map(drugText).join(labels.join)}` };
+        }
+        case '未同處方': {
+          const present = condition.partners.some(partner => partner.code ? codeFrom.has(partner.code) && partner.code !== code
+            : others.some(([, value]) => value.startsWith(partner.atc)));
+          const names = condition.partners.map(partner => partner.code ? SUPPLIES[partner.code] ?? partner.code : partner.atc);
+          return { hit: !present, detail: `未見：${names.join(labels.join)}` };
+        }
+        case '同類數': {
+          const counted = [...atcs].filter(([, value]) => atcHit(value, condition.atc));
+          // Once per prescription: on the first drug counted, the others named after it.
+          const first = counted[0]?.[0] === code;
+          return { hit: first && counted.length >= condition.min,
+            detail: `共 ${counted.length} 種：${counted.filter(([other]) => other !== code).map(drugText).join(labels.join)}` };
+        }
+        case '腎功能': {
+          const result = kidneyBelow(dx, age, sex, condition.below);
+          return { hit: result.hit, detail: result.code ? `本次：${dxText([result.code])}，eGFR ${result.range}` : '', why: result.why };
         }
       }
     };
