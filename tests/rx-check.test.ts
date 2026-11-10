@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parsePrescriptionSlip } from '../src/prescription-qr';
-import { checkPrescription, checkPrescriptions, compileRules, dxLabel, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
+import { checkPrescription, checkPrescriptions, compileRules, dxLabel, kidneyBelow, kidneyStage, roughEgfr, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
 import { rxCheckOn } from '../src/rx-check-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -188,6 +188,38 @@ assert.equal(rxCheckOn(''), true);
 assert.equal(rxCheckOn('?rxcheck=1', false), true);
 assert.equal(rxCheckOn('?rxcheck=0', true), false);
 assert.equal(rxCheckOn('?other=1', true), true);
+
+// 未同處方, 同類數 and 腎功能, and the 特材 the check knows by code.
+{
+  const more = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'U01,A10A,,未同處方,=NAN02A1000ZZ,黃,測試提示針頭,', 'U02,N05BA N05AH N02A,,年齡+同類數,>=65;>=3 N05BA N05AH N02A,黃,測試提示數量,',
+    'U03,A10BA,,腎功能,<30,黃,測試提示腎,', 'U04,A10BA,,腎功能,<50,灰,測試提示腎二,') }));
+  const extra = new Map([...drugs, ['TESTINSU01', { atc: 'A10AE04', ingredients: 'INSULIN GLARGINE 100 U/ML' }]]);
+  const notes = (rx: RxFacts) => checkPrescription(rx, extra, more).drugs.map(drug => `${drug.code} ${drug.notes.map(note => `${note.level} ${note.text}`).join('｜')}`);
+  assert.deepEqual(notes(qr('E11.9', ['TESTINSU01'])), ['TESTINSU01 黃 U01 測試提示針頭（未見：胰島素注射針頭）']);
+  assert.deepEqual(notes(qr('E11.9', ['TESTINSU01', 'NAN02A1000ZZ'])), ['TESTINSU01 ', 'NAN02A1000ZZ '], 'the needle is there');
+  assert.deepEqual(verdicts(qr('E11.9', ['NAN02A1000ZZ']), more), ['低風險 特材（胰島素注射針頭），不與藥品或診斷衝突'], 'a needle alone clashes with nothing');
+  // Three CNS drugs at 65 or older: one note, on the first of them; two are not enough, and an age that cannot be read is grey.
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTQUET01', 'TESTTRAM01'])),
+    ['TESTALPR01 黃 U02 測試提示數量（AGE65-69；共 3 種：N05AH04 N02AX02）', 'TESTQUET01 ', 'TESTTRAM01 ']);
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTQUET01'])), ['TESTALPR01 ', 'TESTQUET01 ']);
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTQUET01', 'TESTTRAM01'], { 6: '1000101' })).filter(line => line.includes('U02')), [], 'under 65');
+  // Kidney function from the CKD stage; a stage that straddles the threshold, or N18.9, cannot be judged.
+  assert.deepEqual(notes(qr('E11.9#N18.4', ['TESTMETF01'])), ['TESTMETF01 黃 U03 測試提示腎（本次：N184，eGFR 15–29）｜灰 U04 測試提示腎二（本次：N184，eGFR 15–29）']);
+  assert.deepEqual(notes(qr('E11.9#N18.31', ['TESTMETF01'])), ['TESTMETF01 灰 U04 腎功能無法判斷：N1831（eGFR 45–59）不能確定是否 <50，請確認 eGFR']);
+  assert.deepEqual(notes(qr('E11.9#N18.32', ['TESTMETF01'])), ['TESTMETF01 灰 U04 測試提示腎二（本次：N1832，eGFR 30–44）']);
+  assert.deepEqual(notes(qr('E11.9#N18.2', ['TESTMETF01'])), ['TESTMETF01 ']);
+  assert.deepEqual(kidneyStage(['N189', 'N1832', 'I10']), { code: 'N1832', low: 30, high: 45 }, 'the worst stage');
+  // Without a stage, the rough estimate from age and sex never comes near the thresholds: no note at any age.
+  assert.deepEqual(notes(qr('E11.9', ['TESTMETF01'], { 6: '0100101' })), ['TESTMETF01 '], 'over 90');
+  assert.equal(roughEgfr('AGE90+', 'M'), 79);
+  assert.equal(roughEgfr('AGE70-79', 'F'), 88);
+  assert.equal(roughEgfr('AGE10-19', 'M'), undefined);
+  assert.deepEqual(kidneyBelow([], 'AGE90+', 'M', 80), { hit: undefined, why: '依年齡性別粗估 eGFR 約 79（假設肌酸酐正常），可能 <80，請確認腎功能' });
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,未同處方,=NAN,黃,x,') })), /不是健保碼/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,同類數,3 A10,黃,x,') })), /同類數寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,腎功能,>30,黃,x,') })), /腎功能條件寫成/);
+}
 
 // The published assets match docs/reference: rerun `npm run rx-assets` after editing a table or refreshing a reference file.
 const sha256 = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');

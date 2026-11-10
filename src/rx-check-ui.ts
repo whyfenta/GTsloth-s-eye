@@ -1,4 +1,4 @@
-import { checkPrescriptions, DEPARTMENTS, dxLabel, dxParts, icdDisplay, type Layer, type Level, type RxFacts } from './rx-check';
+import { checkPrescriptions, DEPARTMENTS, dxLabel, dxParts, icdDisplay, SUPPLIES, type Layer, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 
 interface Line { level: Level | Layer; drug: string; text: string }
@@ -51,12 +51,13 @@ export interface CheckedPart { rx: RxFacts; names: string[]; label: string }
  * band and diagnoses are listed under the name instead (renderPatient).
  * parts: one prescription, or one patient's prescriptions checked together (checkPrescriptions), each drug then led by its card.
  * names: each drug as the card shows it ('' when the product lookup has none, then its NHI ingredients stand in).
+ * Returns the highest level shown, red or yellow, for the cards to take its colour; '' when there is none.
  */
-export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxData) {
+export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxData): '紅' | '黃' | '' {
   const many = parts.length > 1;
   const label = (code: string) => dxLabel(code, data.icd);
   const name = (code: string, shown: string) => {
-    const info = data.drugs.get(code), text = shown || info?.ingredients || code;
+    const info = data.drugs.get(code), text = shown || info?.ingredients || SUPPLIES[code] || code;
     return info ? `${text}（${info.atc}）` : text;
   };
   const drugs = parts.flatMap(part => part.rx.drugs.map(({ code }, i) => ({ code, title: name(code, part.names[i]), label: part.label })));
@@ -83,4 +84,5 @@ export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxDa
   const title = many ? `處方警示：${parts.map(part => part.label).join('、')}是同一病人，以全部的診斷與藥品合併比對（部分規則仍待藥師審核；不印在憑單上）`
     : '處方警示（部分規則仍待藥師審核；不印在憑單上）';
   box.replaceChildren(make('p', 'rx-title', title), shown.length ? list(shown) : make('p', 'rx-none', '沒有紅色或黃色警示。'), details);
+  return shown.some(line => line.level === '紅') ? '紅' : shown.length ? '黃' : '';
 }

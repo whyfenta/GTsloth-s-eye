@@ -53,3 +53,25 @@ C52,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 
 C53,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,,診斷+性別+年齡,N40;男;>=65,黃,65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留,Beers 2023 表 3
 C54,G04BD12,,診斷,R33,黃,Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況,美國仿單警語
 C55,G04BD12,,診斷,H40.2,灰,Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認,藥師決定
+C56,C02CA01 C02CA04 G04CA03,,診斷,R55,黃,α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
+C57,M04AB03,,診斷,B15-B19 K70-K77,黃,Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能,仿單警語（台灣仿單待核對）
+C58,C01BC,,診斷,I50 I11.0 I13.0 I13.2,黃,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單禁忌（台灣仿單待核對）
+C59,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌；Beers 2023 表 3
+C60,B01AA B01AE B01AF,,同處方,B01AC04 B01AC06,灰,口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限,指引（ESC／ACC）
+C61,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel,指引（ESC 2023 ACS）
+C62,C08DA C08DB,,同處方,C07,灰,Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯,仿單警語
+C63,R06AA R06AB R06AD R06AE05,,年齡,>=65,灰,65 歲以上使用第一代抗組織胺／meclizine：抗膽鹼作用（意識混亂、便秘、尿滯留），老人應避免,Beers 2023 表 2
+C64,A10BB A10BD02 A10BD04 A10BD06,,年齡,>=65,灰,65 歲以上使用磺醯尿素類：低血糖風險,Beers 2023 表 2
+C65,C09,,診斷,E87.5,灰,ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀,仿單警語
+C66,N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,,年齡+同類數,>=65;>=3 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,黃,65 歲以上同時使用 3 種以上中樞神經藥（抗癲癇、抗憂鬱、抗精神病、BZD／Z-drug、鴉片類、肌肉鬆弛劑）：跌倒與骨折風險增加,Beers 2023 表 5
+C67,A10A,,未同處方,=NAN02A1000ZZ,黃,胰島素沒有同時開注射針頭：處方不尋常，請確認病人是否還有針頭或由其他處方領取,藥師決定（115/11/10）
+C68,B01AE07,,腎功能,<30,黃,Dabigatran＋腎功能 eGFR<30：禁用或避免（出血風險）,仿單禁忌；Beers 2023 表 6
+C69,B01AF01 B01AF02 B01AF03,,腎功能,<30,黃,Xa 因子抑制劑＋腎功能 eGFR<30：需依腎功能調整劑量，<15 不建議,仿單；Beers 2023 表 6
+C70,N02BF01 N02BF02,,腎功能,<60,灰,Gabapentin／pregabalin＋腎功能 eGFR<60：需減量（嗜睡、跌倒）,仿單；Beers 2023 表 6
+C71,A02BA,,腎功能,<50,灰,H2 阻斷劑＋腎功能 eGFR<50：需減量（意識混亂）,仿單；Beers 2023 表 6
+C72,N06AX21,,腎功能,<30,黃,Duloxetine＋腎功能 eGFR<30：避免使用,仿單；Beers 2023 表 6
+C73,N02AX02,TRAMADOL,腎功能,<30,灰,Tramadol＋腎功能 eGFR<30：延長給藥間隔，每日最多 200 mg,仿單；Beers 2023 表 6
+C74,M03BX01,,腎功能,<60,黃,Baclofen＋腎功能 eGFR<60：避免（腦病變），需要時大幅減量,Beers 2023 表 6
+C75,N03AX14,,腎功能,<80,灰,Levetiracetam＋腎功能 eGFR<80：需依腎功能減量,仿單
+C76,J01EE01,,腎功能,<30,灰,TMP-SMX＋腎功能 eGFR<30：需減量，<15 避免（高血鉀、腎功能惡化）,仿單；Beers 2023 表 6
+C77,C03DB,,腎功能,<30,黃,保鉀利尿劑（amiloride、triamterene）＋腎功能 eGFR<30：避免（高血鉀）,Beers 2023 表 6

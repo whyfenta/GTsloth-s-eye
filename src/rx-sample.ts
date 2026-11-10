@@ -4,7 +4,7 @@
 import { postAppsScript } from './apps-script';
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
 import { deidentify, deidentifyDrugs, failureLine, scanKey } from './prescription-sample';
-import { checkPrescription, dxLabel, type Level } from './rx-check';
+import { checkPrescription, dxLabel, SUPPLIES, type Level } from './rx-check';
 import type { RxData } from './rx-data';
 
 export const SAMPLE_FORMAT = 'gtsloth-rx-samples';
@@ -58,7 +58,7 @@ export function sampleCheck(line: string, data: RxData): SampleCheck {
   }
   for (const drug of result.drugs) {
     const atc = drug.info?.atc ?? '';
-    if (!drug.info) check.unknownDrugs.push(drug.code);
+    if (!drug.info && !SUPPLIES[drug.code]) check.unknownDrugs.push(drug.code);
     if (urgent(drug.verdict)) check.alerts.push(`${drug.verdict} ${drug.code} ${atc} ${drug.reason}`);
     if (drug.verdict === '灰' && rx.dx.length) check.unexplained.push(`${drug.code} ${atc}`);
     if (drug.verdict === '紅' || drug.verdict === '黃' || drug.verdict === '灰') check.top = higher(check.top, drug.verdict);
