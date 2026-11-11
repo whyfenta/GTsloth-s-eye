@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULE_FILES, ruleTable, type RuleTables } from '../src/rx-check';
 import { reconcile, unsynced, type Ledger } from '../scripts/rx-review-ledger';
+import { rulesVersion } from '../src/rx-data';
 
 const row = (atc: string, icd: string, basis = '仿單') => ({ ATC: atc, 藥理類別: atc, '可解釋的ICD-10': icd, 依據: basis, 備註: '' });
 const caution = (id: string, level = '黃') => ({ 編號: id, ATC: 'N02A', 成分關鍵字: '', 條件類型: '診斷', 條件: 'J45', 等級: level, 提示: '提示', 依據: '仿單' });
@@ -47,6 +48,14 @@ test('a changed rule loses its outcome and comes back, unless the change is the 
   assert.equal(own.rows[0].rule.outcome, '依意見改成黃色');
   assert.equal(own.rows[0].rule.changed, 't1');
 });
+test('a review the team closed opens again when the rule changes', () => {
+  const ledger = start(tablesOf([], [caution('C15', '灰')]));
+  ledger.rules[0].approved = { at: '2026-11-12', n: 2 };
+  assert.deepEqual(reconcile(tablesOf([], [caution('C15', '灰')]), ledger, at('t2')).rows[0].rule.approved, { at: '2026-11-12', n: 2 });
+  const again = reconcile(tablesOf([], [caution('C15', '黃')]), ledger, at('t2'));
+  assert.equal(again.rows[0].rule.approved, undefined);
+  assert.equal(again.rows[0].rule.changed, 't2');
+});
 test('a wording change in 備註 does not come back for review', () => {
   const ledger = start(tablesOf([row('C10', 'E78')]));
   const reworded = reconcile(tablesOf([{ ...row('C10', 'E78'), 備註: '改了說明' }]), ledger, at('t2'));
@@ -58,7 +67,36 @@ const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(readFi
 const ledgerText = readFileSync('docs/reference/rx-rules-review.json', 'utf8');
 const ledger: Ledger = JSON.parse(ledgerText);
 test('the review ledger knows every rule in the tables', () => {
-  assert.deepEqual(unsynced(tables, ledger), [], '規則表改過了：請執行 npm run rx-review-page，並把產生的資料寫進審核頁（docs/reference/rx-rules.md「審核頁」）');
+  assert.deepEqual(unsynced(tables, ledger), [], '規則表改過了：請執行 npm run rx-review-page（docs/reference/rx-rules.md「審核頁」），把審核紀錄與審核頁清單一起 commit');
+});
+// The review page reads public/assets/rx/review.json: it has to say what the ledger and the published rules say.
+test('the review page catalog is the ledger as it is now', () => {
+  const hint = '請執行 npm run rx-review-page，把 public/assets/rx/review.json 一起 commit';
+  const catalogText = readFileSync('public/assets/rx/review.json', 'utf8');
+  const catalog: { rulesVersion: string; items: { id: string; table: string; changed: string; outcome?: string; approved?: unknown }[]; retired: { id: string }[]; proposals: unknown[] } = JSON.parse(catalogText);
+  const published: Parameters<typeof rulesVersion>[0] = JSON.parse(readFileSync('public/assets/rx/rules.json', 'utf8'));
+  assert.equal(catalog.rulesVersion, rulesVersion(published), `審核頁清單的規則版本落後：${hint}`);
+  const state = (items: { id: string; changed: string; outcome?: string; approved?: unknown }[]) => items.map(item => [item.id, item.changed, item.outcome ?? '', JSON.stringify(item.approved ?? null)]);
+  assert.deepEqual(state(catalog.items.filter(item => item.table !== 'questions')), state(ledger.rules), `審核頁清單和審核紀錄不同：${hint}`);
+  assert.deepEqual(state(catalog.items.filter(item => item.table === 'questions')), state(ledger.questions), `審核頁清單和審核紀錄不同：${hint}`);
+  assert.deepEqual(catalog.retired.map(item => item.id), ledger.retired.map(item => item.id), hint);
+  assert.deepEqual(catalog.proposals, ledger.proposals ?? [], hint);
+  // Public like the ledger: counts and drug names only.
+  assert.doesNotMatch(catalogText, /\b[0-9A-Za-z]{10};\d?;/);
+  assert.doesNotMatch(catalogText, /\b\d{10}\b/, '不要寫院所代碼');
+});
+test('a closed review says when and by how many, and a closed proposal what became of it', () => {
+  for (const rule of [...ledger.rules, ...ledger.questions]) {
+    if (!rule.approved) continue;
+    assert.match(rule.approved.at, /^\d{4}-\d\d-\d\d$/, `${rule.id} 的結案日期`);
+    assert.ok(Number.isInteger(rule.approved.n) && rule.approved.n >= 1, `${rule.id} 的同意人數`);
+    assert.ok(rule.approved.at >= rule.changed.slice(0, 10), `${rule.id} 在內容改變之前就結案`);
+  }
+  for (const proposal of ledger.proposals ?? []) {
+    assert.match(proposal.id, /^P\d{8}-\d{2}$/);
+    assert.ok(['已採用', '不採用', '需更多樣本'].includes(proposal.status), `${proposal.id} 的狀態`);
+    assert.match(proposal.decided, /^\d{4}-\d\d-\d\d$/);
+  }
 });
 test('the review ledger is consistent and holds no sample content', () => {
   const batches = new Set(ledger.batches.map(batch => batch.id));
