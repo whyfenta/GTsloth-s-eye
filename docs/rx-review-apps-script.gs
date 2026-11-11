@@ -167,7 +167,9 @@ function setup() {
   const book = SpreadsheetApp.getActiveSpreadsheet();
   const first = book.getSheets()[0];
   if (book.getSheets().length === 1 && first.getName() !== '票' && first.getLastRow() === 0) first.setName('票');
-  sheet(book, '票', VOTES); sheet(book, '審核者', REVIEWERS); sheet(book, '統計', STATS);
+  sheet(book, '票', VOTES); sheet(book, '審核者', REVIEWERS);
+  // 統計 comes first: a reader that only sees a spreadsheet's first sheet (the weekly review through Drive) gets the tally.
+  try { book.setActiveSheet(sheet(book, '統計', STATS)); book.moveActiveSheet(1); } catch (error) { /* the order is a convenience */ }
   const properties = PropertiesService.getScriptProperties();
   if (!codeOk(properties.getProperty('TEAM_CODE'))) properties.setProperty('TEAM_CODE', newCode());
   if (!properties.getProperty('QUORUM')) properties.setProperty('QUORUM', String(DEFAULT_QUORUM));

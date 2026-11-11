@@ -109,7 +109,10 @@ function load() {
   const book = {
     getId: () => 'BOOK', getSheets: () => sheets, getSheetByName: (name: string) => sheets.find(s => s.name === name) ?? null,
     insertSheet: (name: string) => { const created = new FakeSheet(name); sheets.push(created); return created; },
+    setActiveSheet: (sheet: FakeSheet) => { active = sheet; },
+    moveActiveSheet: (position: number) => { sheets.splice(sheets.indexOf(active!), 1); sheets.splice(position - 1, 0, active!); },
   };
+  let active: FakeSheet | undefined;
   const logs: string[] = [];
   let uuid = 0;
   const context = vm.createContext({
@@ -137,7 +140,7 @@ const post = (record: unknown) => JSON.parse(gs.call<string>('doPost', { postDat
 assert.deepEqual(get(''), { ok: false, error: 'code' });
 assert.deepEqual(get(), { ok: false, error: 'code' });
 gs.call('setup'); gs.call('setup');
-assert.deepEqual(gs.sheets.map(s => s.name), ['票', '審核者', '統計']);
+assert.deepEqual(gs.sheets.map(s => s.name), ['統計', '票', '審核者'], '統計 is the first sheet, however often setup() runs');
 const code = gs.properties.TEAM_CODE;
 assert.match(code, /^[0-9a-z]{16}$/);
 assert.equal(gs.logs.filter(line => line.includes(code)).length, 2, 'setup() run again keeps the code');
