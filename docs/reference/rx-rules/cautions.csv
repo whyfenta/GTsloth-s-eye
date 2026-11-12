@@ -53,9 +53,9 @@ C52,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 
 C53,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,,診斷+性別+年齡,N40;男;>=65,黃,65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留,Beers 2023 表 3
 C54,G04BD12,,診斷,R33,黃,Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況,美國仿單警語
 C55,G04BD12,,診斷,H40.2,灰,Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認,藥師決定
-C56,C02CA01 C02CA04 G04CA03,,診斷,R55,黃,α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
+C56,C02CA01 C02CA04 G04CA03,,診斷+年齡,R55;>=65,黃,65 歲以上 α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
 C57,M04AB03,,診斷,B15-B19 K70-K77,黃,Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能,仿單警語（台灣仿單待核對）
-C58,C01BC,,診斷,I50 I11.0 I13.0 I13.2,黃,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單禁忌（台灣仿單待核對）
+C58,C01BC,,診斷,I50 I11.0 I13.0 I13.2,紅,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單警語（國內仿單引用 CAST：結構性心臟病）；禁忌條文待核對；藥師決定升為紅色（115/11/12）
 C59,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌；Beers 2023 表 3
 C60,B01AA B01AE B01AF,,同處方,B01AC04 B01AC06,灰,口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限,指引（ESC／ACC）
 C61,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel,指引（ESC 2023 ACS）
