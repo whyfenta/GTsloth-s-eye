@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { closed, done, mergeVotes, proposalItem, reviewerId, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { closed, done, mergeVotes, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
 // The review page's model, the weekly proposals, and docs/rx-review-apps-script.gs run against small fakes of the Google services.
@@ -29,6 +29,15 @@ assert.equal(teamStatus(item(), { a: vote('同意'), b: vote('同意', '2026-11-
 assert.equal(teamStatus(item({ approved: { at: '2026-11-12', n: 2 } }), { c: vote('不同意') }, 2), '已結案');
 assert.equal(teamStatus(item(), { a: vote('同意') }, 0), '達門檻', 'a quorum below 1 is 1');
 assert.deepEqual(tally(item(), votes), { 同意: ['a', 'b'], 不同意: [], 其他意見: [], comments: [{ who: 'b', d: '同意', c: '同意，但提示可以短一點' }] });
+
+// An AI pre-review (name contains 預審) is kept apart: its opinion makes no split, its agreement does not reach the quorum.
+assert.deepEqual([preReviewer('Codex-Sol預審'), preReviewer('王藥師'), preReviewer(undefined)], [true, false, false]);
+const names: Record<string, string> = { a: '王藥師', b: '李藥師', x: 'Codex-Sol預審' };
+const withPre = splitVotes({ a: vote('同意'), x: vote('其他意見', undefined, 'AI 預審：需補原文') }, who => preReviewer(names[who]));
+assert.deepEqual(Object.keys(withPre.team), ['a']);
+assert.deepEqual(Object.keys(withPre.pre), ['x']);
+assert.equal(teamStatus(item(), withPre.team, 2), '審核中', 'the pre-review opinion is not a split');
+assert.equal(teamStatus(item(), splitVotes({ a: vote('同意'), x: vote('同意') }, who => preReviewer(names[who])).team, 2), '審核中', 'nor does its agreement count toward the quorum');
 
 // Two devices of one reviewer: the later vote stands on each item.
 assert.deepEqual(mergeVotes({ C56: vote('不同意', '2026-11-11T03:00:00.000Z'), C57: vote('同意', '2026-11-11T00:00:00.000Z') }, { C57: vote('其他意見', '2026-11-11T05:00:00.000Z'), C58: vote('同意') }),
@@ -189,6 +198,17 @@ assert.equal(state.reviewers[wang.id], '王藥師', 'the older copy came last, s
 // 統計: one row per item with a decision or a comment.
 assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row => row.slice(0, 6)),
   [['C56', '1', '0', '1', '王藥師：其他意見、李藥師：同意', '王藥師：改灰色'], ['C57', '0', '1', '0', '王藥師：不同意', '王藥師：=不同意：國內仿單沒有這條']]);
+// An AI pre-review gets its own column on 統計 and changes none of the counts.
+const codex = { id: 'cccccccccccccccc', name: 'Codex-Sol預審' };
+assert.deepEqual(post(voteRequest(code, codex, { C57: vote('其他意見', '2026-11-11T05:00:00.000Z', 'AI 預審：需補國內仿單'), C58: vote('同意', '2026-11-11T05:00:00.000Z') })), { ok: true, saved: 2 });
+assert.deepEqual(gs.sheet('統計').rows[0], ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）']);
+assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row => [row[0], row[1], row[2], row[3], row[4], row[7]]),
+  [['C56', '1', '0', '1', '王藥師：其他意見、李藥師：同意', ''], ['C57', '0', '1', '0', '王藥師：不同意', 'Codex-Sol預審（其他意見）：AI 預審：需補國內仿單'], ['C58', '0', '0', '0', '', 'Codex-Sol預審（同意）：']]);
+const preRead = teamState(get(code));
+assert.ok(!('error' in preRead));
+assert.equal(teamStatus(item({ id: 'C58' }), splitVotes(preRead.votes.C58, who => preReviewer(preRead.reviewers[who])).team, preRead.quorum), '未審');
+// Take the pre-review out again, so the rest of this test sees the sheet as before.
+assert.deepEqual(post(voteRequest(code, codex, { C57: vote('', '2026-11-11T06:00:00.000Z'), C58: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 2 });
 
 // Anything else is turned down, and nothing is written.
 const written = gs.sheet('票').rows.length;

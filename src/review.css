@@ -118,6 +118,10 @@ button, input, textarea { font: inherit; color: inherit }
 .teamstate[data-s="有分歧"] { border-color: var(--no); color: var(--no) }
 .opinions { display: grid; gap: 2px; font-size: 13px; color: var(--muted) }
 .opinions b { color: var(--ink); font-weight: 500 }
+.prereview { display: grid; gap: 2px; font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 8px }
+.prereview:empty { display: none }
+.prereview .pre-head { margin: 0; font-size: 12px; font-weight: 500 }
+.prereview b { color: var(--ink); font-weight: 500 }
 .choices { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .choice { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 14px; cursor: pointer; font-size: 14px }
 .choice[data-v="同意"][aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }

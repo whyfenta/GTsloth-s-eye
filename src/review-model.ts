@@ -39,6 +39,18 @@ export const stale = (item: Item, vote: Vote | undefined) => !!(vote?.d && vote.
 /** This reviewer has nothing left to do here. */
 export const done = (item: Item, vote: Vote | undefined) => closed(item) || !!(vote?.d && vote.t >= item.changed);
 
+/**
+ * An AI pre-review: a reviewer whose name contains 預審 (e.g. the scheduled Codex run, 「Codex-Sol預審」). Its votes are shown
+ * apart and never count toward the quorum or a split: only the pharmacists' votes decide where the team stands.
+ */
+export const preReviewer = (name: string | undefined) => !!name && name.includes('預審');
+/** An item's votes split into the team's and the pre-reviews'. */
+export function splitVotes(votes: Record<string, Vote> | undefined, isPre: (who: string) => boolean) {
+  const team: Record<string, Vote> = {}, pre: Record<string, Vote> = {};
+  for (const [who, vote] of Object.entries(votes ?? {})) (isPre(who) ? pre : team)[who] = vote;
+  return { team, pre };
+}
+
 export interface Tally { 同意: string[]; 不同意: string[]; 其他意見: string[]; comments: { who: string; d: Choice | ''; c: string }[] }
 /** The votes that still count on an item, by decision, as reviewer ids; comments with them. */
 export function tally(item: Item, votes: Record<string, Vote> | undefined): Tally {

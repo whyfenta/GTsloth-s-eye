@@ -12,7 +12,9 @@ const MAX_VOTES = 200;
 const CHOICES = ['同意', '不同意', '其他意見', ''];
 const VOTES = ['收到時間', '審核者編號', '審核者', '項目', '決定', '意見', '決定時間'];
 const REVIEWERS = ['審核者編號', '審核者', '第一次', '最近一次'];
-const STATS = ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次'];
+const STATS = ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）'];
+/** A reviewer whose name contains 預審 is an AI pre-review: kept in its own column, never counted (same rule as src/review-model.ts). */
+const preReviewer = name => String(name).indexOf('預審') >= 0;
 const PROPOSAL_FOLDER = '每週檢查';
 const PROPOSAL_NAME = /^(?:週檢查|指引確認)_(\d{8})（提案）$/;
 /** How many weeks of proposal sheets a read returns, newest first. */
@@ -110,15 +112,19 @@ function names(reviewers) {
 function rebuildStats(book, rows, who) {
   const items = {};
   for (const row of rows) {
-    const item = items[row[3]] || (items[row[3]] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], last: '' });
+    const item = items[row[3]] || (items[row[3]] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], pre: [], last: '' });
     const name = who[row[1]] || row[2];
+    if (preReviewer(name)) { if (row[4] || row[5]) item.pre.push(name + (row[4] ? '（' + row[4] + '）' : '') + '：' + row[5].replace(/^'/, '')); continue; }
     if (row[4]) { item[row[4]]++; item.who.push(name + '：' + row[4]); }
     if (row[5]) item.comments.push(name + '：' + row[5].replace(/^'/, ''));
     if (row[6] > item.last) item.last = row[6];
   }
-  const out = Object.keys(items).sort().filter(id => items[id].who.length || items[id].comments.length)
-    .map(id => [id, String(items[id].同意), String(items[id].不同意), String(items[id].其他意見), cell(items[id].who.join('、'), 2000), cell(items[id].comments.join(' ／ '), 8000), items[id].last]);
+  const out = Object.keys(items).sort().filter(id => items[id].who.length || items[id].comments.length || items[id].pre.length)
+    .map(id => [id, String(items[id].同意), String(items[id].不同意), String(items[id].其他意見), cell(items[id].who.join('、'), 2000), cell(items[id].comments.join(' ／ '), 8000), items[id].last,
+      cell(items[id].pre.join(' ／ '), 8000)]);
   const stats = sheet(book, '統計', STATS);
+  // A sheet made before a column was added gets the current header.
+  stats.getRange(1, 1, 1, STATS.length).setValues([STATS]);
   if (stats.getLastRow() > 1) stats.getRange(2, 1, stats.getLastRow() - 1, STATS.length).clearContent();
   if (out.length) stats.getRange(2, 1, out.length, STATS.length).setNumberFormat('@').setValues(out);
 }
