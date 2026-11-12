@@ -72,12 +72,16 @@ export function proposalItem(proposal: Proposal, done?: { status: string; decide
 }
 
 /** What the team's sheet answers to a read. */
-export interface TeamState { quorum: number; reviewers: Record<string, string>; votes: TeamVotes; proposals: Proposal[]; skipped: number }
+export interface TeamState {
+  quorum: number; reviewers: Record<string, string>; votes: TeamVotes; proposals: Proposal[]; skipped: number;
+  /** Why the sheet could not read the proposal sheets ('' when it could): the owner fixes it in the script editor. */
+  proposalProblem: string;
+}
 const isVote = (value: unknown): value is Vote => !!value && typeof value === 'object'
   && ['', ...CHOICES].includes((value as Vote).d) && typeof (value as Vote).c === 'string' && typeof (value as Vote).t === 'string';
 /** The answer as the page uses it, or why it cannot: everything from the network is checked before it is shown. */
 export function teamState(answer: unknown): TeamState | { error: string } {
-  const data = answer as { ok?: unknown; error?: unknown; quorum?: unknown; reviewers?: unknown; votes?: unknown; proposals?: unknown };
+  const data = answer as { ok?: unknown; error?: unknown; quorum?: unknown; reviewers?: unknown; votes?: unknown; proposals?: unknown; proposalProblem?: unknown };
   if (!data || typeof data !== 'object') return { error: '回應格式不對' };
   if (data.ok !== true) return { error: data.error === 'code' ? '團隊代碼不對' : '儲存空間回應錯誤' };
   const reviewers: Record<string, string> = {};
@@ -94,7 +98,8 @@ export function teamState(answer: unknown): TeamState | { error: string } {
     proposals.push(...read.proposals); skipped += read.skipped;
   }
   const unique = [...new Map(proposals.map(proposal => [proposal.id, proposal])).values()];
-  return { quorum: Number.isInteger(data.quorum) && (data.quorum as number) > 0 ? data.quorum as number : 2, reviewers, votes, proposals: unique, skipped };
+  return { quorum: Number.isInteger(data.quorum) && (data.quorum as number) > 0 ? data.quorum as number : 2, reviewers, votes, proposals: unique, skipped,
+    proposalProblem: typeof data.proposalProblem === 'string' ? data.proposalProblem.slice(0, 200) : '' };
 }
 
 /** This reviewer's votes with what the sheet holds: for each item the later one stands, so two devices do not undo each other. */

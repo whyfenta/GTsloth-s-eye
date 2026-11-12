@@ -40,7 +40,8 @@ assert.notEqual(reviewerId(), reviewerId());
 assert.deepEqual(teamState(null), { error: '回應格式不對' });
 assert.deepEqual(teamState({ ok: false, error: 'code' }), { error: '團隊代碼不對' });
 const answered = teamState({ ok: true, quorum: 3, reviewers: { a: '王藥師', b: 7 }, votes: { C56: { a: vote('同意'), b: { d: '亂寫', c: '', t: '' } }, C57: 'x' }, proposals: 'x' });
-assert.deepEqual(answered, { quorum: 3, reviewers: { a: '王藥師' }, votes: { C56: { a: vote('同意') } }, proposals: [], skipped: 0 });
+assert.deepEqual(answered, { quorum: 3, reviewers: { a: '王藥師' }, votes: { C56: { a: vote('同意') } }, proposals: [], skipped: 0, proposalProblem: '' });
+assert.equal((teamState({ ok: true, proposalProblem: '沒有 Drive 權限' }) as { proposalProblem: string }).proposalProblem, '沒有 Drive 權限');
 assert.equal((teamState({ ok: true }) as { quorum: number }).quorum, 2);
 
 // Proposals: ids, kinds, a rule's row, evidence; and nothing from a sample.
@@ -113,11 +114,13 @@ function load() {
     moveActiveSheet: (position: number) => { sheets.splice(sheets.indexOf(active!), 1); sheets.splice(position - 1, 0, active!); },
   };
   let active: FakeSheet | undefined;
-  const logs: string[] = [];
+  const logs: string[] = [], asked: string[] = [];
+  const drive = { denied: false };
   let uuid = 0;
   const context = vm.createContext({
     SpreadsheetApp: { getActiveSpreadsheet: () => book, openById: (id: string) => ({ getSheets: () => [proposalSheets.find(file => file.id === id)!.sheet] }) },
-    DriveApp: { getFileById: () => ({ getParents: () => ({ next: () => root }) }) },
+    DriveApp: { getFileById: () => { if (drive.denied) throw new Error('You do not have permission to call DriveApp.getFileById'); return { getParents: () => ({ next: () => root }) }; } },
+    ScriptApp: { AuthMode: { FULL: 'FULL' }, requireAllScopes: (mode: string) => { asked.push(mode); } },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (name: string) => properties[name] ?? null, setProperty: (name: string, value: string) => { properties[name] = value; } }) },
     CacheService: { getScriptCache: () => ({ get: (key: string) => cache[key] ?? null, put: (key: string, value: string) => { cache[key] = value; }, remove: (key: string) => { delete cache[key]; } }) },
     Utilities: { formatDate: () => '2026-11-11 09:00:00', getUuid: () => `${String(++uuid).padStart(8, '0')}-1a2b-3c4d-5e6f-778899aabbcc` },
@@ -130,7 +133,7 @@ function load() {
   vm.runInContext(readFileSync('docs/rx-review-apps-script.gs', 'utf8'), context);
   const call = <T>(name: string, ...args: unknown[]) => (vm.runInContext(name, context) as (...a: unknown[]) => T)(...args);
   const addProposals = (name: string, values: Row[]) => { const sheet = new FakeSheet(name); sheet.rows = values; proposalSheets.push({ id: `P${proposalSheets.length}`, name, sheet }); delete cache.state; };
-  return { call, sheets, properties, logs, addProposals, sheet: (name: string) => sheets.find(s => s.name === name)! };
+  return { call, sheets, properties, logs, asked, drive, cache, addProposals, sheet: (name: string) => sheets.find(s => s.name === name)! };
 }
 const gs = load();
 const get = (code?: string) => JSON.parse(gs.call<string>('doGet', { parameter: code === undefined ? {} : { code } }));
@@ -145,7 +148,9 @@ const code = gs.properties.TEAM_CODE;
 assert.match(code, /^[0-9a-z]{16}$/);
 assert.equal(gs.logs.filter(line => line.includes(code)).length, 2, 'setup() run again keeps the code');
 assert.deepEqual(get('wrongwrongwrong1'), { ok: false, error: 'code' });
-assert.deepEqual(get(code), { ...get(code), ok: true, quorum: 2, reviewers: {}, votes: {}, proposals: [] });
+assert.deepEqual(get(code), { ...get(code), ok: true, quorum: 2, reviewers: {}, votes: {}, proposals: [], proposalProblem: '' });
+assert.deepEqual(gs.asked, ['FULL', 'FULL'], 'setup() asks for every permission the script uses');
+assert.ok(gs.logs.some(line => line === '提案表：讀得到 0 份'));
 
 // The page's own request is what the script accepts.
 const wang = { id: 'aaaaaaaaaaaaaaaa', name: '王藥師' }, lee = { id: 'bbbbbbbbbbbbbbbb', name: '李藥師' };
@@ -196,6 +201,17 @@ assert.deepEqual(state.proposals.map((sheet: { week: string }) => sheet.week), [
 const proposed = teamState(state);
 assert.ok(!('error' in proposed));
 assert.deepEqual([proposed.proposals.map(p => p.id), proposed.skipped], [['P20261116-01', 'P20261116-02', 'P20261109-01'], 1]);
+
+// Without the Drive permission the votes still work and the answer says why there are no proposals; checkProposals() says so too.
+gs.drive.denied = true; delete gs.cache.state;
+state = get(code);
+assert.deepEqual([state.ok, state.proposals, Object.keys(state.votes).length > 0], [true, [], true]);
+assert.match(state.proposalProblem, /do not have permission/);
+assert.throws(() => gs.call('checkProposals'), /讀不到提案表：You do not have permission/);
+gs.drive.denied = false;
+assert.equal(gs.call('checkProposals'), 2);
+assert.ok(gs.logs.some(line => line === '提案表 2 份（20261116、20261109），共 4 項'));
+assert.equal(get(code).proposalProblem, '');
 
 // selfTest() leaves nothing behind; resetCode() shuts the old link out.
 gs.call('selfTest');

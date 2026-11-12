@@ -4,7 +4,7 @@
  * 讀寫都要帶團隊代碼：代碼存在指令碼屬性 TEAM_CODE，只出現在負責人分享的連結裡，不在公開的程式或 repo。
  * 這裡只存「誰對哪一條規則選了什麼、寫了什麼意見」，沒有任何處方或病人資料。
  * 決定不會自動改規則：負責人請 Claude 讀「統計」分頁，依 docs/reference/rx-rules.md「審核頁」結案。
- * 設定步驟見 README「規則審核頁」。
+ * 設定步驟見 README「規則審核頁」。審核頁看不到提案時，在編輯器執行 checkProposals。
  */
 const FORMAT = 'gtsloth-rx-review';
 const MAX_BYTES = 200000;
@@ -134,29 +134,49 @@ function state() {
     if (!row[4] && !row[5]) continue;
     (votes[row[3]] || (votes[row[3]] = {}))[row[1]] = { d: row[4], c: row[5].replace(/^'/, ''), t: row[6] };
   }
-  const result = { ok: true, quorum: quorum(), reviewers, votes, proposals: proposals(), time: new Date().toISOString() };
+  const read = proposals();
+  const result = { ok: true, quorum: quorum(), reviewers, votes, proposals: read.sheets, proposalProblem: read.problem, time: new Date().toISOString() };
   const text = JSON.stringify(result);
   // The cache holds 100 KB a key; a larger answer is simply built again on the next read.
   if (text.length < 90000) cache.put('state', text, 60);
   return result;
 }
-/** The proposal sheets left in 每週檢查 by the weekly review (週檢查_YYYYMMDD（提案）) and the source check (指引確認_…), newest first, as displayed rows. */
+/**
+ * The proposal sheets left in 每週檢查 by the weekly review (週檢查_YYYYMMDD（提案）) and the source check (指引確認_…), newest
+ * first, as displayed rows; and, when they cannot be read, why. Reading them needs this script's Drive permission: a script
+ * authorized without it still keeps the votes, and says here what is missing.
+ */
 function proposals() {
-  const out = [];
+  const sheets = [];
   try {
     const parent = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId()).getParents().next();
     const folders = parent.getFoldersByName(PROPOSAL_FOLDER);
-    if (!folders.hasNext()) return out;
+    if (!folders.hasNext()) return { sheets, problem: '試算表所在的資料夾裡沒有「' + PROPOSAL_FOLDER + '」資料夾' };
     const files = folders.next().getFilesByType(MimeType.GOOGLE_SHEETS);
     const found = [];
     while (files.hasNext()) { const file = files.next(); const match = PROPOSAL_NAME.exec(file.getName()); if (match) found.push({ week: match[1], id: file.getId() }); }
     found.sort((a, b) => a.week < b.week ? 1 : -1);
     for (const item of found.slice(0, PROPOSAL_WEEKS)) {
       const rows = SpreadsheetApp.openById(item.id).getSheets()[0].getDataRange().getDisplayValues();
-      out.push({ week: item.week, rows: rows.slice(0, 60).map(row => row.slice(0, 9).map(value => String(value).slice(0, 1500))) });
+      sheets.push({ week: item.week, rows: rows.slice(0, 60).map(row => row.slice(0, 9).map(value => String(value).slice(0, 1500))) });
     }
-  } catch (error) { /* a folder this script cannot read gives no proposals; the votes still work */ }
-  return out;
+    return { sheets, problem: '' };
+  } catch (error) {
+    return { sheets, problem: String(error && error.message || error).slice(0, 200) };
+  }
+}
+/**
+ * Run from the editor when the review page shows no proposals: asks for any permission still missing, then logs the proposal
+ * sheets this script can read, or why it cannot. After granting a permission here, the web app uses it at once.
+ */
+function checkProposals() {
+  if (typeof ScriptApp !== 'undefined' && ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  CacheService.getScriptCache().remove('state');
+  const read = proposals();
+  const count = read.sheets.reduce((n, sheet) => n + Math.max(0, sheet.rows.length - 1), 0);
+  Logger.log('提案表 ' + read.sheets.length + ' 份（' + read.sheets.map(sheet => sheet.week).join('、') + '），共 ' + count + ' 項');
+  if (read.problem) throw new Error('讀不到提案表：' + read.problem);
+  return read.sheets.length;
 }
 
 /**
@@ -164,6 +184,8 @@ function proposals() {
  * The execution log shows what to add to the review page's address: ?code=…
  */
 function setup() {
+  // Every permission the script uses, asked for now: the proposals need Drive, which nothing else here would ask for.
+  if (typeof ScriptApp !== 'undefined' && ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   const book = SpreadsheetApp.getActiveSpreadsheet();
   const first = book.getSheets()[0];
   if (book.getSheets().length === 1 && first.getName() !== '票' && first.getLastRow() === 0) first.setName('票');
@@ -175,6 +197,9 @@ function setup() {
   if (!properties.getProperty('QUORUM')) properties.setProperty('QUORUM', String(DEFAULT_QUORUM));
   Logger.log('團隊代碼：' + properties.getProperty('TEAM_CODE') + '（分享連結：審核頁網址加上 ?code=這串代碼）');
   Logger.log('結案門檻：' + quorum() + ' 位同意且無人反對（改指令碼屬性 QUORUM）');
+  const read = proposals();
+  Logger.log(read.problem ? '提案表讀不到：' + read.problem + '（請執行 checkProposals）' : '提案表：讀得到 ' + read.sheets.length + ' 份');
+  CacheService.getScriptCache().remove('state');
 }
 /** Run from the editor to replace the team's code: every link shared before stops working. */
 function resetCode() {
