@@ -4,6 +4,8 @@
  * as a sheet in the team's Drive folder (`npm run rx-proposals`), the team's Apps Script hands the rows to the page, and a
  * proposal the team has dealt with is recorded in docs/reference/rx-rules-review.json. Pure functions: no DOM, no network, no files.
  */
+/** public/assets/rx/proposals.json: the open proposals as published with the site (`npm run rx-proposals -- --publish`). */
+export const PROPOSALS_FORMAT = 'gtsloth-rx-proposals';
 export const PROPOSAL_KINDS = ['新增規則', '修改規則', '刪除規則', '新功能', '資料品質', '待決定'] as const;
 export type ProposalKind = typeof PROPOSAL_KINDS[number];
 export const PROPOSAL_FILES = ['', 'indications', 'co-drugs', 'cautions', 'specialty', 'drug-classes', 'settings'] as const;
@@ -80,4 +82,10 @@ export function proposalsOfRows(rows: unknown): { proposals: Proposal[]; skipped
     if (proposalProblems(proposal).length) skipped++; else proposals.push(proposal);
   }
   return { proposals, skipped };
+}
+/** The published copy as proposals: only the ones that could be published again, so a damaged file shows nothing rather than anything. */
+export function publishedProposals(data: unknown): Proposal[] {
+  const file = data as { format?: unknown; proposals?: unknown };
+  if (!file || file.format !== PROPOSALS_FORMAT || !Array.isArray(file.proposals)) return [];
+  return file.proposals.filter((proposal): proposal is Proposal => !!proposal && typeof proposal === 'object' && !proposalProblems(proposal).length);
 }

@@ -1,5 +1,6 @@
 import './review.css';
-import { REVIEW_CATALOG, REVIEW_ENDPOINT } from './review-config';
+import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-config';
+import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATALOG_FORMAT, CHOICES, PROPOSAL_LABEL, cleanName, closed, done, mergeVotes, proposalItem, reviewerId, stale, tally, teamState, teamStatus, voteRequest,
   type Catalog, type Chip, type Choice, type Item, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
@@ -28,6 +29,8 @@ let items: Item[] = [];
 let haystack: Record<string, string> = {};
 let batchOrder: Record<string, number> = {};
 let team: TeamState | undefined;
+/** The open proposals that came with the site; the team's sheet may know newer ones. */
+let published: Proposal[] = [];
 let mine: Votes = read<Votes>(KEYS.votes) ?? {};
 /** Items whose vote has not reached the sheet yet. */
 const pending = new Set<string>();
@@ -402,9 +405,9 @@ async function load(first = false) {
     mine = merged;
     keep(KEYS.votes, mine);
     if (!me.name && state.reviewers[me.id]) { me.name = state.reviewers[me.id]; keep(KEYS.me, me); $<HTMLInputElement>('name').value = me.name; }
-    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${state.proposals.length} 項`];
+    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${new Set([...published, ...state.proposals].map(proposal => proposal.id)).size} 項`];
     if (state.skipped) notes.push(`另有 ${state.skipped} 項提案格式不對，沒有顯示`);
-    if (state.proposalProblem) notes.push(`提案表讀不到（${state.proposalProblem}），請負責人在 Apps Script 執行 checkProposals`);
+    if (state.proposalProblem) notes.push(`最新的提案表讀不到（${state.proposalProblem}），目前顯示隨網站發布的提案；請負責人在 Apps Script 執行 checkProposals`);
     sayStore(`已連上團隊共用儲存：${notes.join('；')}。`, !!state.proposalProblem);
     applyItems();
     if (first || !document.activeElement?.classList.contains('comment')) renderList(); else { renderLater = true; for (const item of items) updateCard(item); }
@@ -418,7 +421,9 @@ async function load(first = false) {
 function applyItems() {
   if (!catalog) return;
   const closedProposals = new Map((catalog.proposals ?? []).map(proposal => [proposal.id, proposal]));
-  const open = (team?.proposals ?? []).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
+  const known = new Map([...published, ...team?.proposals ?? []].map(proposal => [proposal.id, proposal]));
+  const week = (proposal: Proposal) => proposal.id.slice(1, 9);
+  const open = [...known.values()].sort((a, b) => week(b).localeCompare(week(a)) || a.id.localeCompare(b.id)).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
   const listed = new Set(open.map(item => item.id));
   const past = [...closedProposals.values()].filter(proposal => !listed.has(proposal.id))
     .map(proposal => proposalItem({ id: proposal.id, kind: '待決定', title: proposal.title, file: '', row: '', evidence: '', basis: '提案', trial: '', note: '' }, proposal));
@@ -529,6 +534,8 @@ async function start() {
     $('list').replaceChildren(el('p', 'empty', '規則清單讀取失敗，請重新整理頁面。'));
     return;
   }
+  // The published proposals are an extra: the page works without them.
+  try { published = publishedProposals(await (await fetch(`${import.meta.env.BASE_URL}${REVIEW_PROPOSALS}`, { cache: 'no-cache' })).json()); } catch { published = []; }
   batchOrder = Object.fromEntries(catalog.batches.map((batch, n) => [batch.id, n]));
   applyItems();
   renderBatches();

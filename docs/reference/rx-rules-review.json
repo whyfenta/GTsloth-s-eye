@@ -313,7 +313,20 @@
    "text": "B01AC06 Aspirin：D45 D47.3（指引）",
    "batch": "2026-10-31",
    "changed": "2026-10-31T00:00:00.000Z",
-   "ref": "ELN／NCCN 骨髓增生性腫瘤建議（低劑量 aspirin）"
+   "ref": "ELN／NCCN 骨髓增生性腫瘤建議（低劑量 aspirin）",
+   "links": [
+    {
+     "t": "JAMA（審核者補充）",
+     "u": "https://jamanetwork.com/journals/jama/fullarticle/2829595"
+    },
+    {
+     "t": "NEJM 2004，ECLAP 試驗（審核者補充）",
+     "u": "https://www.nejm.org/doi/full/10.1056/NEJMoa035572"
+    }
+   ],
+   "flags": [
+    "115/11/12 審核者補充文獻（見出處）：真性紅血球增多症使用低劑量 aspirin 可降低非致死性心肌梗塞、中風、肺栓塞與大靜脈血栓；血小板增多症使用 aspirin 可降低血栓風險。這是支持這一列的意見，決定欄選的是「其他意見」，所以仍列為有不同意見，請審核者確認是否改選同意。"
+   ]
   },
   {
    "id": "I22",
@@ -3196,5 +3209,17 @@
   "N06AX17": "milnacipran",
   "N06AX23": "desvenlafaxine",
   "R06AD": "phenothiazine 類抗組織胺"
- }
+ },
+ "proposals": [
+  {
+   "id": "P20261111-06",
+   "title": "C58（propafenone／flecainide 配心衰竭）：國內仿單只查到警語，沒有查到禁忌條文",
+   "status": "已採用",
+   "decided": "2026-11-12",
+   "note": "依據欄已改寫成國內仿單的警語、禁忌條文待核對；負責人另依審核意見把等級升為紅色。",
+   "rules": [
+    "C58"
+   ]
+  }
+ ]
 }

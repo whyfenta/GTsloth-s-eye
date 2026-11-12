@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { closed, done, mergeVotes, proposalItem, reviewerId, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
-import { proposalProblems, proposalsCsv, proposalsOfRows, PROPOSAL_COLUMNS, type Proposal } from '../src/rx-proposals';
+import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
 // The review page's model, the weekly proposals, and docs/rx-review-apps-script.gs run against small fakes of the Google services.
 const item = (changes: Partial<Item> = {}): Item => ({ id: 'C56', table: 'cautions', batch: '2026-11-10', changed: '2026-11-10T00:00:00.000Z', basis: 'Beers 2023 表 3', flags: [], hits: null, ...changes });
@@ -76,6 +76,15 @@ assert.deepEqual(proposalsOfRows('x'), { proposals: [], skipped: 0 });
 const asItem = proposalItem(back.proposals[0]);
 assert.deepEqual([asItem.table, asItem.batch, closed(asItem), done(asItem, vote('同意', '2020-01-01T00:00:00.000Z'))], ['proposals', '20261116', false, true]);
 assert.equal(proposalItem(back.proposals[0], { status: '已採用', decided: '2026-11-18', note: '加成 I97' }).outcome, '已採用（2026-11-18）：加成 I97');
+
+// The proposals published with the site: every one could be published again, none twice, none already closed without the ledger saying so.
+const publishedFile = JSON.parse(readFileSync('public/assets/rx/proposals.json', 'utf8'));
+const publishedList = publishedProposals(publishedFile);
+assert.equal(publishedFile.format, PROPOSALS_FORMAT);
+assert.equal(publishedList.length, publishedFile.proposals.length, 'public/assets/rx/proposals.json 有不能發布的提案：請用 npm run rx-proposals -- --publish 重產');
+assert.equal(new Set(publishedList.map(p => p.id)).size, publishedList.length, '提案編號重複');
+assert.deepEqual(publishedProposals({ format: PROPOSALS_FORMAT, proposals: [proposal(), { ...proposal(), id: 'P20261116-02', evidence: '院所 0000000000 有 3 張' }, null] }).map(p => p.id), ['P20261116-01']);
+assert.deepEqual(publishedProposals({ format: 'x', proposals: [proposal()] }), []);
 
 // The team's sheet.
 type Row = string[];
