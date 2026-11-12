@@ -541,26 +541,27 @@ function finishScan(moveFocus = true) {
     if (moveFocus) date.focus();
   }
 }
-/** The first of linked QR codes scanned by the keyboard scanner, waiting for the rest; see firstPart. */
-let pendingPart = '';
+/** The first of linked QR codes scanned by the keyboard scanner, waiting for the rest (see firstPart), and how many are in. */
+let pendingPart = '', pendingCodes = 0;
 /**
  * A 憑單 scan from the keyboard scanner or the camera. A prescription with many drugs has a second QR of drugs only; it joins the
  * prescription scanned before it. A prescription printed as linked QR codes (Structured Append) arrives whole from the camera; a
  * keyboard scanner that types each code on its own gives the first, cut anywhere, which waits here for the next to be joined to it.
  */
-function slipScan(text: string, viaCamera = false): Scanned {
+function slipScan(text: string, viaCamera = false, codes = 1): Scanned {
   // The next code goes on where the first stopped; a scan that starts with an institution code is a new prescription instead.
   const joined = !!pendingPart && !/^\d{10};/.test(text.trim());
-  if (joined) text = pendingPart + text;
+  if (joined) { text = pendingPart + text; codes = pendingCodes + 1; }
   pendingPart = '';
   if (!viaCamera && firstPart(text)) {
     pendingPart = text;
+    pendingCodes = codes;
     return { message: joined ? '已接上這張處方的下一個 QR，藥品還沒讀完：請再掃同一張處方的下一個 QR。'
       : '這張處方的 QR 分成相連的 2 個（或更多）：已讀到第 1 個，請接著掃同一張處方的下一個 QR。' };
   }
   try {
     const more = parsePrescriptionDrugs(text);
-    return more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text, viaCamera);
+    return more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text, viaCamera, codes);
   } catch (error) {
     rejectScan(text, error);
     return { message: `${(error as Error).message} 請重新掃碼。` };
@@ -582,11 +583,15 @@ cameraButton.addEventListener('click', async () => {
   catch { status.textContent = '相機掃描載入失敗，請重新整理頁面後再試。'; return; }
   finally { cameraOpening = false; }
   status.textContent = '';
-  let text: string | undefined;
-  try { text = await scanQR(prescriptionText, { title: '將處方箋上的 QR 放進框內', other: '這不是處方 QR，請對準處方箋上的 QR。' }); }
-  catch (error) { status.textContent = (error as Error).message; return; }
-  if (text === undefined) return; // Closed without a scan.
-  const added = slipScan(text, true);
+  let scanned: { text: string; codes: number } | undefined;
+  try {
+    scanned = await scanQR((bytes, codes) => {
+      const text = prescriptionText(bytes);
+      return text === undefined ? undefined : { text, codes };
+    }, { title: '將處方箋上的 QR 放進框內', other: '這不是處方 QR，請對準處方箋上的 QR。' });
+  } catch (error) { status.textContent = (error as Error).message; return; }
+  if (scanned === undefined) return; // Closed without a scan.
+  const added = slipScan(scanned.text, true, scanned.codes);
   status.textContent = added.message;
   (added.card ?? status).scrollIntoView({ behavior: 'smooth', block: added.card ? 'start' : 'center' });
 });

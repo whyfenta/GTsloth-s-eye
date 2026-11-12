@@ -1,5 +1,6 @@
 import { addDays, taiwanToday, type DateRange } from './arithmetic-model';
 import { loadRoster, ROSTER_SOURCE, unknownInstitution } from './institutions';
+import { multiQRNote, printsMultiQR } from './multi-qr';
 import type { DrugsQR, SlipQR } from './prescription-qr';
 import { loadProducts } from './products';
 import type { RxFacts } from './rx-check';
@@ -16,10 +17,10 @@ declare const __APP_VERSION__: string;
 // Every scanned prescription joins the slip; identifying fields live only in these objects and the inputs below.
 // products: the 六碼 the product lookup gives the 健保碼; product: the one on the slip, chosen when there are several.
 interface Drug { code: string; total: string; missing: boolean; name: string; quantity: string; note: string; products: Product[]; product?: Product }
-// more: the follow-up QRs of drugs only, so a rescan of one is not added twice. sample: the de-identified line sent when the
+// more: the follow-up QRs of drugs only, so a rescan of one is not added twice. qrs: how many QR codes the card was read from. sample: the de-identified line sent when the
 // slip is printed (only with samples on), and sent once that request has gone out. patient: the 科別, age band and diagnoses under the name.
 // person: the ID number, name and birth date as scanned, which tell the prescriptions of one patient (the name field can be edited).
-interface Item extends SlipEntry { key: string; institution: string; person: Person; drugs: Drug[]; firstDrugs: number; more: string[]; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+interface Item extends SlipEntry { key: string; institution: string; person: Person; drugs: Drug[]; firstDrugs: number; more: string[]; qrs: number; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
   patient: HTMLDListElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
@@ -311,7 +312,8 @@ addOther.type = 'button';
 extras.append(make('p', 'slip-extras-label', '其他尚差品項（選填，如自費品項）'), others, addOther);
 const placeExtras = () => items.at(-1)?.drugList.append(extras);
 function listDrugs(item: Item) {
-  item.drugList.replaceChildren(make('legend', '', `藥品清單（如有缺藥可勾選${item.more.length ? `；含藥品 QR 加入的 ${item.drugs.length - item.firstDrugs} 個藥` : ''}）`), ...item.drugs.map(drugRow));
+  item.drugList.replaceChildren(make('legend', '', `藥品清單（如有缺藥可勾選${item.more.length ? `；含藥品 QR 加入的 ${item.drugs.length - item.firstDrugs} 個藥` : ''}）`),
+    ...printsMultiQR(item.institution) ? [make('p', 'slip-multi-qr', multiQRNote(item.qrs))] : [], ...item.drugs.map(drugRow));
   if (item === items.at(-1)) item.drugList.append(extras);
 }
 function fillItem(item: Item) {
@@ -441,9 +443,10 @@ export function rejectScan(scanned: string, error: unknown) {
 export interface Scanned { message: string; card?: HTMLElement; focus?: HTMLElement }
 /**
  * Adds a scanned prescription. scanned: the QR text, read here for the de-identified sample only and not kept.
- * camera: read by the phone camera, where the card is tapped rather than keyed through.
+ * camera: read by the phone camera, where the card is tapped rather than keyed through. qrs: how many linked QR codes (Structured
+ * Append) the text was joined from, counted in the sample as a prescription with a second QR.
  */
-export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scanned {
+export function addPrescription(qr: SlipQR, scanned = '', camera = false, qrs = 1): Scanned {
   const restarted = printed;
   if (printed) clearSlip();
   status.textContent = '';
@@ -452,10 +455,10 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scann
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
   const item: Item = { key, institution: qr.institution, person: { idNumber: qr.idNumber, name: qr.name, birth: qr.birth }, date: qr.date, days: qr.days, count: 3, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
-    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], rx: qr.rx,
+    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], qrs, rx: qr.rx,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
     patient: make('dl', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
-    ...(samples && scanned ? { sample: sampleOf(scanned) } : {}) };
+    ...(samples && scanned ? { sample: sampleOf(scanned, qrs) } : {}) };
   item.check.hidden = item.patient.hidden = !rxOn;
   item.drugs.forEach(identify);
   fillItem(item);
@@ -478,6 +481,7 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false): Scann
   return { message: `${restarted ? '上一張憑單已列印，已開始新的憑單；' : ''}已加入第 ${items.length} 張${qr.name ? `（${qr.name}）` : ''}。`
     + (rxOn && patient.length ? `與${patient.join('、')}是同一病人，處方警示合併比對全部的診斷與藥品。` : '') + '可調劑次數預設 3 次、本次第幾次依日期推算：'
     + (camera ? '請在卡片上核對；處方有第 2 個 QR 時，再按相機鈕掃描。' : '以方向鍵選擇，Enter 確認後回到掃碼欄。')
+    + (printsMultiQR(qr.institution) ? '這家院所藥品多時可能有 2 個以上的 QR，請核對卡片上的藥品清單是否完整。' : '')
     + (!qr.idNumber ? '讀不到身分證字號，門市存查聯不印此人的身分證。'
       : `${qr.idNumber}.${qr.birth}`.includes('*') ? '這家院所的 QR 遮蔽了部分身分證字號或生日（*），門市存查聯照 QR 所示列印。' : ''),
     card: item.element, focus: item.counts.find(radio => radio.checked) };
@@ -491,6 +495,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): Scanned {
   const key = qr.drugs.map(drug => `${drug.code}:${drug.total}`).join('|');
   if (item.more.includes(key)) return { message: `這個藥品 QR 已加入第 ${index} 張，不重複加入。` };
   item.more.push(key);
+  item.qrs++;
   const drugs: Drug[] = qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] }));
   drugs.forEach(identify);
   item.drugs.push(...drugs);
