@@ -91,7 +91,7 @@
 
 1. **找出用過 2 個以上 QR 的院所**：讀「每週檢查」裡全部的「週檢查資料_YYYYMMDD」的「有第 2 個 QR 的院所（張數）」一節（翻到沒有下一頁為止；先前某週沒補成功的，這樣會再補上），以及資料夾裡（含「驗證用」「已用於調整」）所有 `處方QR去識別化_*_統計.txt`（收集頁的統計，一行一家：「醫事機構代碼 XXXXXXXXXX：n 張有第 2 個 QR」）。憑單把相連 QR（Structured Append）接起來的處方也算在內。
 2. **比對名單**：讀 repo 的 `docs/reference/multi-qr-institutions.json`，挑出代碼（10 位數字）還不在 `institutions` 裡的院所。都已經在名單裡就不用改，結果記「無新增」。
-3. **補入**：從最新的 `main` 開分支 `claude/multi-qr-YYYYMMDD`（日期同週檢查資料，沒有時用今天），每家新院所在 `institutions` 加一項：`code` 是代碼，`since` 是最早出現的那份週檢查資料或統計檔的日期（YYYY-MM-DD），`source` 寫那份檔名與張數（例如「週檢查資料_20261116：2 張」）。依代碼排序，其他內容不動，也不改別的檔案。執行 `npm test` 與 `npm run build`，都要通過（`tests/multi-qr.test.ts` 會檢查格式）。
+3. **補入**：從最新的 `main` 開分支（這個 session 有指定開發分支時用它，否則用 `claude/multi-qr-YYYYMMDD`，日期同週檢查資料，沒有時用今天），每家新院所在 `institutions` 加一項：`code` 是代碼，`since` 是最早出現的那份週檢查資料或統計檔的日期（YYYY-MM-DD），`source` 寫那份檔名與張數（例如「週檢查資料_20261116：2 張」）。依代碼排序，其他內容不動，也不改別的檔案。執行 `npm test` 與 `npm run build`，都要通過（`tests/multi-qr.test.ts` 會檢查格式）。
 4. **PR 與合併**：commit（訊息寫「憑單：補入連續 QR 院所 YYYYMMDD」與新增的代碼）、push 這個分支，對 `main` 開 PR，內文列出新增的代碼與 `source`，不寫樣本行或任何病人、處方內容。訂閱這個 PR 的動態，等 CI 跑完：每個 check 都成功、沒有衝突，就用 merge 方式合併；有失敗就不要合併，在回覆裡說明哪個 check 失敗、PR 編號，留給負責人處理。合併後 GitHub Pages 會自動部署，憑單就會顯示新院所的提示。
 
 ## 每月第一個週一：依據來源確認
