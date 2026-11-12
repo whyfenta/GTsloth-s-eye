@@ -1,6 +1,6 @@
 import './arithmetic.css';
 import { addDays, dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
-import { parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, prescriptionText, type PrescriptionQR } from './prescription-qr';
+import { firstPart, parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, prescriptionText, type PrescriptionQR } from './prescription-qr';
 import { addDrugs, addPrescription, rejectScan, type Scanned } from './slip-ui';
 
 declare const __APP_VERSION__: string;
@@ -541,8 +541,23 @@ function finishScan(moveFocus = true) {
     if (moveFocus) date.focus();
   }
 }
-/** A 憑單 scan from the keyboard scanner or the camera. A prescription with many drugs has a second QR of drugs only; it joins the prescription scanned before it. */
+/** The first of linked QR codes scanned by the keyboard scanner, waiting for the rest; see firstPart. */
+let pendingPart = '';
+/**
+ * A 憑單 scan from the keyboard scanner or the camera. A prescription with many drugs has a second QR of drugs only; it joins the
+ * prescription scanned before it. A prescription printed as linked QR codes (Structured Append) arrives whole from the camera; a
+ * keyboard scanner that types each code on its own gives the first, cut anywhere, which waits here for the next to be joined to it.
+ */
 function slipScan(text: string, viaCamera = false): Scanned {
+  // The next code goes on where the first stopped; a scan that starts with an institution code is a new prescription instead.
+  const joined = !!pendingPart && !/^\d{10};/.test(text.trim());
+  if (joined) text = pendingPart + text;
+  pendingPart = '';
+  if (!viaCamera && firstPart(text)) {
+    pendingPart = text;
+    return { message: joined ? '已接上這張處方的下一個 QR，藥品還沒讀完：請再掃同一張處方的下一個 QR。'
+      : '這張處方的 QR 分成相連的 2 個（或更多）：已讀到第 1 個，請接著掃同一張處方的下一個 QR。' };
+  }
   try {
     const more = parsePrescriptionDrugs(text);
     return more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text, viaCamera);

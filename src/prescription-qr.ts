@@ -105,6 +105,16 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
     idNumber: /^[A-Z][0-9A-D*][0-9*]{8}$/.test(idNumber) ? idNumber : '', birth, drugs, rx: rxFacts(fields, ageBand(fields[5], fields[7]), sexOf(idNumber)) };
 }
+/**
+ * The first of linked QR codes (Structured Append) read by a keyboard scanner that types each code on its own: the institution
+ * code and the 14 fixed fields, cut off where the code is full, so its drug fields do not fit 5 per drug. The rest comes in the
+ * next code, to be joined to this text as it is. Undefined for any other scan. A first code cut exactly between two drugs is a
+ * prescription by itself, and the next code a drugs-only QR.
+ */
+export function firstPart(scanned: string, scannedAs = '文字輸入'): boolean {
+  const fields = splitFields(repairByteText(scanned, scannedAs).text);
+  return fields.length >= 14 && /^\d{10}$/.test(fields[0].trim()) && !alignFields(fields);
+}
 /** The layout of a drugs-only QR, as parsePrescriptionLayout for a first QR: a code for every drug, the other four fields may be blank. */
 export function parseDrugsLayout(scanned: string, scannedAs = '文字輸入'): { fields: string[]; encoding: string } | undefined {
   const { text, encoding } = repairByteText(scanned, scannedAs);
