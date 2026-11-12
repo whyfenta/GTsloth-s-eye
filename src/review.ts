@@ -402,7 +402,10 @@ async function load(first = false) {
     mine = merged;
     keep(KEYS.votes, mine);
     if (!me.name && state.reviewers[me.id]) { me.name = state.reviewers[me.id]; keep(KEYS.me, me); $<HTMLInputElement>('name').value = me.name; }
-    sayStore(`已連上團隊共用儲存：${Object.keys(state.reviewers).length} 位審核者${state.skipped ? `；有 ${state.skipped} 項提案格式不對，沒有顯示` : ''}。`);
+    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${state.proposals.length} 項`];
+    if (state.skipped) notes.push(`另有 ${state.skipped} 項提案格式不對，沒有顯示`);
+    if (state.proposalProblem) notes.push(`提案表讀不到（${state.proposalProblem}），請負責人在 Apps Script 執行 checkProposals`);
+    sayStore(`已連上團隊共用儲存：${notes.join('；')}。`, !!state.proposalProblem);
     applyItems();
     if (first || !document.activeElement?.classList.contains('comment')) renderList(); else { renderLater = true; for (const item of items) updateCard(item); }
     renderCounts();
