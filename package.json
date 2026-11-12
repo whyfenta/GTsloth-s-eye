@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "postinstall": "node scripts/patch-jsqr.mjs",
     "test": "node scripts/test.mjs",
     "qa": "tsx scripts/qa.ts",
     "audit:source": "node scripts/audit-release.mjs source",

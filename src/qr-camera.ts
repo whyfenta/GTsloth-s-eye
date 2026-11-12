@@ -1,4 +1,5 @@
 import jsQR from 'jsqr';
+import { QRParts, structuredAppend } from './qr-parts';
 import { SMOOTHING, smoothFrame } from './qr-smooth';
 
 /**
@@ -26,7 +27,7 @@ function focusContinuously(track: MediaStreamTrack | undefined) {
   if (track && modes?.includes('continuous')) track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => { /* Keeps the camera's own focus. */ });
 }
 /**
- * Opens the back camera full screen and reads QR codes until read gives a value for one; a QR it turns down shows texts.other
+ * Opens the back camera full screen and reads QR codes until read gives a value for one (for linked codes, for all of them joined); a QR it turns down shows texts.other
  * and the camera keeps looking. Resolves with that value, or undefined when closed (the button, Esc or back, or leaving the
  * page); rejects with a message when the camera cannot open. Frames are read in this page only, never kept or sent, and the
  * camera is off as soon as this settles.
@@ -75,6 +76,7 @@ export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: Cam
     // The middle square of each frame, where the guide is: a portrait picture is cropped top and bottom, a landscape one at the sides.
     // Each frame is read one way: as it is, or blurred by the next radius in SMOOTHING for a QR printed in halftone.
     let attempt = 0;
+    const parts = new QRParts();
     const scan = () => {
       if (settled) return;
       const { videoWidth: width, videoHeight: height } = video;
@@ -86,9 +88,17 @@ export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: Cam
         const radius = SMOOTHING[attempt++ % SMOOTHING.length];
         const code = jsQR(radius ? smoothFrame(frame, size, size, radius) : frame, size, size, { inversionAttempts: 'dontInvert' });
         if (code) {
-          const value = read(Uint8Array.from(code.binaryData));
-          if (value !== undefined) { finish(value); return; }
-          note.textContent = texts.other;
+          // A message printed as several linked QR codes (Structured Append) is read once every code is in, joined in order.
+          const part = structuredAppend(code.chunks);
+          const bytes = part ? parts.add(Uint8Array.from(code.binaryData), part) : Uint8Array.from(code.binaryData);
+          if (bytes) {
+            const value = read(bytes);
+            if (value !== undefined) { finish(value); return; }
+            note.textContent = texts.other;
+          } else if (part) {
+            const { read: done, total } = parts.progress;
+            note.textContent = `這張處方的 QR 分成 ${total} 個，已讀到 ${done} 個；請把另一個 QR 放進框內。`;
+          }
         }
       }
       requestAnimationFrame(scan);
