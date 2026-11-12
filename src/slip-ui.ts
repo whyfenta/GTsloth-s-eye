@@ -8,7 +8,7 @@ import { rxCheckOn } from './rx-check-config';
 import { renderPatient, renderRxCheck } from './rx-check-ui';
 import { loadRxData, type RxData } from './rx-data';
 import { failureLine } from './prescription-sample';
-import { FailureLog, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample } from './rx-sample';
+import { FailureLog, sampleOf, sampleRecords, sendSamples, withDrugs, type PendingSample, type SampleInput } from './rx-sample';
 import { SAMPLE_ENDPOINT, samplesOn } from './sample-config';
 import { buildSlip, contactKind, patientGroups, planSlip, prescriptionAhead, MISSING_ROWS, type ContactKind, type MissingItem, type Person, type Product, type SlipEntry, type SlipPlan, type Trip } from './slip-model';
 import { printSlip } from './slip-print';
@@ -538,6 +538,15 @@ element('slip-print').addEventListener('click', async () => {
   } catch (error) { status.textContent = (error as Error).message; }
 });
 /**
+ * A card's sample as sent: the 健保碼 the 六碼 lookup has no 六碼 for (once the lookup has loaded), and the lines of the same
+ * patient's cards when there are several, for what only the combined check finds; the grouping itself is not sent.
+ */
+function sampleInput(item: Item): SampleInput {
+  const patient = patientOf(item).map(index => items[index].sample?.line).filter((line): line is string => !!line);
+  return { ...item.sample!, ...(catalog ? { unmapped: item.drugs.filter(drug => !drug.products.length).map(drug => drug.code) } : {}),
+    ...(patient.length > 1 ? { patient } : {}) };
+}
+/**
  * After printing, the slip's prescriptions not yet sent go to the sample sheet with the failures not sent yet. The check summary
  * needs the rule data; when it cannot load the lines go without it. A failed request is tried again on the next print.
  */
@@ -550,7 +559,7 @@ async function shareSamples(): Promise<string> {
   let data = rxData;
   if (!data) try { data = rxData = await loadRxData(); } catch { /* Sent without the check summary. */ }
   try {
-    await sendSamples(sampleRecords(fresh.map(item => item.sample!), failed, data, __APP_VERSION__, new Date().toISOString()), SAMPLE_ENDPOINT);
+    await sendSamples(sampleRecords(fresh.map(sampleInput), failed, data, __APP_VERSION__, new Date().toISOString()), SAMPLE_ENDPOINT);
     return fresh.length ? `已送出 ${fresh.length} 張處方的去識別化樣本。` : '';
   } catch {
     for (const item of fresh) item.sent = false;

@@ -28,6 +28,7 @@ class FakeSheet {
       },
       setValue: (value: unknown) => range.setValues([[value]]),
       getValue: () => this.rows[row - 1]?.[column - 1] ?? '',
+      getValues: () => Array.from({ length: rows }, (_, i) => Array.from({ length: columns }, (_, j) => this.rows[row - 1 + i]?.[column - 1 + j] ?? '')),
     };
     return range;
   }
@@ -125,6 +126,11 @@ const second = deidentify(qr({ 8: '1151102', 12: 'F41.1#' }, ['TESTALPR01']));
 const [record] = sampleRecords([sampleOf(qr()), { line: second, qrs: 2 }], ['失敗：測試原因，欄位數 3'], undefined, '1.4.0', '2026-11-01T01:00:00.000Z');
 record.rules = 'abcdef012345';
 record.prescriptions[1].check = { top: '黃', alerts: ['黃 TESTALPR01 N05BA12 =測試 | 理由'], cautions: ['T01黃'], unexplained: ['TESTALPR01 N05BA12'], unknownDrugs: [], unknownDx: ['X99 查無'] };
+// 對照檔查無 keeps only codes on the line; 合併多出 only rule numbers with a level.
+record.prescriptions[0].unmapped = ['TESTCODE01', 'A223456789', 'TESTCODE01'];
+record.prescriptions[0].merged = ['T01紅', '同成分重複黃', 'A223456789', '第 2 張 T01紅'];
+record.prescriptions[1].unmapped = ['TESTALPR01'];
+record.prescriptions[1].check.unknownDrugs = ['TESTALPR01'];
 record.prescriptions.push({ line: field(4, '測試'), qrs: 1 });
 gs.clock.now = '2026-10-28 09:00:00';
 assert.equal(post(record), 'ok');
@@ -140,6 +146,9 @@ assert.equal(at(samples[2], '規則版本'), 'abcdef012345', 'only a checked lin
 assert.equal(at(samples[1], '去識別化內容'), deidentify(qr()));
 assert.equal(at(samples[1], '內容摘要'), createHash('sha256').update(deidentify(qr())).digest('hex'));
 assert.deepEqual([at(samples[2], '最高等級'), at(samples[2], '警示'), at(samples[2], 'QR數'), at(samples[2], '查無診斷')], ['黃', "'黃 TESTALPR01 N05BA12 =測試／理由".slice(1), '2', 'X99 查無']);
+assert.deepEqual([at(samples[1], '對照檔查無'), at(samples[1], '合併多出'), at(samples[2], '對照檔查無'), at(samples[2], '合併多出')], ['TESTCODE01', 'T01紅 | 同成分重複黃', 'TESTALPR01', '']);
+assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', ['C56黃', 'C56黃', '同成分重複灰', 'C56', '黃', 42])), ['C56黃', '同成分重複灰']);
+assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', 'C56黃')), []);
 assert.deepEqual(gs.sheet('失敗').rows.slice(1).map(row => row[3]), ['伺服器拒收：第 4 欄（姓名）不是空白', '失敗：測試原因，欄位數 3']);
 assert.ok(!gs.sheets.some(s => s.rows.some(row => row.some(value => value.includes(';測試;')))), 'the rejected line, name and all, never reaches a sheet');
 for (const secret of ['A223456789', '0650101', 'TESTNOTE01', '0099']) assert.ok(!JSON.stringify(gs.sheets.map(s => s.rows)).includes(secret), secret);
@@ -157,6 +166,9 @@ assert.match(summary, /紅 0 張、黃 1 張（黃紅比例 100\.0%）.*沒有�
 assert.match(summary, /1\. \[黃\] 院所 0101010101・科別 AB・AGE50-59・SEXF・診斷 F41\.1#\n {3}- 黃 TESTALPR01 N05BA12 =測試／理由\n {3}行：/);
 assert.match(summary, /- N05BA12：1 次、1 家院所；同時出現的診斷（前 3 碼）：F41 ×1；科別：AB ×1\n {2}範例：/);
 assert.match(summary, /## 注意事項命中（編號＋等級）\n- T01黃 ×1/);
+assert.match(summary, /## 同一病人合併比對多出的注意事項（1 張處方；[^\n]*\n- T01紅 ×1\n- 同成分重複黃 ×1/);
+assert.match(summary, /## 對照檔查無此健保碼：健保品項查得到，六碼對照檔沒有（請補 sku-nhi-map\.csv）\n- TESTCODE01 ×1\n/);
+assert.match(summary, /## 對照檔查無此健保碼：健保品項也查無[^\n]*\n- TESTALPR01 ×1\n/);
 assert.match(summary, /- 伺服器拒收：第 4 欄（姓名）不是空白 ×1/);
 assert.match(summary, /## 有第 2 個 QR 的院所（張數）\n- 0101010101 ×1/);
 assert.ok(gs.sheet('樣本').rows.slice(1).every(row => at(row, '匯出檔') === '處方QR去識別化_自動_20261028-20261102_2張.txt' && at(row, '重複於') === ''));
@@ -175,4 +187,13 @@ assert.match(gs.docs[1].text, /收到 2 張，重複 1 張.*不重複 1 張；�
 assert.equal(gs.call('weekly'), 'nothing new');
 assert.equal(validation.files.length, 2);
 assert.equal(gs.docs.length, 2);
+// A sheet made before 對照檔查無 and 合併多出 gets the two names on the next write; its rows stay as they were.
+const older = load();
+older.call('setup');
+const sheet = older.sheet('樣本');
+sheet.rows[0] = sheet.rows[0].slice(0, -2);
+sheet.rows.push(Array(sheet.rows[0].length).fill('舊'));
+older.call('doPost', { postData: { contents: JSON.stringify(next) } });
+assert.deepEqual(sheet.rows[0], header);
+assert.equal(sheet.rows[1].length, header.length - 2);
 console.log('rx-samples Apps Script tests passed');

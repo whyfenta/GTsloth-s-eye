@@ -4,6 +4,7 @@
  * 這裡逐行再檢查一次去識別化，合格的寫進「樣本」，其餘只在「失敗」記原因、不記內容。
  * 每週一 weekly()：與先前的行比對去掉重複，把不重複的行匯出成 .txt 到同資料夾的「驗證用」，
  * 並在「每週檢查」寫一份「週檢查資料_日期」文件給每週檢查（docs/rx-samples-weekly-review.md）讀。
+ * 「對照檔查無」「合併多出」兩欄在最後，舊的試算表在下一次寫入時自動補上欄名，舊的列留白。
  * 設定步驟見 README「處方樣本試算表」。
  */
 const FORMAT = 'gtsloth-rx-samples';
@@ -12,7 +13,7 @@ const MAX_PRESCRIPTIONS = 20;
 const MAX_FAILED = 50;
 const MAX_LINE = 8000;
 const SAMPLES = ['收到時間', '送出時間', '程式版本', '規則版本', '批次', 'QR數', '醫事機構代碼', '科別', '年齡層', '性別', '診斷碼', '藥品數',
-  '最高等級', '警示', '注意事項', '未解釋', '查無藥品', '查無診斷', '去識別化內容', '內容摘要', '重複於', '匯出檔'];
+  '最高等級', '警示', '注意事項', '未解釋', '查無藥品', '查無診斷', '去識別化內容', '內容摘要', '重複於', '匯出檔', '對照檔查無', '合併多出'];
 const FAILURES = ['收到時間', '程式版本', '批次', '內容', '整理'];
 const WEEKS = ['整理時間', '起日', '訖日', '新增張數', '重複', '失敗', '院所數', '新院所', '紅', '黃', '黃紅比例', '規則版本', '匯出檔', '檢查資料'];
 const VALIDATION_FOLDER = '驗證用';
@@ -71,6 +72,15 @@ function lineProblem(line) {
   if (f.some(value => value.length > 200)) return '欄位過長';
   return '';
 }
+/** The 健保碼 the page's 六碼 lookup had no 六碼 for: only codes that are on the line itself are kept. */
+function unmappedOf(value, f) {
+  if (!Array.isArray(value)) return [];
+  const codes = {};
+  for (let i = 14; i < f.length; i += 5) codes[f[i]] = true;
+  return value.filter((code, i) => typeof code === 'string' && codes[code] === true && value.indexOf(code) === i);
+}
+/** What checking the same patient's prescriptions together added: caution numbers with their level, or 同成分重複, nothing else. */
+const mergedOf = value => Array.isArray(value) ? value.filter((key, i) => typeof key === 'string' && /^(?:[0-9A-Za-z]{1,8}|同成分重複)[紅黃灰]$/.test(key) && value.indexOf(key) === i) : [];
 /** A failure line names a reason and a field count, nothing scanned. */
 const failureProblem = text => typeof text === 'string' && /^失敗：[^;\r\n\u2028\u2029]{1,160}，欄位數 \d{1,5}$/.test(text) ? '' : '失敗行格式不符';
 
@@ -91,7 +101,7 @@ function write(record) {
     const c = check || {};
     rows.push([received, sent, app, check ? rules : '', batch, qrs, f[0], cell(f[6]), cell(f[5]), f[4], cell(f[11]), String((f.length - 14) / 5),
       ['紅', '黃', '灰'].indexOf(c.top) >= 0 ? c.top : '', list(c.alerts), list(c.cautions), list(c.unexplained),
-      list(c.unknownDrugs), list(c.unknownDx), cell(line, MAX_LINE), digest(line), '', '']);
+      list(c.unknownDrugs), list(c.unknownDx), cell(line, MAX_LINE), digest(line), '', '', list(unmappedOf(item.unmapped, f)), list(mergedOf(item.merged))]);
   }
   for (const text of record.failed) {
     const problem = failureProblem(text);
@@ -161,7 +171,8 @@ function sampleOfRow(row) {
   const split = name => get(name) ? get(name).split(SEP) : [];
   return { received: get('收到時間'), rules: get('規則版本'), qrs: Number(get('QR數')) || 1, institution: get('醫事機構代碼'), dept: get('科別'), age: get('年齡層'),
     sex: get('性別'), dx: get('診斷碼'), top: get('最高等級'), checked: !!get('規則版本'), alerts: split('警示'), cautions: split('注意事項'),
-    unexplained: split('未解釋'), unknownDrugs: split('查無藥品'), unknownDx: split('查無診斷'), line: get('去識別化內容') };
+    unexplained: split('未解釋'), unknownDrugs: split('查無藥品'), unknownDx: split('查無診斷'), unmapped: split('對照檔查無'), merged: split('合併多出'),
+    line: get('去識別化內容') };
 }
 
 /**
@@ -175,6 +186,8 @@ function report(input) {
   const tally = map => ranked(map).map(([key, n]) => `${key} ×${n}`).join('、');
   const out = [];
   const institutions = {}, multi = {}, levels = { 紅: 0, 黃: 0, 灰: 0, '': 0 }, rules = {}, cautions = {}, unknownDrugs = {}, unknownDx = {}, depts = {}, reasons = {};
+  const unmapped = {}, unmappedOther = {}, merged = {};
+  let combined = 0;
   const atcs = {};
   let unchecked = 0;
   for (const row of rows) {
@@ -185,6 +198,10 @@ function report(input) {
     row.cautions.forEach(id => count(cautions, id));
     row.unknownDrugs.forEach(code => count(unknownDrugs, code));
     row.unknownDx.forEach(code => count(unknownDx, code));
+    // A code the NHI drug list does not know either cannot be mapped by its 健保碼: a hospital's own code, a 特材, or an old list.
+    row.unmapped.forEach(code => count(row.unknownDrugs.indexOf(code) >= 0 ? unmappedOther : unmapped, code));
+    if (row.merged.length) combined++;
+    row.merged.forEach(key => count(merged, key));
     const dept = row.dept.trim().toUpperCase();
     if (dept && !(dept.length === 2 || (dept.length === 4 && dept.endsWith('00')))) count(depts, `${dept}（院所 ${row.institution}）`);
     const dx3 = {};
@@ -241,6 +258,9 @@ function report(input) {
   };
   section('注意事項命中（編號＋等級）', cautions);
   section('查無藥品碼（不在健保用藥品項，可能是特材或品項表過舊）', unknownDrugs);
+  section(`同一病人合併比對多出的注意事項（${combined} 張處方；編號＋等級，同成分重複是和同一病人另一張處方重複；看不出是和哪幾張合併）`, merged);
+  section('對照檔查無此健保碼：健保品項查得到，六碼對照檔沒有（請補 sku-nhi-map.csv）', unmapped);
+  section('對照檔查無此健保碼：健保品項也查無（院所自訂碼、特材或品項表過舊；對照檔補不了）', unmappedOther);
   section('查無或舊的診斷碼（查無：表中沒有；類別：只查到前幾碼；舊碼：2014 版已刪除）', unknownDx);
   section('院內科別代碼（不是健保 2 碼，判定時當作科別未知）', depts);
   section('新院所（先前沒出現過的醫事機構代碼，張數）', newInstitutions.reduce((map, code) => { map[code] = institutions[code]; return map; }, {}));
@@ -278,7 +298,11 @@ function selfTest() {
 function sheet(book, name, header) {
   let target = book.getSheetByName(name);
   if (!target) target = book.insertSheet(name);
-  if (target.getLastRow() === 0) { target.getRange(1, 1, 1, header.length).setValues([header]); target.setFrozenRows(1); }
+  if (target.getLastRow() === 0) { target.getRange(1, 1, 1, header.length).setValues([header]); target.setFrozenRows(1); return target; }
+  // Columns added at the end since the sheet was made get their names; the rows before them stay blank there.
+  const names = target.getRange(1, 1, 1, header.length).getValues()[0].map(String);
+  const from = names.findIndex((name, i) => name !== header[i]);
+  if (from >= 0 && names.slice(from).every(name => name === '')) target.getRange(1, from + 1, 1, header.length - from).setValues([header.slice(from)]);
   return target;
 }
 /** Rows go in as plain text, so codes keep their leading zeros and nothing is read as a number, date or formula. Returns the first row. */
