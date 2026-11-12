@@ -4,7 +4,7 @@
 import { postAppsScript } from './apps-script';
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
 import { deidentify, deidentifyDrugs, failureLine, scanKey } from './prescription-sample';
-import { checkPrescription, dxLabel, SUPPLIES, type Level } from './rx-check';
+import { checkPrescription, checkPrescriptions, dxLabel, ingredientBases, SUPPLIES, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 
 export const SAMPLE_FORMAT = 'gtsloth-rx-samples';
@@ -17,6 +17,13 @@ const FAILED = '失敗：';
 /** One prescription as the collector writes it, and how many QRs it was scanned from. */
 export interface PendingSample { line: string; qrs: number }
 /**
+ * A printed prescription as the slip hands it over. unmapped: the 健保碼 the 六碼 lookup has no 六碼 for (對照檔查無此健保碼),
+ * absent when the lookup had not loaded. patient: the same patient's prescriptions on this slip, this one included, in scan
+ * order, as their lines, when there are several: they are checked together for what only the combined check finds. Neither says which other
+ * lines belong to the patient.
+ */
+export interface SampleInput extends PendingSample { unmapped?: string[]; patient?: string[] }
+/**
  * What the rules made of a line: the highest level, each red or yellow drug and note, the cautions that fired (any level),
  * the drugs no diagnosis or department explains, and the codes the NHI drug list or ICD-10-CM table does not know.
  */
@@ -25,7 +32,12 @@ export interface SampleRecord {
   format: typeof SAMPLE_FORMAT; version: 1; app: string; sent: string;
   /** rules.json's version, blank when the rules could not be loaded and no line was checked. */
   rules: string;
-  prescriptions: { line: string; qrs: number; check?: SampleCheck }[];
+  /**
+   * unmapped: as SampleInput's. merged: the cautions (編號＋等級, as in check.cautions) the same patient's prescriptions checked
+   * together give this prescription's drugs and its own check does not, and 同成分重複 with another of the patient's prescriptions
+   * (on the later of them); absent for a patient with one prescription or without the rule data.
+   */
+  prescriptions: { line: string; qrs: number; check?: SampleCheck; unmapped?: string[]; merged?: string[] }[];
   failed: string[];
 }
 
@@ -46,10 +58,13 @@ export function withDrugs(sample: PendingSample, scanned: string): { sample: Pen
 const RANK: Record<Level, number> = { 紅: 0, 黃: 1, 灰: 2 };
 const higher = (a: Level | '', b: Level): Level | '' => !a || RANK[b] < RANK[a] ? b : a;
 const urgent = (level: string): level is '紅' | '黃' => level === '紅' || level === '黃';
+const factsOf = (line: string): RxFacts => {
+  const fields = splitFields(line);
+  return rxFacts(fields, fields[5].trim().toUpperCase(), markedSex(fields[4]));
+};
 /** The check as a pharmacist re-running the line would get it: plain codes, no names. */
 export function sampleCheck(line: string, data: RxData): SampleCheck {
-  const fields = splitFields(line);
-  const rx = rxFacts(fields, fields[5].trim().toUpperCase(), markedSex(fields[4]));
+  const rx = factsOf(line);
   const result = checkPrescription(rx, data.drugs, data.rules);
   const check: SampleCheck = { top: '', alerts: [], cautions: [], unexplained: [], unknownDrugs: [], unknownDx: [] };
   for (const note of result.notes) {
@@ -77,14 +92,47 @@ export function sampleCheck(line: string, data: RxData): SampleCheck {
   return check;
 }
 
+/**
+ * What checking one patient's prescriptions together adds to this one, from the de-identified lines as sampleCheck works: each
+ * caution (編號＋等級) on this prescription's drugs that its own check does not give, a higher level included (an age band read
+ * from another prescription can turn grey into yellow), and 同成分重複 for an ingredient this prescription shares with an
+ * earlier one of the patient's and does not already repeat itself. What the combined check takes away (another prescription's
+ * diagnosis explaining a drug) is not counted. Rule numbers only: nothing in it names or points to the other lines.
+ */
+export function mergedCheck(line: string, patient: string[], data: RxData): string[] {
+  const parts = patient.filter(other => !isFailure(other));
+  const index = parts.indexOf(line);
+  if (parts.length < 2 || index < 0) return [];
+  const facts = parts.map(factsOf);
+  const keys = (notes: { level: Level; text: string }[]) => notes.map(note => `${note.text.split(' ')[0]}${note.level}`);
+  const own = new Set(checkPrescription(facts[index], data.drugs, data.rules).drugs.flatMap(drug => keys(drug.notes)));
+  const added = checkPrescriptions(facts, data.drugs, data.rules).drugs.filter(drug => drug.part === index)
+    .flatMap(drug => keys(drug.notes)).filter(key => !own.has(key));
+  // Each distinct code once per prescription, as the check counts a repeated ingredient.
+  const bases = (rx: RxFacts) => {
+    const counts = new Map<string, number>();
+    for (const code of new Set(rx.drugs.map(drug => drug.code))) {
+      const info = data.drugs.get(code);
+      if (info) for (const base of new Set(ingredientBases(info.ingredients))) counts.set(base, (counts.get(base) ?? 0) + 1);
+    }
+    return counts;
+  };
+  const mine = bases(facts[index]), earlier = facts.slice(0, index).map(bases);
+  if ([...mine].some(([base, n]) => n === 1 && earlier.some(other => other.has(base)))) added.push(`同成分重複${data.rules.repeated}`);
+  return [...new Set(added)];
+}
+
 /** The requests for a printed slip: at most MAX_BATCH prescriptions each, failures with the first. */
-export function sampleRecords(samples: PendingSample[], failed: string[], data: RxData | undefined, app: string, sent: string): SampleRecord[] {
+export function sampleRecords(samples: SampleInput[], failed: string[], data: RxData | undefined, app: string, sent: string): SampleRecord[] {
   const lines = samples.filter(sample => !isFailure(sample.line));
   const failures = [...samples.filter(sample => isFailure(sample.line)).map(sample => sample.line), ...failed].slice(0, MAX_FAILED);
   const records: SampleRecord[] = [];
   for (let i = 0; i < lines.length || (i === 0 && failures.length); i += MAX_BATCH) {
     records.push({ format: SAMPLE_FORMAT, version: 1, app, sent, rules: data?.rulesVersion ?? '',
-      prescriptions: lines.slice(i, i + MAX_BATCH).map(({ line, qrs }) => ({ line, qrs, ...(data ? { check: sampleCheck(line, data) } : {}) })),
+      prescriptions: lines.slice(i, i + MAX_BATCH).map(({ line, qrs, unmapped, patient }) => {
+        const merged = data && patient && patient.length > 1 ? mergedCheck(line, patient, data) : undefined;
+        return { line, qrs, ...(data ? { check: sampleCheck(line, data) } : {}), ...(unmapped ? { unmapped: [...new Set(unmapped)] } : {}), ...(merged ? { merged } : {}) };
+      }),
       failed: i === 0 ? failures : [] });
   }
   return records;

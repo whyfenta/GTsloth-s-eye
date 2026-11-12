@@ -3,7 +3,7 @@ import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { deidentify } from '../src/prescription-sample';
 import { checkPrescription, compileRules, ruleTable, type DrugInfo, type IcdEntry, type RuleTables } from '../src/rx-check';
 import { rulesVersion, type RxData } from '../src/rx-data';
-import { FAILURE_DELAY, FailureLog, MAX_BATCH, MAX_FAILED, SAMPLE_FORMAT, sampleCheck, sampleOf, sampleRecords, sendSamples, withDrugs } from '../src/rx-sample';
+import { FAILURE_DELAY, FailureLog, MAX_BATCH, MAX_FAILED, mergedCheck, SAMPLE_FORMAT, sampleCheck, sampleOf, sampleRecords, sendSamples, withDrugs } from '../src/rx-sample';
 import { samplesOn } from '../src/sample-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -91,6 +91,26 @@ assert.deepEqual(unchecked, [{ format: SAMPLE_FORMAT, version: 1, app: 'x', sent
 assert.deepEqual(sampleRecords([], ['失敗：a，欄位數 1'], data, 'x', 't').map(record => [record.prescriptions.length, record.failed.length]), [[0, 1]]);
 assert.deepEqual(sampleRecords([], [], data, 'x', 't'), []);
 assert.equal(sampleRecords([], Array.from({ length: MAX_FAILED + 5 }, (_, i) => `失敗：${i}，欄位數 1`), data, 'x', 't')[0].failed.length, MAX_FAILED);
+
+// 對照檔查無: the codes the 六碼 lookup has no 六碼 for go as given, once each; absent when the lookup had not loaded.
+const unmappedLine = sampleOf(qr('E11', ['TESTMETF01', 'C.B.ointment 5g'])).line;
+assert.deepEqual(sampleRecords([{ line: unmappedLine, qrs: 1, unmapped: ['C.B.ointment 5g', 'C.B.ointment 5g'] }], [], undefined, 'x', 't')[0].prescriptions[0],
+  { line: unmappedLine, qrs: 1, unmapped: ['C.B.ointment 5g'] });
+assert.ok(!('unmapped' in sampleRecords([{ line: unmappedLine, qrs: 1 }], [], undefined, 'x', 't')[0].prescriptions[0]));
+// 同一病人合併比對: what the patient's prescriptions checked together add to each one's own check, rule numbers only.
+// The first card has no ID number, so no sex: T01 cannot be judged on its own (grey) and is red once the second card gives the sex.
+const noSex = sampleOf(qr('N40', ['TESTDUTA01', 'TESTMETF01'], { 5: '' })).line;
+const withSex = sampleOf(qr('E11', ['TESTMETF01'])).line;
+assert.deepEqual(sampleCheck(noSex, data).cautions, ['T01灰']);
+assert.deepEqual(mergedCheck(noSex, [noSex, withSex], data), ['T01紅']);
+// The same ingredient on two of the patient's prescriptions is counted on the later one.
+assert.deepEqual(mergedCheck(withSex, [noSex, withSex], data), ['同成分重複黃']);
+assert.deepEqual(mergedCheck(withSex, [withSex], data), []);
+const together = sampleRecords([{ line: noSex, qrs: 1, patient: [noSex, withSex] }, { line: withSex, qrs: 1, patient: [noSex, withSex] }, sampleOf(qr('E11', ['TESTOTHR01']))], [], data, 'x', 't')[0];
+assert.deepEqual(together.prescriptions.map(p => p.merged), [['T01紅'], ['同成分重複黃'], undefined]);
+// Nothing in a request ties the patient's lines together beyond the rule numbers; without the rule data there is no merged check.
+assert.ok(!JSON.stringify(together).includes('patient'));
+assert.ok(!('merged' in sampleRecords([{ line: noSex, qrs: 1, patient: [noSex, withSex] }], [], undefined, 'x', 't')[0].prescriptions[0]));
 
 // Each request goes out as the simple text/plain POST the Apps Script takes.
 const calls: [string, RequestInit][] = [];
