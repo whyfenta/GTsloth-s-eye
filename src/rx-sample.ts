@@ -30,9 +30,9 @@ export interface SampleRecord {
 }
 
 export const isFailure = (line: string) => line.startsWith(FAILED);
-/** The first QR of a prescription as its sample line, or the failure line the collector would write. */
-export function sampleOf(scanned: string): PendingSample {
-  try { return { line: deidentify(scanned), qrs: 1 }; } catch (error) { return { line: failureLine(scanned, error), qrs: 1 }; }
+/** The first QR of a prescription as its sample line, or the failure line the collector would write; qrs: how many linked QR codes it was joined from. */
+export function sampleOf(scanned: string, qrs = 1): PendingSample {
+  try { return { line: deidentify(scanned), qrs }; } catch (error) { return { line: failureLine(scanned, error), qrs: 1 }; }
 }
 /** A drugs-only second QR joins its prescription's line, as on the collector; a failed line stays as it is. */
 export function withDrugs(sample: PendingSample, scanned: string): { sample: PendingSample; failed?: string } {

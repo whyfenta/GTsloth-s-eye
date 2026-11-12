@@ -27,12 +27,13 @@ function focusContinuously(track: MediaStreamTrack | undefined) {
   if (track && modes?.includes('continuous')) track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => { /* Keeps the camera's own focus. */ });
 }
 /**
- * Opens the back camera full screen and reads QR codes until read gives a value for one (for linked codes, for all of them joined); a QR it turns down shows texts.other
+ * Opens the back camera full screen and reads QR codes until read gives a value for one (for linked codes, for all of them joined,
+ * with codes their number); a QR it turns down shows texts.other
  * and the camera keeps looking. Resolves with that value, or undefined when closed (the button, Esc or back, or leaving the
  * page); rejects with a message when the camera cannot open. Frames are read in this page only, never kept or sent, and the
  * camera is off as soon as this settles.
  */
-export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: CameraTexts): Promise<T | undefined> {
+export function scanQR<T>(read: (bytes: Uint8Array, codes: number) => T | undefined, texts: CameraTexts): Promise<T | undefined> {
   const dialog = make('dialog', 'qr-camera');
   dialog.setAttribute('aria-label', texts.title);
   const view = make('div', 'qr-camera-view');
@@ -92,7 +93,7 @@ export function scanQR<T>(read: (bytes: Uint8Array) => T | undefined, texts: Cam
           const part = structuredAppend(code.chunks);
           const bytes = part ? parts.add(Uint8Array.from(code.binaryData), part) : Uint8Array.from(code.binaryData);
           if (bytes) {
-            const value = read(bytes);
+            const value = read(bytes, part?.total ?? 1);
             if (value !== undefined) { finish(value); return; }
             note.textContent = texts.other;
           } else if (part) {
