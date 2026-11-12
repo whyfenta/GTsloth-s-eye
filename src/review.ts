@@ -1,7 +1,7 @@
 import './review.css';
 import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-config';
 import { publishedProposals, type Proposal } from './rx-proposals';
-import { CATALOG_FORMAT, CHOICES, PROPOSAL_LABEL, cleanName, closed, done, mergeVotes, proposalItem, reviewerId, stale, tally, teamState, teamStatus, voteRequest,
+import { CATALOG_FORMAT, CHOICES, PROPOSAL_LABEL, cleanName, closed, done, mergeVotes, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest,
   type Catalog, type Chip, type Choice, type Item, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
@@ -54,7 +54,12 @@ const shared = !!REVIEW_ENDPOINT && !!code;
 const codes = (spec: string | undefined) => String(spec ?? '').split(/\s+/).filter(Boolean);
 const rocDate = (id: string) => { const m = /^(\d{4})-?(\d\d)-?(\d\d)/.exec(id); return m ? `${Number(m[1]) - 1911}/${m[2]}/${m[3]}` : ''; };
 const quorum = () => team?.quorum ?? 2;
-const votesOn = (id: string): Record<string, Vote> => ({ ...team?.votes[id], ...(mine[id] ? { [me.id]: mine[id] } : {}) });
+const allVotesOn = (id: string): Record<string, Vote> => ({ ...team?.votes[id], ...(mine[id] ? { [me.id]: mine[id] } : {}) });
+const isPre = (id: string) => preReviewer(id === me.id ? me.name : team?.reviewers[id]);
+/** The pharmacists' votes on an item: these decide where the team stands. */
+const votesOn = (id: string) => splitVotes(allVotesOn(id), isPre).team;
+/** The AI pre-reviews on an item that still apply: shown apart, never counted. */
+const preShownOn = (item: Item) => Object.entries(splitVotes(allVotesOn(item.id), isPre).pre).filter(([, vote]) => !stale(item, vote) && (vote.d || vote.c.trim()));
 const nameOf = (id: string) => id === me.id ? (me.name || '你') : team?.reviewers[id] || '另一位審核者';
 const statusOf = (item: Item): TeamStatus => teamStatus(item, votesOn(item.id), quorum());
 
@@ -187,7 +192,7 @@ function buildCard(item: Item) {
   if (item.approved) { const p = el('p', 'outcome'); p.append(el('b', '', '已結案：'), `${rocDate(item.approved.at)} ${item.approved.n} 位審核者同意，照原樣保留。`); card.append(p); }
 
   const decide = el('div', 'decide');
-  decide.append(el('div', 'votes'), el('div', 'opinions'));
+  decide.append(el('div', 'votes'), el('div', 'opinions'), el('div', 'prereview'));
   if (!closed(item)) {
     const choices = el('div', 'choices');
     for (const value of CHOICES) {
@@ -244,6 +249,15 @@ function updateCard(item: Item) {
     const row = el('div');
     row.append(el('b', '', `${nameOf(opinion.who)}${opinion.d ? `（${label(opinion.d)}）` : ''}：`), opinion.c);
     opinions.append(row);
+  }
+  const pre = card.querySelector('.prereview')!;
+  pre.replaceChildren();
+  const preShown = preShownOn(item);
+  if (preShown.length) pre.append(el('p', 'pre-head', 'AI 預審（非藥師簽核，不計入門檻與分歧）'));
+  for (const [who, { d, c }] of preShown) {
+    const row = el('div');
+    row.append(el('b', '', `${nameOf(who)}${d ? `（${label(d)}）` : ''}${c.trim() ? '：' : ''}`), c.trim());
+    pre.append(row);
   }
 }
 
@@ -326,10 +340,11 @@ function renderTeam() {
   const people = new Set([...Object.keys(team?.reviewers ?? {}), ...(Object.keys(mine).length ? [me.id] : [])]);
   if (!shared || !people.size) { box.hidden = true; return; }
   box.replaceChildren(el('span', '', `團隊（結案門檻：${quorum()} 位同意且無人反對）：`));
-  for (const id of people) {
-    const decided = open.filter(item => { const vote = votesOn(item.id)[id]; return vote?.d && !stale(item, vote); }).length;
+  // Pharmacists first; AI pre-reviews after them, marked as not counted.
+  for (const id of [...people].sort((a, b) => Number(isPre(a)) - Number(isPre(b)))) {
+    const decided = open.filter(item => { const vote = allVotesOn(item.id)[id]; return vote?.d && !stale(item, vote); }).length;
     const span = el('span');
-    span.append(el('b', '', nameOf(id)), ` ${decided}／${open.length}`);
+    span.append(el('b', '', nameOf(id)), ` ${decided}／${open.length}${isPre(id) ? '（AI 預審，不計票）' : ''}`);
     box.append(span);
   }
   box.hidden = false;
@@ -467,13 +482,15 @@ function setupBar() {
     void copy(lines, '審核結果');
   });
   $('copy-team').addEventListener('click', () => {
-    const lines = [['編號', '規則表', '規則', '團隊狀態', '同意', '不同意', '其他意見', '意見']];
+    const lines = [['編號', '規則表', '規則', '團隊狀態', '同意', '不同意', '其他意見', '意見', 'AI 預審（不計票）']];
     for (const item of items) {
       if (closed(item)) continue;
       const counted = tally(item, votesOn(item.id));
-      if (!counted.同意.length && !counted.不同意.length && !counted.其他意見.length && !counted.comments.length) continue;
+      const pre = preShownOn(item);
+      if (!counted.同意.length && !counted.不同意.length && !counted.其他意見.length && !counted.comments.length && !pre.length) continue;
       lines.push([item.id, label[item.table], summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
-        counted.comments.map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ ')]);
+        counted.comments.map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ '),
+        pre.map(([who, vote]) => `${nameOf(who)}${vote.d ? `（${vote.d}）` : ''}：${vote.c.trim()}`).join(' ／ ')]);
     }
     void copy(lines, '團隊統計');
   });
