@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": [
+        "同意",
+        "不同意"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "高",
+        "中",
+        "低"
+      ]
+    },
+    "comment": {
+      "type": "string"
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string"
+          },
+          "u": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "u"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "complexity": {
+          "type": "string",
+          "enum": [
+            "只改規則表",
+            "要改判斷程式",
+            "要新的資料來源"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "complexity",
+        "note"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "decision",
+    "confidence",
+    "comment",
+    "citations",
+    "sources",
+    "implementation"
+  ],
+  "additionalProperties": false
+}
