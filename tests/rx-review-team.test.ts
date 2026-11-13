@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { closed, done, mergeVotes, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
 // The review page's model, the weekly proposals, and docs/rx-review-apps-script.gs run against small fakes of the Google services.
@@ -39,6 +39,27 @@ assert.deepEqual(Object.keys(withPre.pre), ['x']);
 assert.equal(teamStatus(item(), withPre.team, 2), '審核中', 'the pre-review opinion is not a split');
 assert.equal(teamStatus(item(), splitVotes({ a: vote('同意'), x: vote('同意') }, who => preReviewer(names[who])).team, 2), '審核中', 'nor does its agreement count toward the quorum');
 
+// Evidence links: one a line, a short label then an https address; anything else is counted and not kept.
+const typed = parseLinks('仿單：https://mcp.fda.gov.tw/im_detail/A123\n\nhttps://www.nice.org.uk/guidance/ng28?x=1#s2\nFDA label https://www.accessdata.fda.gov/a.pdf\n'
+  + 'http://insecure.example\njavascript:alert(1)\n看這裡 https://a.example/ 和 https://b.example/\nhttps://user@evil.example/\nhttps://mcp.fda.gov.tw/im_detail/A123');
+assert.deepEqual(typed.links, [{ t: '仿單', u: 'https://mcp.fda.gov.tw/im_detail/A123' }, { t: '', u: 'https://www.nice.org.uk/guidance/ng28?x=1#s2' }, { t: 'FDA label', u: 'https://www.accessdata.fda.gov/a.pdf' }]);
+assert.equal(typed.bad, 4, 'http, javascript:, two addresses on a line and an address with a user name are not kept; the repeated one is kept once');
+assert.equal(linksText(typed.links), '仿單 https://mcp.fda.gov.tw/im_detail/A123\nhttps://www.nice.org.uk/guidance/ng28?x=1#s2\nFDA label https://www.accessdata.fda.gov/a.pdf');
+assert.deepEqual(parseLinks(linksText(typed.links)).links, typed.links, 'the box shows the links so they read back the same');
+assert.deepEqual(parseLinks(Array.from({ length: 12 }, (_, n) => `https://e.example/${n}`).join('\n')), { links: Array.from({ length: 10 }, (_, n) => ({ t: '', u: `https://e.example/${n}` })), bad: 2 });
+assert.deepEqual([linkLabel(typed.links[0]), linkLabel(typed.links[1]), linkLabel({ t: '', u: 'https://example.com/' })], ['仿單', 'nice.org.uk/…', 'example.com']);
+assert.deepEqual(cleanLinks([{ t: '仿單', u: 'https://a.example/x' }, { t: 1, u: 'https://b.example/' }, { u: 'javascript:alert(1)' }, null, { t: 'x', u: 'https://a.example/x' }]),
+  [{ t: '仿單', u: 'https://a.example/x' }, { t: '', u: 'https://b.example/' }]);
+assert.deepEqual(cleanLinks('https://a.example/'), []);
+// A vote with only links is an opinion to show, not a decision; the links travel with the vote, and none means no `l` at all.
+const linked: Vote = { d: '', c: '', t: '2026-11-11T01:00:00.000Z', l: [{ t: '仿單', u: 'https://a.example/x' }] };
+assert.deepEqual(tally(item(), { a: linked }).comments, [{ who: 'a', d: '', c: '', l: linked.l }]);
+assert.equal(teamStatus(item(), { a: linked }, 2), '未審');
+assert.deepEqual(voteRequest('x', { id: 'a', name: '王' }, { C1: linked, C2: vote('同意') }).votes, [{ id: 'C1', d: '', c: '', t: linked.t, l: linked.l }, { id: 'C2', d: '同意', c: '', t: '2026-11-11T01:00:00.000Z' }]);
+const linkAnswer = teamState({ ok: true, links: true, votes: { C1: { a: { ...linked, l: [...linked.l!, { t: '', u: 'data:text/html,x' }] } } } });
+assert.ok(!('error' in linkAnswer));
+assert.deepEqual([linkAnswer.linksSaved, linkAnswer.votes.C1.a.l], [true, linked.l], 'a link that is not https is dropped from what the sheet answers');
+
 // Two devices of one reviewer: the later vote stands on each item.
 assert.deepEqual(mergeVotes({ C56: vote('不同意', '2026-11-11T03:00:00.000Z'), C57: vote('同意', '2026-11-11T00:00:00.000Z') }, { C57: vote('其他意見', '2026-11-11T05:00:00.000Z'), C58: vote('同意') }),
   { C56: vote('不同意', '2026-11-11T03:00:00.000Z'), C57: vote('其他意見', '2026-11-11T05:00:00.000Z'), C58: vote('同意') });
@@ -49,7 +70,7 @@ assert.notEqual(reviewerId(), reviewerId());
 assert.deepEqual(teamState(null), { error: '回應格式不對' });
 assert.deepEqual(teamState({ ok: false, error: 'code' }), { error: '團隊代碼不對' });
 const answered = teamState({ ok: true, quorum: 3, reviewers: { a: '王藥師', b: 7 }, votes: { C56: { a: vote('同意'), b: { d: '亂寫', c: '', t: '' } }, C57: 'x' }, proposals: 'x' });
-assert.deepEqual(answered, { quorum: 3, reviewers: { a: '王藥師' }, votes: { C56: { a: vote('同意') } }, proposals: [], skipped: 0, proposalProblem: '' });
+assert.deepEqual(answered, { quorum: 3, reviewers: { a: '王藥師' }, votes: { C56: { a: vote('同意') } }, proposals: [], skipped: 0, proposalProblem: '', linksSaved: false });
 assert.equal((teamState({ ok: true, proposalProblem: '沒有 Drive 權限' }) as { proposalProblem: string }).proposalProblem, '沒有 Drive 權限');
 assert.equal((teamState({ ok: true }) as { quorum: number }).quorum, 2);
 
@@ -201,12 +222,32 @@ assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row 
 // An AI pre-review gets its own column on 統計 and changes none of the counts.
 const codex = { id: 'cccccccccccccccc', name: 'Codex-Sol預審' };
 assert.deepEqual(post(voteRequest(code, codex, { C57: vote('其他意見', '2026-11-11T05:00:00.000Z', 'AI 預審：需補國內仿單'), C58: vote('同意', '2026-11-11T05:00:00.000Z') })), { ok: true, saved: 2 });
-assert.deepEqual(gs.sheet('統計').rows[0], ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）']);
+assert.deepEqual(gs.sheet('統計').rows[0], ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）', '證據連結']);
 assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row => [row[0], row[1], row[2], row[3], row[4], row[7]]),
   [['C56', '1', '0', '1', '王藥師：其他意見、李藥師：同意', ''], ['C57', '0', '1', '0', '王藥師：不同意', 'Codex-Sol預審（其他意見）：AI 預審：需補國內仿單'], ['C58', '0', '0', '0', '', 'Codex-Sol預審（同意）：']]);
 const preRead = teamState(get(code));
 assert.ok(!('error' in preRead));
 assert.equal(teamStatus(item({ id: 'C58' }), splitVotes(preRead.votes.C58, who => preReviewer(preRead.reviewers[who])).team, preRead.quorum), '未審');
+// Evidence links: their own column on 票, read back as sent, gathered with names on 統計; a pre-review's conclusion stays short.
+assert.equal(get(code).links, true, 'the answer says this script keeps links');
+assert.deepEqual(gs.sheet('票').rows[0], ['收到時間', '審核者編號', '審核者', '項目', '決定', '意見', '決定時間', '連結']);
+const evidence = [{ t: '=仿單', u: 'https://mcp.fda.gov.tw/im_detail/A123' }, { t: '', u: 'https://www.nice.org.uk/guidance/ng28' }];
+assert.deepEqual(post(voteRequest(code, codex, { C59: { d: '其他意見', c: '國內仿單未列此禁忌', t: '2026-11-11T05:30:00.000Z', l: evidence } })), { ok: true, saved: 1 });
+assert.deepEqual(post(voteRequest(code, lee, { C59: { d: '', c: '', t: '2026-11-11T05:40:00.000Z', l: [{ t: 'Beers 表 3', u: 'https://example.org/beers.pdf' }] } })), { ok: true, saved: 1 });
+const withEvidence = get(code).votes.C59;
+assert.deepEqual(withEvidence[codex.id], { d: '其他意見', c: '國內仿單未列此禁忌', t: '2026-11-11T05:30:00.000Z', l: evidence });
+assert.deepEqual(withEvidence[lee.id], { d: '', c: '', t: '2026-11-11T05:40:00.000Z', l: [{ t: 'Beers 表 3', u: 'https://example.org/beers.pdf' }] }, 'links alone are kept');
+assert.equal(gs.sheet('票').rows.find(row => row[1] === codex.id && row[3] === 'C59')![7], "'=仿單 https://mcp.fda.gov.tw/im_detail/A123\nhttps://www.nice.org.uk/guidance/ng28");
+assert.deepEqual(gs.sheet('統計').rows.find(row => row[0] === 'C59')!.slice(1),
+  ['0', '0', '0', '', '', '2026-11-11T05:40:00.000Z', 'Codex-Sol預審（其他意見）：國內仿單未列此禁忌',
+    'Codex-Sol預審：=仿單 https://mcp.fda.gov.tw/im_detail/A123\nCodex-Sol預審：https://www.nice.org.uk/guidance/ng28\n李藥師：Beers 表 3 https://example.org/beers.pdf']);
+for (const [links, why] of [['https://a.example/', 'not a list'], [[{ t: '', u: 'http://a.example/' }], 'http'], [[{ t: '', u: 'javascript:alert(1)' }], 'script'],
+  [[{ t: 'a\nb', u: 'https://a.example/' }], 'two-line label'], [[{ t: 'x'.repeat(41), u: 'https://a.example/' }], 'long label'], [[{ t: '', u: `https://a.example/${'x'.repeat(500)}` }], 'long address'],
+  [Array(11).fill({ t: '', u: 'https://a.example/' }), 'eleven']] as [unknown, string][])
+  assert.deepEqual(post({ ...voteRequest(code, lee, { C59: vote('同意', '2026-11-11T05:50:00.000Z') }), votes: [{ id: 'C59', d: '同意', c: '', t: '2026-11-11T05:50:00.000Z', l: links }] }), { ok: false, error: 'links' }, why);
+assert.deepEqual(post(voteRequest(code, codex, { C59: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
+assert.deepEqual(post(voteRequest(code, lee, { C59: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
+assert.equal(get(code).votes.C59, undefined, 'a vote cleared of its links is gone');
 // Take the pre-review out again, so the rest of this test sees the sheet as before.
 assert.deepEqual(post(voteRequest(code, codex, { C57: vote('', '2026-11-11T06:00:00.000Z'), C58: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 2 });
 

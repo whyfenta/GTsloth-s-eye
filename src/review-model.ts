@@ -10,8 +10,13 @@ export const CHOICES = ['同意', '不同意', '其他意見'] as const;
 export type Choice = typeof CHOICES[number];
 /** A proposal is voted on with the same three values, worded for what they mean there. */
 export const PROPOSAL_LABEL: Record<Choice, string> = { 同意: '採用', 不同意: '不採用', 其他意見: '需更多樣本或修改' };
-/** One reviewer's word on one item: the decision ('' while only a comment), the comment, and when it was made. */
-export interface Vote { d: Choice | ''; c: string; t: string }
+/** A link a reviewer gives as evidence: what it is ('' when not said) and an https address. */
+export interface Link { t: string; u: string }
+/**
+ * One reviewer's word on one item: the decision ('' while only a comment), the comment, when it was made, and the evidence
+ * links (left out when there are none), so the comment can stay the conclusion and the addresses sit apart from it.
+ */
+export interface Vote { d: Choice | ''; c: string; t: string; l?: Link[] }
 export type Votes = Record<string, Vote>;
 /** Everyone's votes: item id → reviewer id → vote. */
 export type TeamVotes = Record<string, Record<string, Vote>>;
@@ -51,14 +56,14 @@ export function splitVotes(votes: Record<string, Vote> | undefined, isPre: (who:
   return { team, pre };
 }
 
-export interface Tally { 同意: string[]; 不同意: string[]; 其他意見: string[]; comments: { who: string; d: Choice | ''; c: string }[] }
-/** The votes that still count on an item, by decision, as reviewer ids; comments with them. */
+export interface Tally { 同意: string[]; 不同意: string[]; 其他意見: string[]; comments: { who: string; d: Choice | ''; c: string; l?: Link[] }[] }
+/** The votes that still count on an item, by decision, as reviewer ids; comments and evidence links with them. */
 export function tally(item: Item, votes: Record<string, Vote> | undefined): Tally {
   const result: Tally = { 同意: [], 不同意: [], 其他意見: [], comments: [] };
   for (const [who, vote] of Object.entries(votes ?? {})) {
     if (stale(item, vote)) continue;
     if (vote.d) result[vote.d].push(who);
-    if (vote.c.trim()) result.comments.push({ who, d: vote.d, c: vote.c.trim() });
+    if (vote.c.trim() || vote.l?.length) result.comments.push({ who, d: vote.d, c: vote.c.trim(), ...withLinks(vote.l) });
   }
   return result;
 }
@@ -83,17 +88,63 @@ export function proposalItem(proposal: Proposal, done?: { status: string; decide
     ...(done ? { outcome: `${done.status}（${done.decided}）${done.note ? `：${done.note}` : ''}` } : {}) };
 }
 
+export const MAX_LINKS = 10;
+export const MAX_LINK_LABEL = 40;
+export const MAX_URL = 500;
+/** An address the page will link to: https only, no spaces or control characters, a host, at most 500 characters. */
+export const linkUrl = (u: unknown): u is string => typeof u === 'string' && u.length <= MAX_URL && /^https:\/\/[^\s/?#\\@]+(?:[/?#][^\s]*)?$/.test(u)
+  && !/[\u0000-\u001F\u007F]/.test(u);
+const cleanLabel = (text: string) => cleanName(text).replace(/[\s:：\-–—]+$/, '').slice(0, MAX_LINK_LABEL).trim();
+/** The links as kept on a vote: only when there are some. */
+export const withLinks = (links: Link[] | undefined) => links?.length ? { l: links } : {};
+/**
+ * The evidence box as links: one a line, an optional short label then the address (「仿單 https://…」). Lines that are not
+ * like that, and links past the tenth, are counted in `bad` and not kept; the same address twice is kept once.
+ */
+export function parseLinks(text: string): { links: Link[]; bad: number } {
+  const links: Link[] = [];
+  let bad = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const match = /^(.*?)\s*(https:\/\/\S+)$/.exec(line);
+    const label = match ? cleanLabel(match[1]) : '';
+    if (!match || !linkUrl(match[2]) || /https?:\/\//.test(match[1]) || links.length >= MAX_LINKS) { bad++; continue; }
+    if (!links.some(link => link.u === match[2])) links.push({ t: label, u: match[2] });
+  }
+  return { links, bad };
+}
+/** The links back as the evidence box shows them. */
+export const linksText = (links: Link[] | undefined) => (links ?? []).map(link => link.t ? `${link.t} ${link.u}` : link.u).join('\n');
+/** Links from the network, checked: what is not a proper link is dropped. */
+export function cleanLinks(value: unknown): Link[] {
+  if (!Array.isArray(value)) return [];
+  const links: Link[] = [];
+  for (const link of value.slice(0, MAX_LINKS)) {
+    const { t, u } = (link ?? {}) as Partial<Link>;
+    if (linkUrl(u) && !links.some(other => other.u === u)) links.push({ t: typeof t === 'string' ? cleanLabel(t) : '', u });
+  }
+  return links;
+}
+/** What a link reads as on the page: its label, or the site and a hint of the path. */
+export function linkLabel(link: Link): string {
+  if (link.t) return link.t;
+  try { const url = new URL(link.u); return url.host.replace(/^www\./, '') + (url.pathname.length > 1 || url.search ? '/…' : ''); } catch { return link.u.slice(0, 40); }
+}
+
 /** What the team's sheet answers to a read. */
 export interface TeamState {
   quorum: number; reviewers: Record<string, string>; votes: TeamVotes; proposals: Proposal[]; skipped: number;
   /** Why the sheet could not read the proposal sheets ('' when it could): the owner fixes it in the script editor. */
   proposalProblem: string;
+  /** The sheet's script keeps evidence links: one deployed before them drops them, so the page does not offer the box. */
+  linksSaved: boolean;
 }
 const isVote = (value: unknown): value is Vote => !!value && typeof value === 'object'
   && ['', ...CHOICES].includes((value as Vote).d) && typeof (value as Vote).c === 'string' && typeof (value as Vote).t === 'string';
 /** The answer as the page uses it, or why it cannot: everything from the network is checked before it is shown. */
 export function teamState(answer: unknown): TeamState | { error: string } {
-  const data = answer as { ok?: unknown; error?: unknown; quorum?: unknown; reviewers?: unknown; votes?: unknown; proposals?: unknown; proposalProblem?: unknown };
+  const data = answer as { ok?: unknown; error?: unknown; quorum?: unknown; reviewers?: unknown; votes?: unknown; proposals?: unknown; proposalProblem?: unknown; links?: unknown };
   if (!data || typeof data !== 'object') return { error: '回應格式不對' };
   if (data.ok !== true) return { error: data.error === 'code' ? '團隊代碼不對' : '儲存空間回應錯誤' };
   const reviewers: Record<string, string> = {};
@@ -101,7 +152,7 @@ export function teamState(answer: unknown): TeamState | { error: string } {
   const votes: TeamVotes = {};
   for (const [item, byReviewer] of Object.entries(data.votes ?? {})) {
     if (!byReviewer || typeof byReviewer !== 'object') continue;
-    for (const [who, vote] of Object.entries(byReviewer)) if (isVote(vote)) (votes[item] ??= {})[who] = { d: vote.d, c: vote.c.slice(0, 1000), t: vote.t };
+    for (const [who, vote] of Object.entries(byReviewer)) if (isVote(vote)) (votes[item] ??= {})[who] = { d: vote.d, c: vote.c.slice(0, 1000), t: vote.t, ...withLinks(cleanLinks(vote.l)) };
   }
   const proposals: Proposal[] = [];
   let skipped = 0;
@@ -111,7 +162,7 @@ export function teamState(answer: unknown): TeamState | { error: string } {
   }
   const unique = [...new Map(proposals.map(proposal => [proposal.id, proposal])).values()];
   return { quorum: Number.isInteger(data.quorum) && (data.quorum as number) > 0 ? data.quorum as number : 2, reviewers, votes, proposals: unique, skipped,
-    proposalProblem: typeof data.proposalProblem === 'string' ? data.proposalProblem.slice(0, 200) : '' };
+    proposalProblem: typeof data.proposalProblem === 'string' ? data.proposalProblem.slice(0, 200) : '', linksSaved: data.links === true };
 }
 
 /** This reviewer's votes with what the sheet holds: for each item the later one stands, so two devices do not undo each other. */
@@ -128,8 +179,11 @@ export function reviewerId(random: (bytes: Uint8Array) => Uint8Array = bytes => 
   const letters = 'abcdefghijklmnopqrstuvwxyz0123456789';
   return [...random(new Uint8Array(16))].map(byte => letters[byte % letters.length]).join('');
 }
-/** The request that saves votes; at most 200 at a time. */
+/**
+ * The request that saves votes; at most 200 at a time. A vote's `l` is its evidence links ([{ t: '仿單', u: 'https://…' }], at
+ * most 10): left out, the vote has none. An AI pre-review sends its addresses here and keeps `c` to its conclusion.
+ */
 export function voteRequest(code: string, reviewer: Reviewer, votes: Votes) {
   return { format: REVIEW_FORMAT, version: 1 as const, code, reviewer: { id: reviewer.id, name: cleanName(reviewer.name) },
-    votes: Object.entries(votes).slice(0, 200).map(([id, vote]) => ({ id, d: vote.d, c: vote.c.slice(0, 1000), t: vote.t })) };
+    votes: Object.entries(votes).slice(0, 200).map(([id, vote]) => ({ id, d: vote.d, c: vote.c.slice(0, 1000), t: vote.t, ...withLinks(cleanLinks(vote.l)) })) };
 }
