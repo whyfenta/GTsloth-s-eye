@@ -2,7 +2,7 @@
  * 處方警示 · 規則審核的團隊共用儲存（Google Apps Script，綁定在試算表「GTsloth 規則審核（團隊）」上）。
  * 審核頁（review/，src/review.ts）用 GET 讀全部審核者的決定與每週檢查的提案，用 POST 存一位審核者的決定。
  * 讀寫都要帶團隊代碼：代碼存在指令碼屬性 TEAM_CODE，只出現在負責人分享的連結裡，不在公開的程式或 repo。
- * 這裡只存「誰對哪一條規則選了什麼、寫了什麼意見」，沒有任何處方或病人資料。
+ * 這裡只存「誰對哪一條規則選了什麼、寫了什麼意見、附了哪些證據連結」，沒有任何處方或病人資料。
  * 決定不會自動改規則：負責人請 Claude 讀「統計」分頁，依 docs/reference/rx-rules.md「審核頁」結案。
  * 設定步驟見 README「規則審核頁」。審核頁看不到提案時，在編輯器執行 checkProposals。
  */
@@ -10,9 +10,9 @@ const FORMAT = 'gtsloth-rx-review';
 const MAX_BYTES = 200000;
 const MAX_VOTES = 200;
 const CHOICES = ['同意', '不同意', '其他意見', ''];
-const VOTES = ['收到時間', '審核者編號', '審核者', '項目', '決定', '意見', '決定時間'];
+const VOTES = ['收到時間', '審核者編號', '審核者', '項目', '決定', '意見', '決定時間', '連結'];
 const REVIEWERS = ['審核者編號', '審核者', '第一次', '最近一次'];
-const STATS = ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）'];
+const STATS = ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）', '證據連結'];
 /** A reviewer whose name contains 預審 is an AI pre-review: kept in its own column, never counted (same rule as src/review-model.ts). */
 const preReviewer = name => String(name).indexOf('預審') >= 0;
 const PROPOSAL_FOLDER = '每週檢查';
@@ -20,6 +20,9 @@ const PROPOSAL_NAME = /^(?:週檢查|指引確認)_(\d{8})（提案）$/;
 /** How many weeks of proposal sheets a read returns, newest first. */
 const PROPOSAL_WEEKS = 12;
 const DEFAULT_QUORUM = 2;
+/** Evidence links on one vote: at most this many, each a label of up to 40 characters and an https address (same as src/review-model.ts). */
+const MAX_LINKS = 10;
+const LINK_URL = /^https:\/\/[^\s\/?#\\@]+(?:[\/?#][^\s]*)?$/;
 
 function doGet(e) {
   try {
@@ -67,14 +70,33 @@ function recordProblem(record) {
     if (CHOICES.indexOf(vote.d) < 0) return 'decision';
     if (!plain(vote.c, 1000)) return 'comment';
     if (typeof vote.t !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(vote.t)) return 'time';
+    if (vote.l !== undefined && linksProblem(vote.l)) return 'links';
   }
   return '';
+}
+/** A vote's links: a list of { t: label, u: https address }; anything else turns the whole record down. */
+function linksProblem(links) {
+  if (!Array.isArray(links) || links.length > MAX_LINKS) return true;
+  return links.some(link => !link || !plain(link.t, 40) || /[\t\r\n]/.test(link.t) || !plain(link.u, 500) || !LINK_URL.test(link.u));
+}
+/** The links as one cell: a line each, the label before the address. */
+const linksCell = links => (links || []).map(link => (link.t.trim() ? link.t.trim().replace(/\s+/g, ' ') + ' ' : '') + link.u).join('\n');
+/** And back from the cell: the address is the last word of a line. */
+function linksOf(text) {
+  const links = [];
+  for (const line of String(text || '').replace(/^'/, '').split('\n')) {
+    const at = line.lastIndexOf(' '); const u = line.slice(at + 1).trim();
+    if (LINK_URL.test(u) && links.length < MAX_LINKS) links.push({ t: at > 0 ? line.slice(0, at).trim() : '', u });
+  }
+  return links;
 }
 
 /** One row per reviewer and item: a later vote replaces the earlier one in place. Returns how many votes were written. */
 function write(record) {
   const book = SpreadsheetApp.getActiveSpreadsheet();
   const votes = sheet(book, '票', VOTES); const reviewers = sheet(book, '審核者', REVIEWERS);
+  // A sheet made before a column was added gets the current header.
+  votes.getRange(1, 1, 1, VOTES.length).setValues([VOTES]);
   const now = stamp(new Date());
   const who = record.reviewer; const name = cell(who.name.trim(), 30);
   const rows = votes.getDataRange().getValues().slice(1).map(row => row.map(String));
@@ -83,7 +105,7 @@ function write(record) {
   const added = [];
   let saved = 0;
   for (const vote of record.votes) {
-    const row = [now, who.id, name, vote.id, vote.d, cell(vote.c, 1000), vote.t];
+    const row = [now, who.id, name, vote.id, vote.d, cell(vote.c, 1000), vote.t, cell(linksCell(vote.l), 6000)];
     const index = at[who.id + '|' + vote.id];
     if (index === undefined) { at[who.id + '|' + vote.id] = rows.length + added.length; added.push(row); saved++; continue; }
     const target = index < rows.length ? rows[index] : added[index - rows.length];
@@ -112,16 +134,17 @@ function names(reviewers) {
 function rebuildStats(book, rows, who) {
   const items = {};
   for (const row of rows) {
-    const item = items[row[3]] || (items[row[3]] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], pre: [], last: '' });
+    const item = items[row[3]] || (items[row[3]] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], pre: [], links: [], last: '' });
     const name = who[row[1]] || row[2];
+    for (const link of linksOf(row[7])) item.links.push(name + '：' + (link.t ? link.t + ' ' : '') + link.u);
     if (preReviewer(name)) { if (row[4] || row[5]) item.pre.push(name + (row[4] ? '（' + row[4] + '）' : '') + '：' + row[5].replace(/^'/, '')); continue; }
     if (row[4]) { item[row[4]]++; item.who.push(name + '：' + row[4]); }
     if (row[5]) item.comments.push(name + '：' + row[5].replace(/^'/, ''));
     if (row[6] > item.last) item.last = row[6];
   }
-  const out = Object.keys(items).sort().filter(id => items[id].who.length || items[id].comments.length || items[id].pre.length)
+  const out = Object.keys(items).sort().filter(id => items[id].who.length || items[id].comments.length || items[id].pre.length || items[id].links.length)
     .map(id => [id, String(items[id].同意), String(items[id].不同意), String(items[id].其他意見), cell(items[id].who.join('、'), 2000), cell(items[id].comments.join(' ／ '), 8000), items[id].last,
-      cell(items[id].pre.join(' ／ '), 8000)]);
+      cell(items[id].pre.join(' ／ '), 8000), cell(items[id].links.join('\n'), 20000)]);
   const stats = sheet(book, '統計', STATS);
   // A sheet made before a column was added gets the current header.
   stats.getRange(1, 1, 1, STATS.length).setValues([STATS]);
@@ -137,11 +160,15 @@ function state() {
   const book = SpreadsheetApp.getActiveSpreadsheet();
   const reviewers = names(sheet(book, '審核者', REVIEWERS)); const votes = {};
   for (const row of sheet(book, '票', VOTES).getDataRange().getValues().slice(1).map(values => values.map(String))) {
-    if (!row[4] && !row[5]) continue;
-    (votes[row[3]] || (votes[row[3]] = {}))[row[1]] = { d: row[4], c: row[5].replace(/^'/, ''), t: row[6] };
+    const links = linksOf(row[7]);
+    if (!row[4] && !row[5] && !links.length) continue;
+    const vote = { d: row[4], c: row[5].replace(/^'/, ''), t: row[6] };
+    if (links.length) vote.l = links;
+    (votes[row[3]] || (votes[row[3]] = {}))[row[1]] = vote;
   }
   const read = proposals();
-  const result = { ok: true, quorum: quorum(), reviewers, votes, proposals: read.sheets, proposalProblem: read.problem, time: new Date().toISOString() };
+  // links: this script keeps evidence links, so the page offers the box.
+  const result = { ok: true, quorum: quorum(), reviewers, votes, proposals: read.sheets, proposalProblem: read.problem, links: true, time: new Date().toISOString() };
   const text = JSON.stringify(result);
   // The cache holds 100 KB a key; a larger answer is simply built again on the next read.
   if (text.length < 90000) cache.put('state', text, 60);
@@ -222,7 +249,7 @@ function newCode() {
 /** Run from the editor after setup(): saves one vote as a test reviewer, reads it back, removes it. */
 function selfTest() {
   const id = 'selftest00000000';
-  const record = { format: FORMAT, version: 1, code: property('TEAM_CODE'), reviewer: { id, name: '自我測試' }, votes: [{ id: 'SELFTEST', d: '同意', c: '測試', t: new Date().toISOString().replace(/\.\d+Z$/, 'Z') }] };
+  const record = { format: FORMAT, version: 1, code: property('TEAM_CODE'), reviewer: { id, name: '自我測試' }, votes: [{ id: 'SELFTEST', d: '同意', c: '測試', t: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), l: [{ t: '測試 連結', u: 'https://example.com/a?b=1' }] }] };
   const problem = recordProblem(record);
   if (problem) throw new Error('recordProblem: ' + problem);
   if (!codeOk(record.code)) throw new Error('還沒有團隊代碼，請先執行 setup');
@@ -234,7 +261,7 @@ function selfTest() {
   drop(votes, 1); drop(reviewers, 0);
   rebuildStats(book, votes.getDataRange().getValues().slice(1).map(row => row.map(String)), names(reviewers));
   CacheService.getScriptCache().remove('state');
-  if (!back || !back[id] || back[id].d !== '同意') throw new Error('寫入後讀回不同');
+  if (!back || !back[id] || back[id].d !== '同意' || !back[id].l || back[id].l[0].u !== 'https://example.com/a?b=1' || back[id].l[0].t !== '測試 連結') throw new Error('寫入後讀回不同');
   Logger.log('selfTest ok');
 }
 

@@ -129,6 +129,14 @@ button, input, textarea { font: inherit; color: inherit }
 .choice[data-v="其他意見"][aria-pressed="true"] { background: var(--other); border-color: var(--other); color: var(--surface) }
 .clear { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0 4px }
 .comment { width: 100%; min-height: 2.6em; resize: vertical; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 6px 10px; font-size: 14px }
+.comment.linkbox { min-height: 2.2em; font-size: 13px; field-sizing: content; max-height: 14em }
+.comment:disabled { opacity: .6; cursor: not-allowed }
+.linkhint { margin: -4px 0 0; font-size: 12px; color: var(--muted); min-height: 0 }
+.linkhint:empty { display: none }
+.linkhint.warn { color: var(--other) }
+.vlinks { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: 13px }
+.vlinks a { overflow-wrap: anywhere; text-underline-offset: 2px }
+.vlinks a::after { content: " ↗"; font-size: 11px }
 footer { color: var(--muted); font-size: 13px; display: grid; gap: 6px }
 @media (max-width: 560px) {
   h1 { font-size: 22px }

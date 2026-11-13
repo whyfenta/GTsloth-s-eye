@@ -1,8 +1,8 @@
 import './review.css';
 import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-config';
 import { publishedProposals, type Proposal } from './rx-proposals';
-import { CATALOG_FORMAT, CHOICES, PROPOSAL_LABEL, cleanName, closed, done, mergeVotes, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest,
-  type Catalog, type Chip, type Choice, type Item, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
+import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
+  teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
 // npm run rx-review-page); the team's votes and the weekly proposals come from the team's sheet (docs/rx-review-apps-script.gs),
@@ -59,9 +59,22 @@ const isPre = (id: string) => preReviewer(id === me.id ? me.name : team?.reviewe
 /** The pharmacists' votes on an item: these decide where the team stands. */
 const votesOn = (id: string) => splitVotes(allVotesOn(id), isPre).team;
 /** The AI pre-reviews on an item that still apply: shown apart, never counted. */
-const preShownOn = (item: Item) => Object.entries(splitVotes(allVotesOn(item.id), isPre).pre).filter(([, vote]) => !stale(item, vote) && (vote.d || vote.c.trim()));
+const preShownOn = (item: Item) => Object.entries(splitVotes(allVotesOn(item.id), isPre).pre).filter(([, vote]) => !stale(item, vote) && (vote.d || vote.c.trim() || vote.l?.length));
 const nameOf = (id: string) => id === me.id ? (me.name || '你') : team?.reviewers[id] || '另一位審核者';
 const statusOf = (item: Item): TeamStatus => teamStatus(item, votesOn(item.id), quorum());
+/** The team's sheet runs a script from before evidence links: what is typed in the box would be lost, so it is not offered. */
+const linksOff = () => shared && !!team && !team.linksSaved;
+/** Evidence links as short labels, each opening the full address in a new tab. */
+function linkRow(links: Link[] | undefined) {
+  const box = el('div', 'vlinks');
+  for (const link of links ?? []) {
+    const a = el('a', '', linkLabel(link));
+    a.href = link.u; a.title = link.u; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    box.append(a);
+  }
+  return box;
+}
+const linksLine = (links: Link[] | undefined) => (links ?? []).map(link => link.t ? `${link.t} ${link.u}` : link.u).join(' ');
 
 /** One line per ATC code: the code, its Chinese class name, then the ingredients (brand seen in the samples). C08@HS counts only at bedtime. */
 function drugList(spec: string | undefined, max = 6) {
@@ -210,7 +223,13 @@ function buildCard(item: Item) {
     comment.placeholder = '意見（不同意或其他意見時，請寫原因或要怎麼改）';
     comment.setAttribute('aria-label', `${item.id} 的意見`);
     comment.addEventListener('input', () => remark(item, comment.value));
-    decide.append(choices, comment);
+    const evidence = el('textarea', 'comment linkbox');
+    evidence.rows = 1; evidence.maxLength = 6000;
+    evidence.setAttribute('aria-label', `${item.id} 的證據連結`);
+    const hint = el('p', 'linkhint');
+    hint.setAttribute('aria-live', 'polite');
+    evidence.addEventListener('input', () => attach(item, evidence.value));
+    decide.append(choices, comment, evidence, hint);
   }
   card.append(decide);
   return card;
@@ -226,9 +245,17 @@ function updateCard(item: Item) {
   pill.textContent = closed(item) ? '已結案' : finished ? '你已審' : again ? '內容已改，請重審' : '待你審';
   for (const button of card.querySelectorAll<HTMLButtonElement>('.choice')) button.setAttribute('aria-pressed', String(button.dataset.v === vote?.d));
   const clear = card.querySelector<HTMLButtonElement>('.clear');
-  if (clear) clear.hidden = !vote?.d && !vote?.c?.trim();
-  const comment = card.querySelector<HTMLTextAreaElement>('.comment');
+  if (clear) clear.hidden = !vote?.d && !vote?.c?.trim() && !vote?.l?.length;
+  const comment = card.querySelector<HTMLTextAreaElement>('.comment:not(.linkbox)');
   if (comment && document.activeElement !== comment && comment.value !== (vote?.c ?? '')) comment.value = vote?.c ?? '';
+  const evidence = card.querySelector<HTMLTextAreaElement>('.linkbox');
+  if (evidence) {
+    const off = linksOff() && !vote?.l?.length;
+    evidence.disabled = off;
+    evidence.placeholder = off ? '證據連結：負責人更新試算表的指令碼後才能存' : `證據連結（選填，一行一個，最多 ${MAX_LINKS} 個）：說明 https://…，例如「仿單 https://…」`;
+    if (document.activeElement !== evidence && linksText(parseLinks(evidence.value).links) !== linksText(vote?.l)) evidence.value = linksText(vote?.l);
+    linkHint(card, evidence.value);
+  }
 
   const counted = tally(item, votesOn(item.id));
   const label = (value: Choice) => item.table === 'proposals' ? PROPOSAL_LABEL[value] : value;
@@ -247,16 +274,18 @@ function updateCard(item: Item) {
   for (const opinion of counted.comments) {
     if (opinion.who === me.id && !closed(item)) continue;
     const row = el('div');
-    row.append(el('b', '', `${nameOf(opinion.who)}${opinion.d ? `（${label(opinion.d)}）` : ''}：`), opinion.c);
+    row.append(el('b', '', `${nameOf(opinion.who)}${opinion.d ? `（${label(opinion.d)}）` : ''}${opinion.c ? '：' : ''}`), opinion.c);
+    if (opinion.l?.length) row.append(linkRow(opinion.l));
     opinions.append(row);
   }
   const pre = card.querySelector('.prereview')!;
   pre.replaceChildren();
   const preShown = preShownOn(item);
   if (preShown.length) pre.append(el('p', 'pre-head', 'AI 預審（非藥師簽核，不計入門檻與分歧）'));
-  for (const [who, { d, c }] of preShown) {
+  for (const [who, { d, c, l }] of preShown) {
     const row = el('div');
     row.append(el('b', '', `${nameOf(who)}${d ? `（${label(d)}）` : ''}${c.trim() ? '：' : ''}`), c.trim());
+    if (l?.length) row.append(linkRow(l));
     pre.append(row);
   }
 }
@@ -360,7 +389,7 @@ const sayStore = (text: string, warn = false) => { const node = $('store'); node
 
 function choose(item: Item, value: Choice | '', wipe = false) {
   if (shared && !me.name) { needName(); return; }
-  const vote: Vote = { d: value, c: wipe ? '' : mine[item.id]?.c ?? '', t: new Date().toISOString() };
+  const vote: Vote = { d: value, c: wipe ? '' : mine[item.id]?.c ?? '', t: new Date().toISOString(), ...(wipe ? {} : withLinks(mine[item.id]?.l)) };
   mine = { ...mine, [item.id]: vote };
   changed(item);
 }
@@ -369,8 +398,28 @@ function remark(item: Item, text: string) {
   const before = mine[item.id];
   // A comment alone does not count as a new decision on a rule that changed since.
   const t = before?.d && stale(item, before) ? before.t : new Date().toISOString();
-  mine = { ...mine, [item.id]: { d: before?.d ?? '', c: text, t } };
+  mine = { ...mine, [item.id]: { d: before?.d ?? '', c: text, t, ...withLinks(before?.l) } };
   changed(item, true);
+}
+/** The evidence box changed: its proper links are kept with the vote, like a comment (not a new decision on a changed rule). */
+function attach(item: Item, text: string) {
+  if (shared && !me.name) { needName(); return; }
+  const before = mine[item.id];
+  const { links } = parseLinks(text);
+  const card = document.getElementById(`card-${item.id}`);
+  if (card) linkHint(card, text);
+  if (linksText(links) === linksText(before?.l)) return;
+  const t = before?.d && stale(item, before) ? before.t : new Date().toISOString();
+  mine = { ...mine, [item.id]: { d: before?.d ?? '', c: before?.c ?? '', t, ...withLinks(links) } };
+  changed(item, true);
+}
+/** Under the evidence box: which lines will not be kept, and why. */
+function linkHint(card: HTMLElement, text: string) {
+  const hint = card.querySelector('.linkhint');
+  if (!hint) return;
+  const { links, bad } = parseLinks(text);
+  hint.textContent = !bad ? '' : links.length >= MAX_LINKS ? `最多存 ${MAX_LINKS} 個連結，另外 ${bad} 行不會存` : `有 ${bad} 行不會存：每行要以 https:// 開頭的網址結尾，前面可寫簡短說明`;
+  hint.classList.toggle('warn', !!bad);
 }
 function changed(item: Item, typing = false) {
   stored = keep(KEYS.votes, mine);
@@ -477,20 +526,22 @@ function setupBar() {
     }
   };
   $('copy-mine').addEventListener('click', () => {
-    const lines = [['編號', '規則表', '規則', '決定', '意見', '狀態']];
-    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label[item.table], summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審']); }
+    const lines = [['編號', '規則表', '規則', '決定', '意見', '狀態', '證據連結']];
+    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label[item.table], summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審', linksLine(vote.l)]); }
     void copy(lines, '審核結果');
   });
   $('copy-team').addEventListener('click', () => {
-    const lines = [['編號', '規則表', '規則', '團隊狀態', '同意', '不同意', '其他意見', '意見', 'AI 預審（不計票）']];
+    const lines = [['編號', '規則表', '規則', '團隊狀態', '同意', '不同意', '其他意見', '意見', 'AI 預審（不計票）', '證據連結']];
     for (const item of items) {
       if (closed(item)) continue;
       const counted = tally(item, votesOn(item.id));
       const pre = preShownOn(item);
       if (!counted.同意.length && !counted.不同意.length && !counted.其他意見.length && !counted.comments.length && !pre.length) continue;
       lines.push([item.id, label[item.table], summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
-        counted.comments.map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ '),
-        pre.map(([who, vote]) => `${nameOf(who)}${vote.d ? `（${vote.d}）` : ''}：${vote.c.trim()}`).join(' ／ ')]);
+        counted.comments.filter(opinion => opinion.c).map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ '),
+        pre.map(([who, vote]) => `${nameOf(who)}${vote.d ? `（${vote.d}）` : ''}：${vote.c.trim()}`).join(' ／ '),
+        [...counted.comments.map(opinion => [opinion.who, opinion.l] as const), ...pre.map(([who, vote]) => [who, vote.l] as const)]
+          .filter(([, links]) => links?.length).map(([who, links]) => `${nameOf(who)}：${linksLine(links)}`).join(' ／ ')]);
     }
     void copy(lines, '團隊統計');
   });
