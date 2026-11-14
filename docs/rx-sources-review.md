@@ -26,6 +26,7 @@
    - 來源換版或要加入清單：類型 `待決定`，標題寫「〔來源〕換到某版」或「加入〔來源〕」，`evidence` 寫版本、日期與出處網址以外的重點（網址放 `note`）。
    - 規則的修改：類型 `新增規則`、`修改規則`、`刪除規則`，`file`、`row` 照規則表，`evidence` 寫是哪個來源的哪一版、哪一條，`trial` 照第 3 步寫。
    - 清單本身該更新的欄位（上次確認日期、目前版本）合成一項，類型 `待決定`，標題「更新依據來源清單的確認日期」，`note` 列出每個來源要填的日期與版本，讓負責人請 Claude 一次改完。
+   - 提到 ICD-10 碼時照 [`rx-samples-weekly-review.md`](rx-samples-weekly-review.md) 第 11 步「診斷碼附中文」寫成「碼（中文診斷）」。
    - `id` 用 `P`＋今天的日期＋兩位數序號。寫成暫存目錄的 `提案.json`，執行 `npm run -s rx-proposals -- 暫存目錄/提案.json --out 暫存目錄/提案.csv`，通過後用 `create_file` 建立在「每週檢查」，標題「指引確認_YYYYMMDD（提案）」，`contentMimeType` 設 `text/csv`（會變成 Google 試算表）。沒有提案時不建立。
 6. **寫報告**：用 `create_file` 在「每週檢查」建立 Google 文件「指引確認_YYYYMMDD（審閱）」（今天的日期；`textContent` 用 markdown，`contentMimeType` 設 `text/markdown`）。章節：
    1. 摘要（3～5 行：確認了幾個來源、幾個有新版或新通報、影響幾條規則、提案幾項）

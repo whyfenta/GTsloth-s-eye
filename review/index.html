@@ -15,7 +15,7 @@
 <body>
   <div class="wrap">
     <header class="top">
-      <h1>處方警示規則審核</h1>
+      <div class="toprow"><h1>處方警示規則審核</h1><button class="action mode" id="mode" type="button">卡片模式</button></div>
       <p class="lede">每條規則與每週檢查的提案都可以選「同意」「不同意」或「其他意見」並寫下原因，選了就自動存檔，團隊成員看得到彼此的決定。達到門檻的規則由負責人結案；有不同意見的由負責人決定怎麼改。這一頁沒有任何處方或病人資料。</p>
     </header>
 
@@ -27,6 +27,8 @@
     </section>
 
     <section class="latest" id="latest" hidden aria-label="最新一批"></section>
+
+    <section class="deck" id="deck" hidden aria-label="卡片模式"></section>
 
     <details class="basis">
       <summary>規則的依據是什麼、怎麼審</summary>
