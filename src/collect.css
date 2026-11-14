@@ -5,3 +5,4 @@
 .collect-multi{margin:16px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fbf7ec}.collect-multi h3{font-size:14px;margin:0}.collect-multi .hint{margin:6px 0 0}.collect-multi ul{margin:8px 0 10px;padding-left:1.2em;font-size:13px;line-height:1.7}
 @keyframes collect-flash{from{background:#f4e3b5}}
 @media(max-width:900px){.collect-grid{grid-template-columns:1fr}}
+.collect-moved{margin:20px 0 0;padding:12px 16px;border:1px solid #d5ddc8;border-radius:10px;background:#edf0e2;font-size:14px;line-height:1.7}.collect-moved a{font-weight:600}

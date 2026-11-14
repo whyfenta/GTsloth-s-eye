@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#234d43" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <meta name="description" content="樹懶的算數，掃描處方 QR 或手動輸入，以轉盤查看連處每次領藥與回診日期，並列印領藥憑單。" />
+  <meta name="description" content="樹懶的算數，掃描處方 QR 或手動輸入，以轉盤查看連處每次領藥與回診日期，列印領藥憑單，或批次蒐集去識別化的處方樣本。" />
   <title>樹懶的算數 · 連處領藥試算</title>
 </head>
 <body>
@@ -20,15 +20,16 @@
           <div class="mode-switch" role="radiogroup" aria-label="選擇用途">
             <label><input type="radio" name="mode" value="calc" checked /><span>試算</span></label>
             <label><input type="radio" name="mode" value="slip" /><span>憑單</span></label>
+            <label data-batch hidden><input type="radio" name="mode" value="batch" /><span>批次蒐集</span></label>
           </div>
           <form id="prescription-form" autocomplete="off">
-            <label for="prescription-date"><span class="calc-only">處方日期</span><span class="slip-only">處方 QR</span></label>
+            <label for="prescription-date"><span class="calc-only">處方日期</span><span class="slip-only">處方 QR</span><span class="batch-only">處方 QR</span></label>
             <div class="date-entry">
               <input id="prescription-date" type="text" placeholder="掃碼或選擇日期" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
               <span class="calendar-control calc-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><input id="date-picker" type="date" aria-label="選擇處方日期" /></span>
               <button type="button" id="qr-camera" class="camera-control slip-only" aria-label="用相機掃描處方 QR" title="用相機掃描處方 QR" data-camera hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3V8Zm9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></button>
             </div>
-            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">如病患/家屬多張處方有區間重疊，可在此連續刷入。<span data-camera hidden>手機可按右側相機鈕掃描，掃到處方 QR 即關閉鏡頭、回到憑單。</span></span></p>
+            <p id="date-help" class="hint"><span class="calc-only">點此欄位直接掃碼，或按右側日曆選擇日期。</span><span class="slip-only">如病患/家屬多張處方有區間重疊，可在此連續刷入。<span data-camera hidden>手機可按右側相機鈕掃描，掃到處方 QR 即關閉鏡頭、回到憑單。</span></span><span class="batch-only">下班前把今天的處方 QR 連續刷進來，每刷一張右側加一張，同一張重刷不會重複加入；處方有兩個 QR 時先刷第 1 個、再刷第 2 個。不限處方類型與天數，白天已列印憑單的處方再刷一次也沒關係，每週整理時會去掉重複。</span></p>
             <p id="qr-status" class="hint" role="status" aria-live="polite"></p>
             <div class="calc-only">
               <label for="days">給藥日份</label><select id="days" required><option value="">請選擇</option><option value="28">28 天</option><option value="29">29 天</option><option value="30">30 天</option></select>
@@ -37,6 +38,12 @@
             </div>
           </form>
           <div class="slip-only clear-row"><button type="button" id="slip-clear" class="clear-button">清空憑單</button></div>
+          <div class="batch-only">
+            <p class="batch-count">已收 <strong id="batch-collected">0</strong> 張<span id="batch-detail"></span></p>
+            <div class="form-actions"><button type="button" class="primary" id="batch-import" disabled>確認匯入</button></div>
+            <p class="hint">按「確認匯入」把這一批的去識別化資料送到處方樣本試算表，不另存檔案。姓名、身分證與生日只留在本頁記憶體，用來把同一病人的處方排在一起、合併比對處方警示，不送出；這台電腦的瀏覽器只保存去識別化後的清單，誤關分頁重開仍在。</p>
+            <div class="clear-row"><button type="button" id="batch-clear" class="clear-button" disabled>清空批次</button></div>
+          </div>
         </section>
         <section class="panel result-panel" aria-labelledby="result-title"><h2 id="result-title">領藥日期建議</h2><div id="result" aria-live="polite"><p class="empty-result">填好處方日期與給藥日份，結果就會出現在這裡。</p></div></section>
         <section class="panel slip-panel" id="slip-panel" aria-labelledby="slip-title">
@@ -52,6 +59,11 @@
             <p id="slip-status" class="hint" role="status" aria-live="polite"></p>
             <div class="form-actions slip-actions"><button type="button" class="primary" id="slip-print">列印憑單</button><p id="slip-sample-note" class="hint" hidden>列印後，本處方之去識別化資料將傳回至開發者，用來持續統計及改進處方警示能力。</p></div>
           </div>
+        </section>
+        <section class="panel batch-panel" id="batch-panel" aria-labelledby="batch-title">
+          <h2 id="batch-title">批次蒐集</h2>
+          <p id="batch-empty" class="empty-result">刷入處方 QR 後，會依病人列在這裡；同一病人的多張處方排在一起，處方警示合併比對。</p>
+          <ol id="batch-groups" class="batch-groups" hidden></ol>
         </section>
       </div>
       <aside class="calculation-note"><h2>試算依據</h2><p>依原試算表的餘藥量少於 10 天規則推算；延遲領藥以今天重新計算，前次逾期領藥以前次領藥日重新計算，都受原處方失效日限制。</p><p>出國等特殊情況、病情變更及血糖試紙跨月規則，請另行核對。本工具不記錄實際調劑；憑單的六碼與品名只依網站內附的商品代號查詢檔查表，不另判斷藥品身分。</p><p>領藥憑單的「領藥最終有效時間」為失效日前一天；病人姓名、身分證與生日只留在本頁記憶體供列印，身分證與生日只印在門市存查聯。列印後的下一次掃碼、清空憑單或關閉頁面即清除。</p></aside>

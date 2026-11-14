@@ -58,13 +58,14 @@ export function withDrugs(sample: PendingSample, scanned: string): { sample: Pen
 const RANK: Record<Level, number> = { 紅: 0, 黃: 1, 灰: 2 };
 const higher = (a: Level | '', b: Level): Level | '' => !a || RANK[b] < RANK[a] ? b : a;
 const urgent = (level: string): level is '紅' | '黃' => level === '紅' || level === '黃';
-const factsOf = (line: string): RxFacts => {
+/** What the check reads from a de-identified line: the age band and sex are the ones the line keeps. */
+export const lineFacts = (line: string): RxFacts => {
   const fields = splitFields(line);
   return rxFacts(fields, fields[5].trim().toUpperCase(), markedSex(fields[4]));
 };
 /** The check as a pharmacist re-running the line would get it: plain codes, no names. */
 export function sampleCheck(line: string, data: RxData): SampleCheck {
-  const rx = factsOf(line);
+  const rx = lineFacts(line);
   const result = checkPrescription(rx, data.drugs, data.rules);
   const check: SampleCheck = { top: '', alerts: [], cautions: [], unexplained: [], unknownDrugs: [], unknownDx: [] };
   for (const note of result.notes) {
@@ -103,7 +104,7 @@ export function mergedCheck(line: string, patient: string[], data: RxData): stri
   const parts = patient.filter(other => !isFailure(other));
   const index = parts.indexOf(line);
   if (parts.length < 2 || index < 0) return [];
-  const facts = parts.map(factsOf);
+  const facts = parts.map(lineFacts);
   const keys = (notes: { level: Level; text: string }[]) => notes.map(note => `${note.text.split(' ')[0]}${note.level}`);
   const own = new Set(checkPrescription(facts[index], data.drugs, data.rules).drugs.flatMap(drug => keys(drug.notes)));
   const added = checkPrescriptions(facts, data.drugs, data.rules).drugs.filter(drug => drug.part === index)
