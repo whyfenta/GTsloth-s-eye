@@ -518,11 +518,33 @@ const deck = createDeck({
   quorum, atc: () => catalog?.atc ?? {}, buildCard, updateCard,
   ready: () => { if (shared && !me.name) { needName(); return false; } return true; },
   agree: item => choose(item, '同意'), restore,
+  name: () => me.name, setName: applyName, isPre,
+  nameOf: id => id === me.id ? me.name : team?.reviewers[id] ?? '',
 }, $('deck'));
+/** Keeps this reviewer's name (the box at the top or the card mode's first card share it); says why not, '' when kept. */
+function applyName(value: string): string {
+  const cleaned = cleanName(value);
+  if (!cleaned) return '請填你的名字或暱稱。';
+  // 預審 marks an AI pre-review, whose votes never count: a pharmacist's name must not have it.
+  if (preReviewer(cleaned)) return '名字裡不要有「預審」兩個字：那是 AI 預審的標記，用了你的票會不被計入。';
+  me = { ...me, name: cleaned };
+  keep(KEYS.me, me);
+  $<HTMLInputElement>('name').value = cleaned;
+  delete $('me').dataset.need;
+  sayStore(shared ? `名字已儲存：${cleaned}。` : `名字已儲存在這個瀏覽器：${cleaned}。`);
+  // The name travels with a vote: sending the votes again carries the new one.
+  if (shared) { for (const id of Object.keys(mine)) pending.add(id); void save(); }
+  for (const item of items) updateCard(item);
+  renderTeam();
+  return '';
+}
 function setMode(mode: Mode, remember = false) {
   view.mode = mode;
   if (remember) keep(KEYS.mode, mode);
   document.body.classList.toggle('deck-mode', mode === 'deck');
+  document.documentElement.classList.toggle('deck-mode', mode === 'deck');
+  // The card mode asks for the name on its first card; the list asks in the box at the top.
+  if (mode === 'list' && shared && !me.name) needName();
   $('deck').hidden = mode !== 'deck';
   $('mode').textContent = mode === 'deck' ? '清單模式' : '卡片模式';
   $('mode').title = mode === 'deck' ? '改成一次看全部規則的清單' : '改成一次一張的卡片，每天一小疊';
@@ -583,17 +605,8 @@ function setupBar() {
   const name = $<HTMLInputElement>('name');
   name.value = me.name;
   const saveName = () => {
-    const cleaned = cleanName(name.value);
-    if (!cleaned) { needName(); return; }
-    me = { ...me, name: cleaned };
-    keep(KEYS.me, me);
-    name.value = cleaned;
-    delete $('me').dataset.need;
-    sayStore(shared ? `名字已儲存：${cleaned}。` : `名字已儲存在這個瀏覽器：${cleaned}。`);
-    // The name travels with a vote: sending the votes again carries the new one.
-    if (shared) { for (const id of Object.keys(mine)) pending.add(id); void save(); }
-    for (const item of items) updateCard(item);
-    renderTeam();
+    const problem = applyName(name.value);
+    if (problem) { needName(); sayStore(problem, true); }
   };
   $('save-name').addEventListener('click', saveName);
   name.addEventListener('keydown', event => { if (event.key === 'Enter') saveName(); });
@@ -648,7 +661,7 @@ async function start() {
   renderCounts();
   if (view.mode === 'deck') deck.show();
   if (shared) {
-    if (!me.name) needName();
+    if (!me.name && view.mode === 'list') needName();
     await load(true);
     setInterval(() => { if (!document.hidden) void load(); }, POLL);
   }

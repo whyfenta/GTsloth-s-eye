@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import type { Item, Vote } from '../src/review-model';
-import { atcCodes, bossSlot, candidate, dayKey, decidedOn, firstOn, fresh, goalOf, learnedClasses, nextCard, oneVoteAway, reachedBy, teamWeek, weekDays, weekStart, type Candidate } from '../src/review-progress';
+import { atcCodes, bossSlot, candidate, dayKey, decidedOn, firstOn, fresh, goalOf, learnedClasses, nextCard, oneVoteAway, reachedBy, teamWeek, weekBy, weekDays, weekStart, type Candidate } from '../src/review-progress';
 
 // The review page's card mode: today's stack, this week, what this reviewer moved forward, and which card comes next.
 // Times are built in local time, as the page counts days in the reviewer's own time zone.
@@ -91,5 +91,15 @@ assert.deepEqual(candidate(rule, vote('同意', at(9)), { p: vote('同意') }, {
   { id: 'C56', oneAway: true, pre: false, again: true, fresh: false });
 assert.deepEqual(candidate(rule, undefined, {}, { pre: vote('同意') }, true, 2), { id: 'C56', oneAway: false, pre: true, again: false, fresh: false });
 assert.deepEqual(candidate(rule, undefined, {}, {}, false, 2), { id: 'C56', oneAway: false, pre: false, again: false, fresh: true });
+
+// Who reviewed this week: by name (two devices of one person count once per item), pharmacists only, decisions since Monday.
+const names: Record<string, string> = { a1: '王藥師', a2: '王藥師', b: '林藥師', pre: 'Codex-Sol預審', z: '' };
+const since = weekStart(new Date(2026, 10, 18));
+assert.deepEqual(weekBy([
+  { a1: vote('同意', at(16)), a2: vote('同意', at(17)), b: vote('不同意', at(17)), pre: vote('同意', at(17)) },
+  { a2: vote('同意', at(18)), b: vote('', at(18), '只寫意見'), z: vote('同意', at(18)) },
+  { b: vote('同意', at(14)) },
+], who => names[who] ?? '', who => !who.startsWith('pre'), since), [{ name: '林藥師', n: 1 }, { name: '王藥師', n: 2 }].sort((x, y) => x.name.localeCompare(y.name, 'zh-Hant')));
+assert.deepEqual(weekBy([], () => '', () => true, since), []);
 
 console.log('rx-review-deck: ok');

@@ -1,5 +1,5 @@
 import { closed, done, tally, type Catalog, type Item, type Vote, type Votes } from './review-model';
-import { bossSlot, candidate, dayKey, decidedOn, firstOn, goalOf, GOALS, learnedClasses, nextCard, reachedBy, teamWeek, weekDays, weekStart } from './review-progress';
+import { bossSlot, candidate, dayKey, decidedOn, firstOn, goalOf, GOALS, learnedClasses, nextCard, reachedBy, teamWeek, weekBy, weekDays, weekStart } from './review-progress';
 
 // The review page's card mode, for phones: one card at a time and a small stack a day instead of the whole list. Swipe right
 // (or 同意) agrees, swipe left (or 稍後) puts the card back for later without a word; 有意見 opens the card's own boxes for
@@ -22,6 +22,14 @@ export interface DeckHost {
   updateCard(item: Item): void;
   /** False (and the name box asks for a name) when a decision cannot be made yet. */
   ready(): boolean;
+  /** This reviewer's name ('' before one is given). */
+  name(): string;
+  /** Keeps the name; says why not ('' when kept). */
+  setName(value: string): string;
+  /** A reviewer's name as they gave it ('' when not known). */
+  nameOf(who: string): string;
+  /** An AI pre-review: never counted. */
+  isPre(who: string): boolean;
   agree(item: Item): void;
   /** Takes back a decision made here: the vote goes back to what it was, as a new change. */
   restore(item: Item, before: Vote | undefined): void;
@@ -30,7 +38,7 @@ export interface DeckHost {
 const KEYS = { goal: 'gtsloth-review-goal', skip: 'gtsloth-review-skip', days: 'gtsloth-review-days', stacks: 'gtsloth-review-stacks' };
 const WEEK = ['一', '二', '三', '四', '五', '六', '日'];
 /** How long a card is shown before a swipe can agree: a glance is not a review. A challenge card waits longer. */
-const LOOK = 1200, LOOK_BOSS = 3000;
+const LOOK = 800, LOOK_BOSS = 2500;
 const TOAST = 5000;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
@@ -55,7 +63,7 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
   const skipSaved = read<{ date: string; ids: string[] }>(KEYS.skip);
   const skipped = new Set(skipSaved?.date === today() ? skipSaved.ids : []);
   let current: Item | undefined, boss = false, shownAt = 0;
-  let state: 'card' | 'done' | 'empty' = 'empty', resting = false;
+  let state: 'card' | 'done' | 'empty' | 'name' = 'empty', resting = false;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   const todayBox = el('div', 'today');
@@ -74,6 +82,11 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
   const saveSkip = () => keep(KEYS.skip, { date: today(), ids: [...skipped] });
   const othersOn = (id: string) => { const votes = { ...host.teamVotesOn(id) }; delete votes[host.me()]; return votes; };
 
+  /** This week's reviewers: 「王藥師 12・林藥師 8・你 5」. */
+  function weekLine() {
+    const people = weekBy(host.items().map(item => host.allVotesOn(item.id)), host.nameOf, who => !host.isPre(who), weekStart(new Date()));
+    return people.map(({ name, n }) => `${name === host.name() ? '你' : name} ${n}`).join('・');
+  }
   function renderToday() {
     const decided = decidedToday().length, n = stacks();
     const inStack = Math.max(0, Math.min(goal, decided - goal * (n - 1)));
@@ -103,7 +116,8 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
       goals.append(chip);
     }
     goals.append(el('span', '', '張'));
-    todayBox.replaceChildren(ring, head, week, el('p', 'sumline', sum), goals);
+    const together = weekLine();
+    todayBox.replaceChildren(ring, head, week, el('p', 'sumline', sum), ...(together ? [el('p', 'sumline', `這週一起審：${together}`)] : []), goals);
     // The how-to is for the first visit: once something is decided, the card moves up.
     intro.hidden = read_ > 0;
   }
@@ -122,6 +136,7 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
     return open;
   }
   function pick() {
+    if (!host.name()) { showName(); return; }
     const open = candidates();
     const facts = open.map(item => candidate(item, host.mine()[item.id], othersOn(item.id), host.allVotesOn(item.id), host.hasPre(item), host.quorum()));
     const next = nextCard(facts, bossSlot(decidedToday().length, goal));
@@ -195,7 +210,6 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
     const agreed = tally(item, team).同意.length;
     const message = reachedBy(item, team, quorum, host.me()) ? '這條因為你達門檻了！' : challenge ? '挑戰完成：你是這條的第一位審核者'
       : `已同意・團隊同意 ${agreed}／${quorum}`;
-    if ('vibrate' in navigator) try { navigator.vibrate(10); } catch { /* not every phone */ }
     fly(1, advance);
     say(message, () => { host.restore(item, before); mount(item, challenge); });
   }
@@ -227,40 +241,53 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
   function snap(card: HTMLElement) {
     card.classList.remove('dragging');
     delete card.dataset.swipe;
+    card.style.removeProperty('--reach');
     card.style.transition = still() ? '' : 'transform .2s ease-out';
     card.style.transform = '';
   }
   /** Sideways drags move the card; up and down still scroll the page. Buttons, links and boxes inside keep their own touch. */
+  /**
+   * Sideways drags move the card; up and down still scroll the page. Once a drag starts it is followed on the whole window, so
+   * a finger that leaves the card still counts. A slanted drag is still sideways; past the line (88px, or less on a narrow
+   * card) or flicked, it counts, and the phone ticks as the line is crossed. Buttons, links and boxes keep their own touch.
+   */
   function swipe(card: HTMLElement) {
-    let x0 = 0, y0 = 0, t0 = 0, dx = 0, pointer = -1, mode: '' | 'maybe' | 'x' = '';
     card.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || card.classList.contains('open') || (event.target as Element).closest('button, a, textarea, input, summary, select')) return;
-      x0 = event.clientX; y0 = event.clientY; t0 = performance.now(); dx = 0; pointer = event.pointerId; mode = 'maybe';
+      if (!event.isPrimary || event.button !== 0 || card.classList.contains('open') || (event.target as Element).closest('button, a, textarea, input, summary, select')) return;
+      const x0 = event.clientX, y0 = event.clientY, t0 = performance.now(), pointer = event.pointerId;
+      const line = Math.min(88, card.offsetWidth * 0.22);
+      let mode: 'maybe' | 'x' = 'maybe', dx = 0, past = false;
+      const stop = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); };
+      const move = (event: PointerEvent) => {
+        if (event.pointerId !== pointer) return;
+        const mx = event.clientX - x0, my = event.clientY - y0;
+        if (mode === 'maybe') {
+          if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx) * 1.5) { stop(); return; }
+          if (Math.abs(mx) < 8 || Math.abs(mx) <= Math.abs(my) * 0.8) return;
+          mode = 'x'; card.classList.add('dragging'); card.style.transition = '';
+        }
+        dx = mx;
+        card.style.transform = `translateX(${dx}px) rotate(${dx / 24}deg)`;
+        card.style.setProperty('--reach', Math.min(1, Math.max(0, (Math.abs(dx) - 24) / Math.max(1, line - 24))).toFixed(2));
+        if (dx > 24) card.dataset.swipe = 'yes'; else if (dx < -24) card.dataset.swipe = 'no'; else delete card.dataset.swipe;
+        const now = Math.abs(dx) >= line;
+        if (now && !past) buzz();
+        past = now;
+      };
+      const end = (event: PointerEvent) => {
+        if (event.pointerId !== pointer) return;
+        stop();
+        if (mode !== 'x') return;
+        const flick = Math.abs(dx) > 40 && Math.abs(dx) / Math.max(1, performance.now() - t0) > 0.35;
+        if (event.type === 'pointerup' && (Math.abs(dx) >= line || flick)) { if (dx > 0) agree(); else later(); }
+        else snap(card);
+      };
+      addEventListener('pointermove', move);
+      addEventListener('pointerup', end);
+      addEventListener('pointercancel', end);
     });
-    card.addEventListener('pointermove', event => {
-      if (event.pointerId !== pointer || !mode) return;
-      const mx = event.clientX - x0, my = event.clientY - y0;
-      if (mode === 'maybe') {
-        if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) { mode = ''; return; }
-        if (Math.abs(mx) < 12) return;
-        mode = 'x'; card.classList.add('dragging'); card.style.transition = '';
-        try { card.setPointerCapture(pointer); } catch { /* the drag still works without */ }
-      }
-      dx = mx;
-      card.style.transform = `translateX(${dx}px) rotate(${dx / 24}deg)`;
-      if (dx > 48) card.dataset.swipe = 'yes'; else if (dx < -48) card.dataset.swipe = 'no'; else delete card.dataset.swipe;
-    });
-    const end = (event: PointerEvent) => {
-      if (event.pointerId !== pointer) return;
-      const was = mode; mode = ''; pointer = -1;
-      if (was !== 'x') return;
-      const fast = Math.abs(dx) > 60 && Math.abs(dx) / Math.max(1, performance.now() - t0) > 0.6;
-      if (event.type === 'pointerup' && (Math.abs(dx) > card.offsetWidth * 0.3 || fast)) { if (dx > 0) agree(); else later(); }
-      else snap(card);
-    };
-    card.addEventListener('pointerup', end);
-    card.addEventListener('pointercancel', end);
   }
+  function buzz() { if ('vibrate' in navigator) try { navigator.vibrate(8); } catch { /* not every phone */ } }
 
   function showDone(celebrate: boolean) {
     state = 'done'; current = undefined;
@@ -277,7 +304,7 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
     else doneBox.append(el('p', 'sub', '今天看的是設定、提案或待決定的事，沒有新的藥品類別。'));
     doneBox.append(el('p', '', `你今天推進了 ${todays.length} 條${reached ? `，其中 ${reached} 條因為你達門檻` : ''}。`));
     if (firsts) doneBox.append(el('p', '', `今日挑戰：完成，${firsts > 1 ? `${firsts} 條` : '有一條'}你是第一位審核者。`));
-    if (team) doneBox.append(el('p', 'sub', `團隊這週一起推進了 ${team} 條。`));
+    if (team) doneBox.append(el('p', 'sub', `團隊這週一起審了 ${team} 條：${weekLine()}。`));
     const buttons = el('div', 'donebtns');
     const more = button('big yes', '再來一疊', () => { keep(KEYS.stacks, { date: today(), n: stacks() + 1 }); pick(); });
     const rest = button('big', '今天到此', () => { resting = true; buttons.replaceChildren(el('p', 'sub', '明天會有新的一疊。要改名字或看全部規則，請切換到清單模式。'), more); });
@@ -288,6 +315,30 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
     renderBar();
     renderToday();
     if (celebrate && !still()) confetti();
+  }
+  /** Before the first card: who is reviewing. The name goes with every vote, so the week's count is the person's. */
+  function showName() {
+    state = 'name'; current = undefined;
+    const form = el('form', 'donebox namebox');
+    form.append(el('h2', '', '開始前，你叫什麼？'));
+    form.append(el('p', 'sub', '團隊成員會看到這個名字，暱稱也可以。同一個人在手機和電腦請用同一個名字，這週審了幾條才會算在一起。'));
+    const input = el('input', 'nameinput');
+    input.id = 'deck-name'; input.type = 'text'; input.maxLength = 30; input.placeholder = '例如：小林'; input.value = host.name();
+    input.setAttribute('aria-label', '你的名字或暱稱');
+    const hint = el('p', 'sub warn');
+    hint.setAttribute('role', 'alert');
+    const go = el('button', 'big yes', '開始');
+    go.type = 'submit';
+    form.append(input, hint, go);
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const problem = host.setName(input.value);
+      if (problem) { hint.textContent = problem; input.focus(); return; }
+      pick();
+    });
+    stage.replaceChildren(form);
+    renderBar();
+    renderToday();
   }
   function showEmpty() {
     state = 'empty';
@@ -319,6 +370,7 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
   return {
     /** Card mode was turned on, or the items arrived. */
     show() {
+      if (!host.name()) { showName(); return; }
       if (state === 'card' && current && !closed(current)) { mount(current, boss); return; }
       if (decidedToday().length >= goal * stacks()) showDone(false); else pick();
     },
@@ -333,7 +385,7 @@ export function createDeck(host: DeckHost, box: HTMLElement) {
         renderToday();
         return;
       }
-      if (state === 'empty') pick(); else if (state === 'done') showDone(false);
+      if (state === 'empty') pick(); else if (state === 'done') showDone(false); else if (state === 'name' && host.name()) pick();
     },
     /** A vote changed. */
     panel() { renderToday(); if (state === 'card') renderBar(); },

@@ -62,6 +62,20 @@ export function firstOn(votes: Record<string, Vote> | undefined, who: string): b
 /** How many items the pharmacists decided on this week (each item once). */
 export const teamWeek = (votes: Record<string, Vote>[], since: Date) => votes.filter(byReviewer => Object.values(byReviewer).some(vote => vote.d && new Date(vote.t) >= since)).length;
 
+/**
+ * Who reviewed this week and how much: for each pharmacist (AI pre-reviews left out), the items they decided on since Monday.
+ * One person on two devices has two reviewer ids under one name, so names are counted, each item once per name. Only those
+ * with something this week, by name: the team sees each other, not a ranking.
+ */
+export function weekBy(votes: Record<string, Vote>[], nameOf: (who: string) => string, counted: (who: string) => boolean, since: Date): { name: string; n: number }[] {
+  const by = new Map<string, number>();
+  for (const byReviewer of votes) {
+    const names = new Set(Object.entries(byReviewer).filter(([who, vote]) => counted(who) && vote.d && new Date(vote.t) >= since).map(([who]) => nameOf(who).trim()).filter(Boolean));
+    for (const name of names) by.set(name, (by.get(name) ?? 0) + 1);
+  }
+  return [...by].map(([name, n]) => ({ name, n })).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+}
+
 /** The ATC codes a card is about: its drugs, the drugs it can be prescribed with, and those in its conditions. */
 export function atcCodes(item: Item): string[] {
   const specs = [item.atc, item.partners, ...(item.conds ?? []).map(cond => cond.atc)];
