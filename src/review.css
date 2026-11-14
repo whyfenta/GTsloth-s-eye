@@ -147,3 +147,65 @@ footer { color: var(--muted); font-size: 13px; display: grid; gap: 6px }
   .legend dd { margin-bottom: 6px }
 }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .2s } }
+
+/* Card mode (src/review-deck.ts): one card at a time and a small stack a day. The whole list's counters are not shown here. */
+.toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px }
+.mode { font-size: 14px; padding: 4px 12px; border-radius: 999px }
+body.deck-mode .lede, body.deck-mode .bar, body.deck-mode .latest, body.deck-mode .list, body.deck-mode .team { display: none }
+body.deck-mode .me:not([data-need]) > label, body.deck-mode .me:not([data-need]) .me-row { display: none }
+body.deck-mode .me { padding: 6px 14px }
+body.deck-mode .me .status { font-size: 12px }
+body.deck-mode .wrap { padding-block: 16px 0; gap: 12px }
+.deck { display: grid; gap: 12px }
+.deckintro { color: var(--muted); font-size: 14px }
+.today { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; grid-template-columns: 68px 1fr; gap: 6px 14px; align-items: center }
+.today > :not(.ring) { grid-column: 2; min-width: 0 }
+.ring { width: 68px; height: 68px; grid-row: 1 / span 4 }
+.ring circle { fill: none; stroke-width: 7 }
+.ring .track { stroke: var(--sunken) }
+.ring .fill { stroke: var(--accent); stroke-linecap: round }
+.ring text { fill: var(--ink); font: 600 14px var(--font-sans); text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums }
+.todayhead { font-weight: 600; font-size: 16px }
+.week { display: flex; gap: 6px; flex-wrap: wrap }
+.week span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--sunken); color: var(--muted) }
+.week span.on { background: var(--accent); color: var(--accent-ink); font-weight: 600 }
+.week span.now { outline: 2px solid var(--accent); outline-offset: 1px }
+.sumline { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums }
+.goals { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted) }
+.goals .chipbtn { padding: 0 10px; font-size: 13px }
+.stage { min-height: 30vh; display: grid; align-content: start }
+.deckcard { position: relative; touch-action: pan-y; padding-block: 16px }
+.deckcard.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing }
+.deckcard.boss { border: 2px solid var(--other); box-shadow: 0 0 0 4px var(--other-soft) }
+.deckcard:not(.open) .choices, .deckcard:not(.open) .comment, .deckcard:not(.open) .linkhint { display: none }
+.deckcard.open .choice { padding: 8px 16px; font-size: 15px }
+.decktag { display: grid; gap: 2px; justify-self: start; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 4px 10px; font-size: 13px }
+.decktag b { font-weight: 600 }
+.decktag span { color: var(--muted); font-size: 12px }
+.boss .decktag { background: var(--other-soft); color: var(--other) }
+.deckcard[data-swipe]::after { position: absolute; top: 14px; padding: 2px 12px; border: 3px solid; border-radius: 8px; font-weight: 700; font-size: 20px; background: var(--surface); pointer-events: none }
+.deckcard[data-swipe="yes"]::after { content: "同意"; left: 14px; color: var(--accent); transform: rotate(-10deg) }
+.deckcard[data-swipe="no"]::after { content: "稍後"; right: 14px; color: var(--muted); transform: rotate(10deg) }
+.deckbar { position: sticky; bottom: 0; z-index: 4; display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; padding: 14px 0 max(14px, env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--bg) 14px) }
+.deckbar.two { grid-template-columns: 1fr 1.6fr }
+.deckbar button { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px 6px; font-size: 16px; font-weight: 600; cursor: pointer; min-height: 48px }
+.deckbar .later { color: var(--muted) }
+.deckbar .note { color: var(--other); border-color: var(--other) }
+.deckbar .yes, .big.yes { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.toast { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 10; width: max-content; max-width: calc(100vw - 32px);
+  background: var(--ink); color: var(--bg); border-radius: 12px; padding: 10px 16px; display: flex; gap: 14px; align-items: center; font-size: 14px; box-shadow: 0 6px 24px rgb(0 0 0 / .22) }
+.toast .undo { border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 4px; white-space: nowrap }
+.donebox { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 18px; display: grid; gap: 12px }
+.donebox h2 { margin: 0; font-size: 22px; font-weight: 600 }
+.donebox .lead { font-weight: 600 }
+.donebox .sub { color: var(--muted); font-size: 14px }
+.learned { display: flex; flex-wrap: wrap; gap: 6px }
+.learned span { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 12px; font-size: 14px }
+.donebtns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.big { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 18px; font-size: 16px; font-weight: 600; cursor: pointer }
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 20 }
+.confetti i { position: absolute; top: -16px; left: var(--x); width: 8px; height: 14px; border-radius: 2px; background: var(--c); animation: fall 1.9s var(--d) ease-in forwards }
+@keyframes fall { to { transform: translate(var(--dx), 105vh) rotate(var(--r)) } }
+@keyframes deckin { from { opacity: 0; transform: translateY(10px) scale(.98) } }
+@media (prefers-reduced-motion: no-preference) { .deckcard.enter { animation: deckin .22s ease-out } }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none } }

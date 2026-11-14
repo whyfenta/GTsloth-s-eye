@@ -1,5 +1,6 @@
 import './review.css';
 import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-config';
+import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
   teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
@@ -11,7 +12,7 @@ import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, 
 const TABLES: [string, string][] = [['all', '全部'], ['proposals', '提案'], ['indications', '適應症'], ['co', '同處方'], ['cautions', '注意事項'],
   ['specialty', '科別常用'], ['classes', '藥品分類'], ['settings', '設定'], ['questions', '待決定']];
 const FILTERS: [string, string][] = [['todo', '我的待審'], ['all', '全部'], ['split', '有分歧'], ['agreed', '達門檻'], ['attention', '需特別注意'], ['closed', '已結案'], ['retired', '已刪除']];
-const KEYS = { me: 'gtsloth-review-me', code: 'gtsloth-review-code', votes: 'gtsloth-review-votes' };
+const KEYS = { me: 'gtsloth-review-me', code: 'gtsloth-review-code', votes: 'gtsloth-review-votes', mode: 'gtsloth-review-mode' };
 const POLL = 60_000;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -36,7 +37,11 @@ let mine: Votes = read<Votes>(KEYS.votes) ?? {};
 const pending = new Set<string>();
 let me: Reviewer = { id: '', name: '', ...read<Partial<Reviewer>>(KEYS.me) };
 if (!/^[0-9a-z]{16}$/.test(me.id)) { me = { id: reviewerId(), name: cleanName(me.name ?? '') }; keep(KEYS.me, me); }
-const view = { table: 'all', filter: 'todo', batch: '', q: '' };
+type Mode = 'deck' | 'list';
+const savedMode = read<Mode>(KEYS.mode);
+/** Phones open in card mode (one card at a time, a small stack a day); the reviewer's own choice is remembered. */
+const view = { table: 'all', filter: 'todo', batch: '', q: '',
+  mode: (savedMode === 'deck' || savedMode === 'list' ? savedMode : matchMedia('(max-width: 640px), (pointer: coarse)').matches ? 'deck' : 'list') as Mode };
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let saving = false, renderLater = false, stored = true;
 
@@ -302,10 +307,18 @@ function visible(item: Item): boolean {
   if (view.q && !haystack[item.id].includes(view.q)) return false;
   return true;
 }
+/** Proposals first, then the newest batch, in table order within a batch. */
+function listOrder(): Item[] {
+  const order = new Map(items.map((item, n) => [item.id, n]));
+  const rank = (item: Item) => item.table === 'proposals' ? Infinity : batchOrder[item.batch] ?? -1;
+  return [...items].sort((a, b) => rank(b) - rank(a) || order.get(a.id)! - order.get(b.id)!);
+}
 function renderList() {
   renderLater = false;
   const list = $('list');
   list.replaceChildren();
+  // In card mode the card being read is the only one on the page.
+  if (view.mode === 'deck') return;
   if (!catalog) { list.append(el('p', 'empty', '正在讀取規則清單…')); return; }
   if (view.filter === 'retired') {
     const gone = catalog.retired.filter(rule => !view.q || `${rule.id} ${rule.text} ${rule.outcome ?? ''}`.toLowerCase().includes(view.q));
@@ -319,10 +332,7 @@ function renderList() {
     if (!gone.length) list.append(el('p', 'empty', '沒有已刪除的規則。'));
     return;
   }
-  // Proposals first, then the newest batch, in table order within a batch.
-  const order = new Map(items.map((item, n) => [item.id, n]));
-  const rank = (item: Item) => item.table === 'proposals' ? Infinity : batchOrder[item.batch] ?? -1;
-  const shown = items.filter(visible).sort((a, b) => rank(b) - rank(a) || order.get(a.id)! - order.get(b.id)!);
+  const shown = listOrder().filter(visible);
   for (const item of shown) { list.append(buildCard(item)); updateCard(item); }
   if (!shown.length) list.append(el('p', 'empty', view.filter === 'todo' && !view.q ? '這個分類沒有等你審的項目了。新條文與新提案加入時會自動出現在這裡。' : '沒有符合條件的項目。換一個分類或清除搜尋試試。'));
 }
@@ -347,6 +357,7 @@ function renderCounts() {
   }
   renderLatest();
   renderTeam();
+  if (view.mode === 'deck') deck.panel();
 }
 function renderLatest() {
   const box = $('latest');
@@ -384,9 +395,15 @@ function setBatch(id: string) {
   renderLatest();
   renderList();
 }
-const say = (text: string, warn = false) => { const node = $('status'); node.textContent = text; node.classList.toggle('warn', warn); };
+const say = (text: string, warn = false) => { const node = $('status'); node.textContent = text; node.classList.toggle('warn', warn); deck.status(text, warn); };
 const sayStore = (text: string, warn = false) => { const node = $('store'); node.textContent = text; node.classList.toggle('warn', warn); };
 
+/** Takes back a decision made in card mode. Sent as a new change, so the sheet's copy of the decision does not win over it. */
+function restore(item: Item, before: Vote | undefined) {
+  const d = before?.d && !stale(item, before) ? before.d : '';
+  mine = { ...mine, [item.id]: { d, c: before?.c ?? '', t: new Date().toISOString(), ...withLinks(before?.l) } };
+  changed(item);
+}
 function choose(item: Item, value: Choice | '', wipe = false) {
   if (shared && !me.name) { needName(); return; }
   const vote: Vote = { d: value, c: wipe ? '' : mine[item.id]?.c ?? '', t: new Date().toISOString(), ...(wipe ? {} : withLinks(mine[item.id]?.l)) };
@@ -474,7 +491,8 @@ async function load(first = false) {
     if (state.proposalProblem) notes.push(`最新的提案表讀不到（${state.proposalProblem}），目前顯示隨網站發布的提案；請負責人在 Apps Script 執行 checkProposals`);
     sayStore(`已連上團隊共用儲存：${notes.join('；')}。`, !!state.proposalProblem);
     applyItems();
-    if (first || !document.activeElement?.classList.contains('comment')) renderList(); else { renderLater = true; for (const item of items) updateCard(item); }
+    if (view.mode === 'deck') deck.refresh();
+    else if (first || !document.activeElement?.classList.contains('comment')) renderList(); else { renderLater = true; for (const item of items) updateCard(item); }
     renderCounts();
     if (pending.size) void save();
   } catch {
@@ -495,7 +513,24 @@ function applyItems() {
   haystack = Object.fromEntries(items.map(item => [item.id, searchText(item)]));
 }
 
+const deck = createDeck({
+  items: listOrder, mine: () => mine, me: () => me.id, allVotesOn, teamVotesOn: votesOn, hasPre: item => preShownOn(item).length > 0,
+  quorum, atc: () => catalog?.atc ?? {}, buildCard, updateCard,
+  ready: () => { if (shared && !me.name) { needName(); return false; } return true; },
+  agree: item => choose(item, '同意'), restore,
+}, $('deck'));
+function setMode(mode: Mode, remember = false) {
+  view.mode = mode;
+  if (remember) keep(KEYS.mode, mode);
+  document.body.classList.toggle('deck-mode', mode === 'deck');
+  $('deck').hidden = mode !== 'deck';
+  $('mode').textContent = mode === 'deck' ? '清單模式' : '卡片模式';
+  $('mode').title = mode === 'deck' ? '改成一次看全部規則的清單' : '改成一次一張的卡片，每天一小疊';
+  renderList();
+  if (catalog && mode === 'deck') deck.show();
+}
 function setupBar() {
+  $('mode').addEventListener('click', () => { setMode(view.mode === 'deck' ? 'list' : 'deck', true); scrollTo({ top: 0 }); });
   for (const [table, label] of TABLES) {
     const button = el('button', 'tab', label);
     button.type = 'button'; button.dataset.t = table; button.dataset.label = label;
@@ -590,6 +625,7 @@ function renderFoot() {
 
 async function start() {
   setupBar();
+  setMode(view.mode);
   if (!REVIEW_ENDPOINT) sayStore('這個網站還沒有設定團隊共用儲存：你的決定只存在這個瀏覽器，審完請按「複製我的審核結果」交給負責人。', true);
   else if (!code) sayStore('這個連結沒有團隊代碼：你的決定只存在這個瀏覽器。要和團隊一起審核，請用負責人分享的完整連結開啟。', true);
   else sayStore('正在連線團隊共用儲存…');
@@ -610,6 +646,7 @@ async function start() {
   renderFoot();
   renderList();
   renderCounts();
+  if (view.mode === 'deck') deck.show();
   if (shared) {
     if (!me.name) needName();
     await load(true);
