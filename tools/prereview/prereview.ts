@@ -233,8 +233,9 @@ function askAgy(text: string): { verdict: Verdict; tokens: string } {
   for (const file of AGY_FILES) { mkdirSync(dirname(join(workspace, file)), { recursive: true }); cpSync(join(REPO, file), join(workspace, file), { recursive: true }); }
   const before = manifest(workspace);
   // No --dangerously-skip-permissions: a tool that needs confirmation is refused rather than approved.
-  const run = spawnSync(join(process.env.LOCALAPPDATA ?? '', 'agy', 'bin', 'agy.exe'), ['-p', text, '--model', MODEL, '--output-format', 'json', '--json-schema', join(HERE, 'verdict.schema.json'), '--print-timeout', '40m'],
-    { cwd: workspace, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 45 * 60_000 });
+  // 15 minutes: an item takes 5 to 7; on 2026-11-15 a shell task AGY started to resolve search redirects hung and held C21 for 40.
+  const run = spawnSync(join(process.env.LOCALAPPDATA ?? '', 'agy', 'bin', 'agy.exe'), ['-p', text, '--model', MODEL, '--output-format', 'json', '--json-schema', join(HERE, 'verdict.schema.json'), '--print-timeout', '15m'],
+    { cwd: workspace, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 20 * 60_000 });
   if (run.status !== 0) throw new Error(`agy 結束碼 ${run.status}：${`${run.stdout}\n${run.stderr}`.slice(-600)}`);
   if (manifest(workspace) !== before) throw new Error('agy 改動了工作區，不採用這次結果');
   const answer = JSON.parse(run.stdout) as { status?: string; structured_output?: Verdict; usage?: { total_tokens?: number } };
