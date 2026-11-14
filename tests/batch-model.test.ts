@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { BatchLog, maskedName, personOf } from '../src/batch-model';
+import { BatchLog, maskedName, personOf, SAME_PATIENT } from '../src/batch-model';
 import { deidentify } from '../src/prescription-sample';
 import { compileRules, ruleTable, type DrugInfo, type IcdEntry, type RuleTables } from '../src/rx-check';
 import type { RxData } from '../src/rx-data';
@@ -59,27 +59,30 @@ assert.deepEqual(log.merged(1, data), []);
 
 // The requests: the collector's lines with their check and merged rules, failures with them; nothing in them names the patient.
 const catalog = new Map<string, unknown[]>([['TESTMETF01', [{}]]]);
+// One patient's prescriptions go in a request of their own, marked, so the sheet's 批次 tells them apart as one patient, as a
+// printed 憑單 sends one patient's cards together; the others and the failures go together, unmarked.
 let requests = log.requests(data, catalog, 'test 批次', 't');
-assert.equal(requests.length, 1);
-const [{ record, entries }] = requests;
-assert.equal(record.format, SAMPLE_FORMAT);
-assert.equal(record.app, 'test 批次');
-assert.deepEqual(record.prescriptions.map(p => p.merged), [['T01紅'], undefined, ['同成分重複黃']]);
-assert.deepEqual(record.prescriptions.map(p => p.unmapped), [['TESTDUTA01'], ['TESTOTHR01'], []]);
-assert.deepEqual(record.prescriptions.map(p => p.qrs), [1, 1, 2]);
-assert.equal(record.failed.length, 1);
-assert.equal(entries.length, 4);
-const text = JSON.stringify(record);
+assert.equal(requests.length, 2);
+const [single, patient] = requests;
+assert.equal(single.record.format, SAMPLE_FORMAT);
+assert.equal(single.record.app, 'test 批次');
+assert.equal(patient.record.app, `test 批次 ${SAME_PATIENT}`);
+assert.deepEqual(single.record.prescriptions.map(p => [p.merged, p.unmapped, p.qrs]), [[undefined, ['TESTOTHR01'], 1]]);
+assert.equal(single.record.failed.length, 1);
+assert.deepEqual(patient.record.prescriptions.map(p => [p.merged, p.unmapped, p.qrs]), [[['T01紅'], ['TESTDUTA01'], 1], [['同成分重複黃'], [], 2]]);
+assert.deepEqual(patient.record.failed, []);
+assert.deepEqual(requests.map(r => r.entries.length), [2, 2]);
+const text = JSON.stringify(requests);
 for (const secret of ['測試甲', '測試乙', 'A223456789', '0900101', 'patient']) assert.ok(!text.includes(secret), secret);
 // Without the rule data or lookup, lines go without the check, merged rules or 對照檔查無.
-const bare = log.requests(undefined, undefined, 'x', 't')[0].record.prescriptions[0];
+const bare = log.requests(undefined, undefined, 'x', 't')[1].record.prescriptions[0];
 assert.ok(!('check' in bare) && !('merged' in bare) && !('unmapped' in bare));
 
-// A request sent is not sent again, and the patient's sent lines still count for the combined check of the rest.
-log.markSent([entries[0]]);
+// A request sent is not sent again, and the patient's sent lines still count for the combined check of the rest, still marked.
+log.markSent([patient.entries[0]]);
 assert.equal(log.unsent.length, 3);
 requests = log.requests(data, undefined, 'x', 't');
-assert.deepEqual(requests[0].record.prescriptions.map(p => p.merged), [undefined, ['同成分重複黃']]);
+assert.deepEqual(requests.map(r => [r.record.app, r.record.prescriptions.map(p => p.merged)]), [['x', [undefined]], [`x ${SAME_PATIENT}`, [['同成分重複黃']]]]);
 // A drugs-only second QR joins the line before it, unless that line has gone.
 assert.equal(log.scan('k5', drugsQR(['TESTALPR01'])).state, 'failed', 'the line before is a failure');
 const fresh = new BatchLog();
@@ -110,6 +113,10 @@ for (let i = 0; i < MAX_BATCH * 2 + 1; i++) big.scan(`p${i}`, qr('E11', ['TESTME
 for (let i = 0; i < MAX_FAILED + 1; i++) big.scan(`f${i}`, qr('E11', ['TESTMETF01'], { 1: `院所${i}` }));
 const chunks = big.requests(undefined, undefined, 'x', 't');
 assert.deepEqual(chunks.map(c => [c.record.prescriptions.length, c.record.failed.length]), [[MAX_BATCH, MAX_FAILED], [MAX_BATCH, 1], [1, 0]]);
+// One patient with more prescriptions than a request holds goes in several, each marked.
+const many = new BatchLog();
+for (let i = 0; i < MAX_BATCH + 1; i++) many.scan(`q${i}`, qr('E11', ['TESTMETF01'], { 9: `V${i}` }));
+assert.deepEqual(many.requests(undefined, undefined, 'x', 't').map(c => [c.record.app, c.record.prescriptions.length]), [[`x ${SAME_PATIENT}`, MAX_BATCH], [`x ${SAME_PATIENT}`, 1]]);
 assert.equal(chunks.reduce((n, c) => n + c.entries.length, 0), big.entries.length);
 big.remove(0);
 assert.equal(big.collected, MAX_BATCH * 2);

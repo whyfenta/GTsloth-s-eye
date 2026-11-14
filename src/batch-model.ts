@@ -25,6 +25,8 @@ export function maskedName(name: string): string {
   return `${chars[0]}${'○'.repeat(chars.length - 2)}${chars.at(-1)}`;
 }
 
+/** After the app version on a request holding one patient's prescriptions only, for the sheet's 程式版本 column. */
+export const SAME_PATIENT = '同一病人';
 /** The browser's copy: lines and QR counts as on the collector, each line's patient as a number (-1: alone), and what was sent. */
 export interface SavedBatch { version: 1; lines: string[]; qrs: number[]; patients: number[]; sent: boolean[] }
 /** One request, and the prescriptions and failure lines it carries, so a request that goes out is not sent again. */
@@ -88,14 +90,16 @@ export class BatchLog extends SampleLog {
   /** The prescriptions and failure lines not sent yet. */
   get unsent(): Sample[] { return this.entries.filter(entry => !this.sentEntries.has(entry)); }
   /**
-   * The requests for what is not sent yet: MAX_BATCH prescriptions and MAX_FAILED failure lines each, as the sheet takes them.
-   * A prescription goes with the lines of the patient's other prescriptions, sent or not, for the combined check; catalog, once
-   * loaded, gives the 健保碼 without a 六碼 (對照檔查無).
+   * The requests for what is not sent yet, MAX_BATCH prescriptions and MAX_FAILED failure lines each, as the sheet takes them.
+   * As a printed 憑單 sends one patient's cards in one request, each patient with several prescriptions goes in requests of their
+   * own, marked SAME_PATIENT after the app version: the sheet gives every request its own 批次, so the weekly check can tell those
+   * rows apart as one patient and look at them together. The other prescriptions and the failures go together, unmarked. A
+   * prescription also carries what the patient's other prescriptions (sent or not) add to its check; catalog, once loaded, gives
+   * the 健保碼 without a 六碼 (對照檔查無).
    */
   requests(data: RxData | undefined, catalog: Map<string, unknown[]> | undefined, app: string, sent: string): BatchRequest[] {
     const groups = this.groups();
-    const unsent = this.unsent;
-    const lines = unsent.filter(entry => entry.ok), failures = unsent.filter(entry => !entry.ok);
+    const unsent = new Set(this.unsent);
     const input = (entry: Sample): SampleInput => {
       const patient = this.patientLines(groups, this.entries.indexOf(entry));
       const codes = splitFields(entry.line).filter((_, i) => i >= 14 && (i - 14) % 5 === 0);
@@ -103,11 +107,16 @@ export class BatchLog extends SampleLog {
         ...(patient ? { patient } : {}) };
     };
     const requests: BatchRequest[] = [];
-    for (let i = 0, j = 0; i < lines.length || j < failures.length; i += MAX_BATCH, j += MAX_FAILED) {
-      const someLines = lines.slice(i, i + MAX_BATCH), someFailures = failures.slice(j, j + MAX_FAILED);
-      const [record] = sampleRecords(someLines.map(input), someFailures.map(entry => entry.line), data, app, sent);
-      requests.push({ record, entries: [...someLines, ...someFailures] });
-    }
+    const add = (lines: Sample[], failures: Sample[], marked: boolean) => {
+      for (let i = 0, j = 0; i < lines.length || j < failures.length; i += MAX_BATCH, j += MAX_FAILED) {
+        const someLines = lines.slice(i, i + MAX_BATCH), someFailures = failures.slice(j, j + MAX_FAILED);
+        const [record] = sampleRecords(someLines.map(input), someFailures.map(entry => entry.line), data, marked ? `${app} ${SAME_PATIENT}` : app, sent);
+        requests.push({ record, entries: [...someLines, ...someFailures] });
+      }
+    };
+    const pending = (group: number[]) => group.map(i => this.entries[i]).filter(entry => unsent.has(entry));
+    add(groups.filter(group => group.length === 1).flatMap(pending), [...unsent].filter(entry => !entry.ok), false);
+    for (const group of groups.filter(group => group.length > 1)) add(pending(group), [], true);
     return requests;
   }
   markSent(entries: Sample[]) { for (const entry of entries) this.sentEntries.add(entry); }

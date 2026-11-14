@@ -51,12 +51,13 @@ function load() {
     getId: () => 'BOOK', getSheets: () => sheets, getSheetByName: (name: string) => sheets.find(s => s.name === name) ?? null,
     insertSheet: (name: string) => { const created = new FakeSheet(name); sheets.push(created); return created; },
   };
+  let uuids = 0;
   const context = vm.createContext({
     SpreadsheetApp: { getActiveSpreadsheet: () => book },
     DriveApp: { getFileById: (id: string) => ({ getParents: () => ({ next: () => root }), moveTo: (folder: FakeFolder) => folder.moved.push(id), getUrl: () => `https://docs.example/${id}` }) },
     DocumentApp: { create: (title: string) => { const doc = { title, text: '' }; docs.push(doc); return { getId: () => `DOC${docs.length}`, getBody: () => ({ setText: (text: string) => { doc.text = text; } }), saveAndClose() {} }; } },
     Utilities: {
-      formatDate: () => clock.now, getUuid: () => '12345678-uuid',
+      formatDate: () => clock.now, getUuid: () => `${String(++uuids).padStart(8, '0')}-uuid`,
       computeDigest: (_: unknown, text: string) => [...createHash('sha256').update(text, 'utf8').digest()].map(byte => byte > 127 ? byte - 256 : byte),
       DigestAlgorithm: { SHA_256: 'SHA_256' }, Charset: { UTF_8: 'UTF_8' },
     },
@@ -167,6 +168,7 @@ assert.match(summary, /1\. \[黃\] 院所 0101010101・科別 AB・AGE50-59・SE
 assert.match(summary, /- N05BA12：1 次、1 家院所；同時出現的診斷（前 3 碼）：F41 ×1；科別：AB ×1\n {2}範例：/);
 assert.match(summary, /## 注意事項命中（編號＋等級）\n- T01黃 ×1/);
 assert.match(summary, /## 同一病人合併比對多出的注意事項（1 張處方；[^\n]*\n- T01紅 ×1\n- 同成分重複黃 ×1/);
+assert.match(summary, /## 同一病人的多張處方（批次蒐集匯入，同一批次是同一病人；0 位病人）\n（無）/);
 assert.match(summary, /## 對照檔查無此健保碼：健保品項查得到，六碼對照檔沒有（請補 sku-nhi-map\.csv）\n- TESTCODE01 ×1\n/);
 assert.match(summary, /## 對照檔查無此健保碼：健保品項也查無[^\n]*\n- TESTALPR01 ×1\n/);
 assert.match(summary, /- 伺服器拒收：第 4 欄（姓名）不是空白 ×1/);
@@ -187,6 +189,18 @@ assert.match(gs.docs[1].text, /收到 2 張，重複 1 張.*不重複 1 張；�
 assert.equal(gs.call('weekly'), 'nothing new');
 assert.equal(validation.files.length, 2);
 assert.equal(gs.docs.length, 2);
+// 批次蒐集: one patient's prescriptions come in a request of their own, marked after the app version, so they share a 批次 and
+// are listed together, a repeat among them too; a marked request of one prescription is not a group.
+const [patientRecord] = sampleRecords([sampleOf(qr({ 1: '0303030303', 13: '' })), sampleOf(qr({ 1: '0404040404', 13: '' }))], [], undefined, 'v1.5.0 批次 同一病人', 't');
+patientRecord.prescriptions[1].merged = ['同成分重複黃'];
+const [lone] = sampleRecords([sampleOf(qr({ 1: '0505050505', 13: '' }))], [], undefined, 'v1.5.0 批次 同一病人', 't');
+gs.clock.now = '2026-11-10 21:00:00';
+post(patientRecord); post(lone);
+gs.clock.now = '2026-11-16 03:00:00';
+gs.call('weekly');
+const patientSection = gs.docs[2].text.split('## 同一病人的多張處方')[1].split('\n## ')[0];
+assert.match(patientSection, /；1 位病人）\n1\. 批次 \S+・2 張・AGE50-59・SEXF\n {3}- \[未判定\] 院所 0303030303・[^\n]*\n {5}行：0303030303;[^\n]*\n {3}- \[未判定\] 院所 0404040404・[^\n]*・合併多出 同成分重複黃\n {5}行：0404040404;/);
+assert.ok(!patientSection.includes('0505050505'));
 // A sheet made before 對照檔查無 and 合併多出 gets the two names on the next write; its rows stay as they were.
 const older = load();
 older.call('setup');
