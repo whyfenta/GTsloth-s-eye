@@ -21,7 +21,9 @@ const REVIEW_FOLDER = '每週檢查';
 const SEP = ' | ';
 const UNCHECKED = '（未判定）';
 /** How much of each list the weekly summary prints. */
-const LIMITS = { flagged: 150, atcs: 60, examples: 3, codes: 80 };
+const LIMITS = { flagged: 150, atcs: 60, examples: 3, codes: 80, patients: 60 };
+/** 樹懶的算數「批次蒐集」sends one patient's prescriptions in a request of their own, with this after the app version: one 批次, one patient. */
+const SAME_PATIENT = ' 同一病人';
 
 function doPost(e) {
   try {
@@ -169,7 +171,7 @@ function summarize() {
 function sampleOfRow(row) {
   const get = name => row[SAMPLES.indexOf(name)] || '';
   const split = name => get(name) ? get(name).split(SEP) : [];
-  return { received: get('收到時間'), rules: get('規則版本'), qrs: Number(get('QR數')) || 1, institution: get('醫事機構代碼'), dept: get('科別'), age: get('年齡層'),
+  return { received: get('收到時間'), app: get('程式版本'), batch: get('批次'), rules: get('規則版本'), qrs: Number(get('QR數')) || 1, institution: get('醫事機構代碼'), dept: get('科別'), age: get('年齡層'),
     sex: get('性別'), dx: get('診斷碼'), top: get('最高等級'), checked: !!get('規則版本'), alerts: split('警示'), cautions: split('注意事項'),
     unexplained: split('未解釋'), unknownDrugs: split('查無藥品'), unknownDx: split('查無診斷'), unmapped: split('對照檔查無'), merged: split('合併多出'),
     line: get('去識別化內容') };
@@ -259,6 +261,20 @@ function report(input) {
   section('注意事項命中（編號＋等級）', cautions);
   section('查無藥品碼（不在健保用藥品項，可能是特材或品項表過舊）', unknownDrugs);
   section(`同一病人合併比對多出的注意事項（${combined} 張處方；編號＋等級，同成分重複是和同一病人另一張處方重複；看不出是和哪幾張合併）`, merged);
+  // One patient's prescriptions from 批次蒐集, every row of the request (a repeat too: it is still that patient's), to read together.
+  const patients = {};
+  input.samples.filter(row => String(row.app).endsWith(SAME_PATIENT) && row.batch).forEach(row => { (patients[row.batch] = patients[row.batch] || []).push(row); });
+  const groups = Object.keys(patients).map(key => patients[key]).filter(group => group.length > 1);
+  out.push(`## 同一病人的多張處方（批次蒐集匯入，同一批次是同一病人；${groups.length} 位病人${groups.length > LIMITS.patients ? `，只列前 ${LIMITS.patients} 位` : ''}）`);
+  groups.slice(0, LIMITS.patients).forEach((group, i) => {
+    out.push(`${i + 1}. 批次 ${group[0].batch}・${group.length} 張・${group[0].age || '年齡不明'}・${group[0].sex || '性別不明'}`);
+    group.forEach(row => {
+      out.push(`   - [${row.top || (row.checked ? '無' : '未判定')}] 院所 ${row.institution}・科別 ${row.dept || '（空白）'}・診斷 ${row.dx || '（無）'}${row.merged.length ? `・合併多出 ${row.merged.join('、')}` : ''}${row.repeat ? `・與第 ${row.repeat} 列重複` : ''}`);
+      out.push(`     行：${row.line}`);
+    });
+  });
+  if (!groups.length) out.push('（無）');
+  out.push('');
   section('對照檔查無此健保碼：健保品項查得到，六碼對照檔沒有（請補 sku-nhi-map.csv）', unmapped);
   section('對照檔查無此健保碼：健保品項也查無（院所自訂碼、特材或品項表過舊；對照檔補不了）', unmappedOther);
   section('查無或舊的診斷碼（查無：表中沒有；類別：只查到前幾碼；舊碼：2014 版已刪除）', unknownDx);

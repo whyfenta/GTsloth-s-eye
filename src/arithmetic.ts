@@ -2,6 +2,7 @@ import './arithmetic.css';
 import { addDays, dial, rangeDays, shortDate, taiwanToday, dayNumber, type DateRange, type DialPrevious, type DialSlot, type Scenario } from './arithmetic-model';
 import { firstPart, parsePrescription, parsePrescriptionDrugs, parsePrescriptionSlip, prescriptionText, type PrescriptionQR } from './prescription-qr';
 import { addDrugs, addPrescription, rejectScan, type Scanned } from './slip-ui';
+import { batchEntered, batchOn, batchScan } from './batch-ui';
 
 declare const __APP_VERSION__: string;
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -20,8 +21,14 @@ const cameraButton = element<HTMLButtonElement>('qr-camera');
  */
 const camera = typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof HTMLDialogElement === 'function' && matchMedia('(pointer: coarse)').matches;
 for (const node of document.querySelectorAll<HTMLElement>('[data-camera]')) node.hidden = !camera;
-/** 試算 accepts a typed date; 憑單 needs every QR field, so it takes scans only and shows the slip instead of the result. */
-let mode: 'calc' | 'slip' = 'calc';
+/** 批次蒐集 is for the store's desktop and its keyboard scanner at the end of a shift; a phone is not offered it. */
+const batch = batchOn && !matchMedia('(pointer: coarse)').matches;
+for (const node of document.querySelectorAll<HTMLElement>('[data-batch]')) node.hidden = !batch;
+/**
+ * 試算 accepts a typed date; 憑單 needs every QR field, so it takes scans only and shows the slip instead of the result; 批次蒐集
+ * takes scans only too, any prescription type, and lists them to be sent to the sample sheet.
+ */
+let mode: 'calc' | 'slip' | 'batch' = 'calc';
 let calcDate = '';
 let scanBuffer = '';
 let scanTimer: ReturnType<typeof setTimeout> | undefined;
@@ -476,7 +483,7 @@ function render(input: DialInput) {
 function clearScan() {
   clearTimeout(scanTimer);
   scanBuffer = '';
-  date.placeholder = mode === 'slip' ? camera ? '按右側相機掃描處方 QR' : '掃描處方 QR' : '掃碼或選擇日期';
+  date.placeholder = mode === 'batch' ? '點這裡，再用掃碼機連續刷處方 QR' : mode === 'slip' ? camera ? '按右側相機掃描處方 QR' : '掃描處方 QR' : '掃碼或選擇日期';
 }
 function normalizeDate(value: string): string {
   const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(value.trim());
@@ -498,7 +505,7 @@ function applyQR(data: PrescriptionQR, moveFocus = true) {
   // Stay on the entry field so the next prescription can be scanned right away.
   if (moveFocus) date.focus();
 }
-const imeWarning = () => `目前是中文輸入模式，掃碼內容會被輸入法攔截。請按 Shift 切換成英數後${mode === 'slip' ? '重新掃碼' : '重新掃碼或輸入日期'}。`;
+const imeWarning = () => `目前是中文輸入模式，掃碼內容會被輸入法攔截。請按 Shift 切換成英數後${mode === 'calc' ? '重新掃碼或輸入日期' : '重新掃碼'}。`;
 function finishScan(moveFocus = true) {
   const value = scanBuffer;
   clearScan();
@@ -513,6 +520,14 @@ function finishScan(moveFocus = true) {
   // The keyboard scanner provides text, never raw bytes. Reject corrupted text.
   // Remove only CR/LF scanner suffixes, preserving prescription spaces and fields.
   const text = value.replace(/[\r\n]+$/, '');
+  if (mode === 'batch') {
+    date.value = '';
+    const linked = linkedScan(text);
+    if ('message' in linked) status.textContent = linked.message;
+    else batchScan(linked.text, linked.codes);
+    if (moveFocus) date.focus();
+    return;
+  }
   if (mode === 'slip') {
     date.value = '';
     const added = slipScan(text);
@@ -548,7 +563,7 @@ let pendingPart = '', pendingCodes = 0;
  * prescription scanned before it. A prescription printed as linked QR codes (Structured Append) arrives whole from the camera; a
  * keyboard scanner that types each code on its own gives the first, cut anywhere, which waits here for the next to be joined to it.
  */
-function slipScan(text: string, viaCamera = false, codes = 1): Scanned {
+function linkedScan(text: string, viaCamera = false, codes = 1): { text: string; codes: number } | { message: string } {
   // The next code goes on where the first stopped; a scan that starts with an institution code is a new prescription instead.
   const joined = !!pendingPart && !/^\d{10};/.test(text.trim());
   if (joined) { text = pendingPart + text; codes = pendingCodes + 1; }
@@ -559,6 +574,12 @@ function slipScan(text: string, viaCamera = false, codes = 1): Scanned {
     return { message: joined ? '已接上這張處方的下一個 QR，藥品還沒讀完：請再掃同一張處方的下一個 QR。'
       : '這張處方的 QR 分成相連的 2 個（或更多）：已讀到第 1 個，請接著掃同一張處方的下一個 QR。' };
   }
+  return { text, codes };
+}
+function slipScan(scanned: string, viaCamera = false, scannedCodes = 1): Scanned {
+  const linked = linkedScan(scanned, viaCamera, scannedCodes);
+  if ('message' in linked) return linked;
+  const { text, codes } = linked;
   try {
     const more = parsePrescriptionDrugs(text);
     return more ? addDrugs(more, text) : addPrescription(parsePrescriptionSlip(text), text, viaCamera, codes);
@@ -659,7 +680,7 @@ date.addEventListener('keydown', event => {
     event.preventDefault();
     // The scanner's closing Enter after the IME took the QR keeps the IME warning.
     if (performance.now() - imeAt < 1000) { status.textContent = imeWarning(); return; }
-    if (mode === 'slip') { status.textContent = '憑單需要掃描處方 QR；只有日期時請切換到「試算」。'; return; }
+    if (mode !== 'calc') { status.textContent = `${mode === 'slip' ? '憑單' : '批次蒐集'}需要掃描處方 QR；只有日期時請切換到「試算」。`; return; }
     validateManualDate();
     if (!date.reportValidity()) return;
     submit();
@@ -709,13 +730,17 @@ form.addEventListener('input', event => {
   else submit();
 });
 for (const radio of document.querySelectorAll<HTMLInputElement>('input[name=mode]')) radio.addEventListener('change', () => {
-  mode = radio.value === 'slip' ? 'slip' : 'calc';
+  const left = mode;
+  mode = radio.value === 'slip' || radio.value === 'batch' ? radio.value : 'calc';
   grid.dataset.mode = mode;
   clearScan();
-  status.textContent = '';
-  // Each mode keeps its own state; the shared entry field is empty for scanning in 憑單 mode.
-  if (mode === 'slip') { calcDate = date.value; date.value = ''; date.setCustomValidity(''); }
-  else date.value = calcDate;
+  // A QR waiting for the rest of its linked codes belongs to the mode it was scanned in.
+  pendingPart = '';
+  status.textContent = mode === 'batch' ? batchEntered() : '';
+  // Each mode keeps its own state; the shared entry field is empty for scanning in 憑單 and 批次蒐集.
+  if (left === 'calc') calcDate = date.value;
+  if (mode === 'calc') date.value = calcDate;
+  else { date.value = ''; date.setCustomValidity(''); }
   // On a phone the text field would bring up the keyboard; its 憑單 scans come from the camera.
   (mode === 'slip' && camera ? cameraButton : date).focus();
 });

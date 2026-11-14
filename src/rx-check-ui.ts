@@ -51,9 +51,10 @@ export interface CheckedPart { rx: RxFacts; names: string[]; label: string }
  * band and diagnoses are listed under the name instead (renderPatient).
  * parts: one prescription, or one patient's prescriptions checked together (checkPrescriptions), each drug then led by its card.
  * names: each drug as the card shows it ('' when the product lookup has none, then its NHI ingredients stand in).
+ * aside: where the check is not shown, after the note that some rules await review.
  * Returns the highest level shown, red or yellow, for the cards to take its colour; '' when there is none.
  */
-export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxData): '紅' | '黃' | '' {
+export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxData, aside = '不印在憑單上'): '紅' | '黃' | '' {
   const many = parts.length > 1;
   const label = (code: string) => dxLabel(code, data.icd);
   const name = (code: string, shown: string) => {
@@ -81,8 +82,8 @@ export function renderRxCheck(box: HTMLElement, parts: CheckedPart[], data: RxDa
   const shown = lines.filter(line => line.level !== '灰'), folded = lines.filter(line => line.level === '灰');
   const details = make('details');
   details.append(make('summary', '', `灰色提示 ${folded.length} 則・已解釋 ${explained.length} 個藥`), list([...folded, ...explained]));
-  const title = many ? `處方警示：${parts.map(part => part.label).join('、')}是同一病人，以全部的診斷與藥品合併比對（部分規則仍待藥師審核；不印在憑單上）`
-    : '處方警示（部分規則仍待藥師審核；不印在憑單上）';
+  const title = many ? `處方警示：${parts.map(part => part.label).join('、')}是同一病人，以全部的診斷與藥品合併比對（部分規則仍待藥師審核；${aside}）`
+    : `處方警示（部分規則仍待藥師審核；${aside}）`;
   box.replaceChildren(make('p', 'rx-title', title), shown.length ? list(shown) : make('p', 'rx-none', '沒有紅色或黃色警示。'), details);
   return shown.some(line => line.level === '紅') ? '紅' : shown.length ? '黃' : '';
 }
