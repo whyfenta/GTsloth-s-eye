@@ -1,7 +1,7 @@
 /**
  * AI 預審 of the weekly proposals on the review page (review/), run locally by Claude or a person on request; never a
  * resident or timed job. The model only researches and judges: Codex runs read-only with its own web search, AGY's Gemini
- * Argon in a disposable copy of the public rule and checking files. Neither sees the team code or touches the review page.
+ * Hydrogen in a disposable copy of the public rule and checking files. Neither sees the team code or touches the review page.
  * This script reads the queue, hands the model one proposal at a time, checks the answer, and (with --post) saves it as the
  * model's reviewer (a name with 預審, which the page shows apart and never counts: src/review-model.ts), then reads it back.
  *
@@ -17,9 +17,10 @@
  * --unreviewed skips items any AI pre-reviewer already answered; --again (with --id) reruns one this reviewer answered;
  * --redo reruns answers without a lean (the first prompt's 其他意見). With --id: --fix-receipt reuses a failed run's verdict
  * for the fix round, --from-receipt saves the last clean (dry) run without asking the model again.
- * --agent agy runs Gemini 4 Argon as 「Agy-Argon預審」. Gemini 3.8 Flash was tried once and dropped on 2026-11-13 (a wrong PMID
- * at twice Argon's tokens). AGY's Gemini models are unqualified delegates (AI House agent-delegation-routing): AGY runs
- * without --dangerously-skip-permissions and any change to its workspace fails the item. Its search results come as Google
+ * --agent agy runs Gemini 4 Hydrogen (high) as 「Agy-H2預審」; it replaced Gemini 4 Argon (「Agy-Argon預審」, whose votes stay) on
+ * 2026-11-15 after two side-by-side items: the same leanings at about half the time. Gemini 3.8 Flash was tried once and
+ * dropped on 2026-11-13 (a wrong PMID at twice Argon's tokens). AGY's Gemini models are unqualified delegates (AI House
+ * agent-delegation-routing): AGY runs without --dangerously-skip-permissions and any change to its workspace fails the item. Its search results come as Google
  * grounding redirects; each is resolved to the page it points to, and one that cannot be resolved is dropped.
  * Local state lives outside the repo, in ../prereview-local next to the checkout (or GTSLOTH_PREREVIEW_HOME): the team code
  * (code.local, or GTSLOTH_REVIEW_CODE), the receipts (runs.jsonl, each with the prompt version), and AGY's workspaces.
@@ -43,7 +44,7 @@ const CODEX = join(process.env.APPDATA ?? '', 'npm', 'node_modules', '@openai', 
 const PREFIX = 'AI 預審，非藥師或專業簽核。';
 const AGENTS = {
   codex: { model: 'gpt-6.1-sol', effort: 'xhigh', reviewer: { id: 'wij5ksqs6amcoj83', name: 'Codex-Sol預審' } },
-  agy: { model: 'gemini-4-argon-high', effort: 'high', reviewer: { id: 'p0xs33mziixbcrku', name: 'Agy-Argon預審' } },
+  agy: { model: 'gemini-4-hydrogen-high', effort: 'high', reviewer: { id: '4muo4au7zqtwm3g3', name: 'Agy-H2預審' } },
 } as const;
 const viaAgy = (name: string) => name.startsWith('agy');
 /** The public rule files the AGY workspace gets a copy of; nothing else from the repo. */
