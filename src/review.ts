@@ -3,7 +3,7 @@ import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-conf
 import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
-  teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
+  agreedWithComment, teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
 // npm run rx-review-page); the team's votes and the weekly proposals come from the team's sheet (docs/rx-review-apps-script.gs),
@@ -111,6 +111,11 @@ function field(label: string, content: string | Node) {
   return row;
 }
 const basisBadge = (basis: string) => el('span', /^仿單/.test(basis) ? 'badge b-label b-wrap' : basis === '常見仿單外' ? 'badge b-off' : 'badge b-wrap', basis);
+/** An agreed item's chip: when someone agreed with a comment, it may be a condition, so the owner reads it before closing. */
+function agreedText(item: Item): string {
+  const noted = agreedWithComment(item, votesOn(item.id)).length;
+  return noted ? `達門檻（${quorum()} 位同意，其中 ${noted} 位附意見），結案前請先讀意見` : `達門檻（${quorum()} 位同意），等負責人結案`;
+}
 function hitsText(item: Item): string {
   if (item.hits == null) return '';
   const n = item.hits;
@@ -267,7 +272,7 @@ function updateCard(item: Item) {
   const votes = card.querySelector('.votes')!;
   votes.replaceChildren();
   const status = statusOf(item);
-  if (!closed(item)) { const chip = el('span', 'teamstate', status === '達門檻' ? `達門檻（${quorum()} 位同意），等負責人結案` : status === '有分歧' ? '有分歧，等負責人決定' : status === '審核中' ? `審核中（門檻 ${quorum()} 位）` : '還沒有人審'); chip.dataset.s = status; votes.append(chip); }
+  if (!closed(item)) { const chip = el('span', 'teamstate', status === '達門檻' ? agreedText(item) : status === '有分歧' ? '有分歧，等負責人決定' : status === '審核中' ? `審核中（門檻 ${quorum()} 位）` : '還沒有人審'); chip.dataset.s = status; votes.append(chip); }
   for (const [value, cls] of [['同意', 'v-yes'], ['不同意', 'v-no'], ['其他意見', 'v-other']] as [Choice, string][]) {
     if (!counted[value].length) continue;
     const span = el('span', cls);

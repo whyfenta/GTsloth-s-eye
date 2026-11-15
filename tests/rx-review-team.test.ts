@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { agreedWithComment, cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
 // The review page's model, the weekly proposals, and docs/rx-review-apps-script.gs run against small fakes of the Google services.
@@ -28,6 +28,9 @@ assert.equal(teamStatus(item(), { ...votes, c: vote('不同意') }, 2), '有分�
 assert.equal(teamStatus(item(), { a: vote('同意'), b: vote('同意', '2026-11-01T00:00:00.000Z') }, 2), '審核中', 'a vote from before the change does not count');
 assert.equal(teamStatus(item({ approved: { at: '2026-11-12', n: 2 } }), { c: vote('不同意') }, 2), '已結案');
 assert.equal(teamStatus(item(), { a: vote('同意') }, 0), '達門檻', 'a quorum below 1 is 1');
+// Agreed with a comment: often a condition, so the owner reads it before closing; the status stays 達門檻. Stale votes and objections are not counted.
+assert.deepEqual(agreedWithComment(item(), votes), ['b']);
+assert.deepEqual(agreedWithComment(item(), { a: vote('同意'), c: vote('不同意', '2026-11-11T01:00:00.000Z', '不行'), d: vote('同意', '2026-11-01T00:00:00.000Z', '舊的') }), []);
 assert.deepEqual(tally(item(), votes), { 同意: ['a', 'b'], 不同意: [], 其他意見: [], comments: [{ who: 'b', d: '同意', c: '同意，但提示可以短一點' }] });
 
 // An AI pre-review (name contains 預審) is kept apart: its opinion makes no split, its agreement does not reach the quorum.
