@@ -81,6 +81,13 @@ export function teamStatus(item: Item, votes: Record<string, Vote> | undefined, 
   return t.同意.length ? '審核中' : '未審';
 }
 
+/**
+ * The reviewers who agreed and wrote a comment, as ids. Such a comment is often a condition (narrow it, raise the level, add a
+ * code), and closing as it stands would drop it: the owner reads these before an agreed item is closed. The status is unchanged.
+ */
+export const agreedWithComment = (item: Item, votes: Record<string, Vote> | undefined) =>
+  tally(item, votes).comments.filter(comment => comment.d === '同意' && comment.c).map(comment => comment.who);
+
 /** A proposal from the weekly review as an item; its content never changes, so every vote on it counts. */
 export function proposalItem(proposal: Proposal, done?: { status: string; decided: string; note?: string }): Item {
   return { id: proposal.id, table: 'proposals', batch: proposal.id.slice(1, 9), changed: '', basis: proposal.basis, flags: [], hits: null,

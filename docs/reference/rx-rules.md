@@ -112,7 +112,7 @@ RX_SAMPLES="樣本1.txt;樣本2.txt" RX_PROTOTYPE=../rx-rules-draft/check_rules.
 **結案（負責人請 Claude 做）**：
 
 1. 讀試算表「GTsloth 規則審核（團隊）」的「統計」分頁（Google Drive connector），或請負責人在審核頁按「複製團隊統計」貼上。
-2. 達門檻的規則：在 `--notes` 的該條寫 `"approved": { "at": "結案日期 YYYY-MM-DD", "n": 同意人數 }`。
+2. 達門檻的規則：在 `--notes` 的該條寫 `"approved": { "at": "結案日期 YYYY-MM-DD", "n": 同意人數 }`。先讀「統計」分頁該條的意見：同意卻附了意見的（頁面顯示「其中 N 位附意見」），意見若要求修改（例如縮小範圍、升為黃色、增列診斷碼），照第 3 步交負責人決定，不要直接記 `approved`；只是補充出處或說明的，照常結案。
 3. 有分歧的規則：把意見整理給負責人決定。決定修改的，改規則表並在 `--notes` 的該條寫 `applied`（處理結果，例如「依意見降為灰色」）；決定照原樣的，寫 `approved`，並在 `outcome` 或這份文件記下不採納意見的理由。
 4. 提案：把 Drive「每週檢查」裡還有未結案提案的提案表下載成 CSV，執行 `npm run rx-proposals -- --publish 表1.csv 表2.csv …` 更新 `public/assets/rx/proposals.json`（它整份取代，所以每一份都要給）。採用的照上方「修改流程」加進規則表；不論結果，在 `--notes` 的 `proposals` 寫一筆 `{ "id": "P20261116-01", "title": "…", "status": "已採用｜不採用｜需更多樣本", "decided": "YYYY-MM-DD", "note": "…", "rules": ["C78"] }`。依提案原樣加入、而且表決已達門檻的規則，可以同時寫 `approved`，不必再審一次；內容和提案不同的要重新審。每週檢查讀這些紀錄，不會重提已經不採用的提案。
 5. 執行 `npm run rx-review-page -- --notes 說明.json`、`npm test`，把決定與改動記在這一節，照一般流程開 PR。
