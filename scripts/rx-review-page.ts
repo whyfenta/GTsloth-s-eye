@@ -149,7 +149,7 @@ const items = [
   ...rowsOf('co-drugs').map(entry => ({ ...common(entry), table: 'co', atc: entry.row['ATC'], partners: entry.row['可由同處方的ATC解釋'], basis: entry.row['依據'], note: entry.row['備註'] })),
   ...rowsOf('cautions').map(entry => {
     const parts = entry.row['條件'].split(';').map(part => part.trim());
-    const conds = entry.row['條件類型'].split('+').map((kind, i) => kind.trim() === '診斷' ? { kind: '診斷', dx: chips(parts[i]) } : kind.trim() === '同處方' ? { kind: '同處方', atc: parts[i] } : { kind: kind.trim(), text: parts[i] });
+    const conds = entry.row['條件類型'].split('+').map((kind, i) => ['診斷', '未診斷'].includes(kind.trim()) ? { kind: kind.trim(), dx: chips(parts[i]) } : kind.trim() === '同處方' ? { kind: '同處方', atc: parts[i] } : { kind: kind.trim(), text: parts[i] });
     return { ...common(entry), table: 'cautions', atc: entry.row['ATC'], keyword: entry.row['成分關鍵字'], conds, level: entry.row['等級'], msg: entry.row['提示'], basis: entry.row['依據'] };
   }),
   ...rowsOf('specialty').map(entry => ({ ...common(entry), table: 'specialty', dept: entry.row['科別代碼'], name: entry.row['科別'], atc: entry.row['該科常開的ATC'], basis: '起草者判斷' })),

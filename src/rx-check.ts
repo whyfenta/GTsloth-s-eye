@@ -10,8 +10,11 @@ export type Level = '紅' | '黃' | '灰';
 export type Layer = '適應症' | '同處方' | '科別常用' | '低風險';
 /** M or F from the ID number's second digit; '' when it is not 1 or 2 (other ID formats) or there is no ID. */
 export type Sex = 'M' | 'F' | '';
-/** What the check reads from a QR: diagnoses upper-cased without dots, the 2-character 就醫科別 or '', the age band and sex. Page memory only. */
-export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; drugs: { code: string; frequency: string; route: string }[] }
+/**
+ * What the check reads from a QR: diagnoses upper-cased without dots, the 2-character 就醫科別 or '', the age band and sex, the
+ * 給藥日份 and each drug's code, frequency, route and 總量 (days and total only for a 日量 condition). Page memory only.
+ */
+export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; days?: string; drugs: { code: string; frequency: string; route: string; total?: string }[] }
 export interface DrugInfo { atc: string; ingredients: string }
 export interface Note { level: Level; text: string }
 /**
@@ -56,7 +59,13 @@ export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | {
   /** Holds when at least min distinct drugs (this one included) have one of these ATCs; only the first of them carries the note. */
   | { kind: '同類數'; min: number; atc: string[] }
   /** Holds when kidney function is below this eGFR (mL/min/1.73 m²): from the CKD stage diagnosed, else a rough age and sex estimate. */
-  | { kind: '腎功能'; below: number });
+  | { kind: '腎功能'; below: number }
+  /** Holds when none of these diagnoses is there (a drug the 健保給付規定 limits to some diagnoses). */
+  | { kind: '未診斷'; icd: string[] }
+  /** Holds when the drug's own prescription is from a known department other than these; an unknown department cannot be judged. */
+  | { kind: '科別外'; departments: string[] }
+  /** Holds when the drug's own 總量 (every line of its code on its prescription) over the 給藥日份 is more than this many a day. */
+  | { kind: '日量'; above: number });
 export interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
@@ -191,7 +200,8 @@ export function compileRules(tables: RuleTables): Rules {
   const cautions = read('cautions', (cell, fail): Caution => {
     const atc = list(cell('ATC'), 'ATC', why => fail('ATC', why), true);
     const keyword = cell('成分關鍵字');
-    if (!/^[A-Z0-9 -]*$/.test(keyword) || keyword !== keyword.trim()) fail('成分關鍵字', '只能是大寫英文、數字與空格，前後不留空白。');
+    // Strength and form are part of the NHI ingredient text, so a keyword can name one strength: RIVAROXABAN 2.5 MG.
+    if (!/^[A-Z0-9 .()/-]*$/.test(keyword) || keyword !== keyword.trim()) fail('成分關鍵字', '只能是大寫英文、數字、空格與 . ( ) / -，前後不留空白。');
     if (!atc.length && !keyword) fail('ATC', 'ATC 與成分關鍵字至少要填一個。');
     // Several conditions must all hold: 條件類型 年齡+同處方 with 條件 >=65;G04CA, one ;-separated part per type.
     const kinds = cell('條件類型').split('+').map(kind => kind.trim()), parts = cell('條件').split(';').map(part => part.trim());
@@ -231,7 +241,17 @@ export function compileRules(tables: RuleTables): Rules {
         const match = /^<(\d+)$/.exec(part);
         return match ? { key, kind, below: Number(match[1]) } : bad('腎功能條件寫成 <30 這樣（eGFR，mL/min/1.73 m²）。');
       }
-      return fail('條件類型', '要是診斷、年齡、性別、同處方、未同處方、同類數或腎功能，多種條件以 + 連接。');
+      if (kind === '未診斷') return { key, kind, icd: list(part, 'ICD', bad) };
+      if (kind === '科別外') {
+        const departments = tokens(part);
+        if (!departments.length || departments.some(code => !/^[0-9A-Z]{2}$/.test(code))) bad('科別外寫成 12 13 這樣（2 碼健保就醫科別，以空格分隔）。');
+        return { key, kind, departments };
+      }
+      if (kind === '日量') {
+        const match = /^>(\d+(?:\.\d+)?)$/.exec(part);
+        return match ? { key, kind, above: Number(match[1]) } : bad('日量寫成 >1 這樣（總量除以給藥日份，每日超過幾個單位）。');
+      }
+      return fail('條件類型', '要是診斷、未診斷、年齡、性別、同處方、未同處方、同類數、腎功能、科別外或日量，多種條件以 + 連接。');
     });
     return { id: cell('編號'), atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
   });
@@ -290,6 +310,13 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
   /** 第 2 張 before what is not on the drug's own prescription; nothing for a single prescription. */
   const elsewhere = (on: number[], part: number) => many && !on.includes(part) ? `${on.map(partName).join('、')} ` : '';
   const list = parts.flatMap((rx, part) => rx.drugs.map(drug => ({ ...drug, part, dept: rx.dept })));
+  /** A code's 總量 on one prescription over its 給藥日份; undefined when either is missing or not a positive number. */
+  const daily = (code: string, part: number) => {
+    const rx = parts[part], days = Number(rx.days);
+    const totals = rx.drugs.filter(drug => drug.code === code).map(drug => Number(drug.total));
+    return days > 0 && totals.length && totals.every(total => Number.isFinite(total) && total >= 0) && rx.drugs.every(drug => drug.code !== code || drug.total?.trim())
+      ? totals.reduce((sum, total) => sum + total, 0) / days : undefined;
+  };
   // One ATC per distinct code: the same code twice does not explain itself. A code keeps every frequency it is given at.
   const atcs = new Map<string, string>(), frequencies = new Map<string, string[]>();
   for (const { code, frequency } of list) {
@@ -359,6 +386,13 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
         case '腎功能': {
           const result = kidneyBelow(dx, age, sex, condition.below);
           return { hit: result.hit, detail: result.code ? `本次：${dxText([result.code])}，eGFR ${result.range}` : '', why: result.why };
+        }
+        case '未診斷': return { hit: !icdHits(dx, condition.icd).length, detail: `本次沒有：${condition.icd.join(labels.join)}` };
+        case '科別外': return { hit: dept ? !condition.departments.includes(dept) : undefined, detail: DEPARTMENTS[dept] ?? dept, why: '無法判斷就醫科別' };
+        case '日量': {
+          const amount = daily(code, part);
+          return { hit: amount === undefined ? undefined : amount > condition.above,
+            detail: `每日 ${amount === undefined ? '' : Math.round(amount * 100) / 100} 單位（總量÷給藥日份）`, why: '無法計算每日用量' };
         }
       }
     };

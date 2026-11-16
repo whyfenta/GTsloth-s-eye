@@ -45,7 +45,8 @@ export function componentAtcs(info: DrugInfo, index: ComponentIndex): string[] {
 type Match = 'direct' | 'combo' | 'unknown' | '';
 const conditionLabel = (condition: Condition) => condition.kind === '年齡' ? `年齡${condition.below ? '<' : '>='}${condition.years}`
   : condition.kind === '性別' ? `性別${condition.sex === 'M' ? '男' : '女'}` : condition.kind === '腎功能' ? `腎功能<${condition.below}`
-  : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind;
+  : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind === '日量' ? `日量>${condition.above}`
+  : condition.kind === '科別外' ? `科別外${condition.departments.join(' ')}` : condition.kind;
 export interface CautionCoverage {
   id: string; level: Level;
   /** Prescriptions where the page shows it (any level, a 無法判斷 grey included). */
@@ -101,6 +102,13 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
           : codes.some(({ code, info }) => code !== self && info.atc.startsWith(partner.atc))) ? '' : 'direct';
         case '同類數': return codes.filter(({ info }) => atcHit(info.atc, condition.atc)).length >= condition.min ? 'direct' : '';
         case '腎功能': { const hit = kidneyBelow(rx.dx, rx.age, rx.sex, condition.below).hit; return hit === undefined ? 'unknown' : hit ? 'direct' : ''; }
+        case '未診斷': return icdHits(rx.dx, condition.icd).length ? '' : 'direct';
+        case '科別外': return !rx.dept ? 'unknown' : condition.departments.includes(rx.dept) ? '' : 'direct';
+        case '日量': {
+          // For the prescription as a whole (self ''), whether any drug's daily amount is above.
+          const amounts = rx.drugs.filter(drug => !self || drug.code === self).map(drug => Number(drug.total) / Number(rx.days));
+          return !amounts.length || amounts.some(amount => !Number.isFinite(amount)) ? 'unknown' : amounts.some(amount => amount > condition.above) ? 'direct' : '';
+        }
       }
     };
     data.rules.cautions.forEach((caution, k) => {

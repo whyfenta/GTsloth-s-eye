@@ -85,7 +85,7 @@ slipFields[4] = 'a123456789';
 let slipQR = parsePrescriptionSlip(slipFields.join(';') + ';');
 // rx is what the prescription check reads: diagnoses, 就醫科別, the age band on the visit date, each drug's frequency and route.
 assert.deepEqual(slipQR, { date: '2026-01-01', days: 28, drugCount: 1, encoding: '文字輸入', institution: '0000000000', name: '測試', idNumber: 'A123456789', birth: '2010-01-01', drugs: [{ code: 'TESTCODE01', total: '14' }],
-  rx: { dx: ['A', 'B'], dept: '', age: 'AGE10-19', sex: 'M', drugs: [{ code: 'TESTCODE01', frequency: 'QD AM', route: 'PO' }] } });
+  rx: { dx: ['A', 'B'], dept: '', age: 'AGE10-19', sex: 'M', days: '28', drugs: [{ code: 'TESTCODE01', frequency: 'QD AM', route: 'PO', total: '14' }] } });
 // A hospital that masks part of the ID number and birth date (A128***212, month **): kept as masked; sex and age band still read.
 slipFields[4] = 'a128***212';
 slipFields[5] = '067/**/17';
@@ -117,7 +117,7 @@ for (let n = 1; n <= 7; n++) {
   const text = allergyQR(Array.from({ length: n }, (_, i) => `TESTALLERGY${'ABCDEFG'[i]}`));
   slipQR = parsePrescriptionSlip(text);
   assert.deepEqual(slipQR.drugs, [{ code: 'TESTCODE01', total: '56' }, { code: 'TESTCODE02', total: '28' }], `${n} 個過敏藥物`);
-  assert.deepEqual(slipQR.rx.drugs, [{ code: 'TESTCODE01', frequency: 'BID', route: 'PO' }, { code: 'TESTCODE02', frequency: 'QD', route: 'PO' }], `${n} 個過敏藥物`);
+  assert.deepEqual(slipQR.rx.drugs, [{ code: 'TESTCODE01', frequency: 'BID', route: 'PO', total: '56' }, { code: 'TESTCODE02', frequency: 'QD', route: 'PO', total: '28' }], `${n} 個過敏藥物`);
   assert.deepEqual([parsePrescription(text).drugCount, prescriptionText(new TextEncoder().encode(text))], [2, text], `${n} 個過敏藥物`);
 }
 // A drug missing a field is never moved into field 14 to make the rest fit: its code, dose and total have digits, allergy names do not.
@@ -141,7 +141,7 @@ big5Fields[3] = 'Zoë';
 assert.equal(parsePrescriptionSlip(big5Fields.join(';') + ';').name, 'Zoë');
 // A prescription with many drugs has a second QR of drug fields only, with nothing in the first saying it follows.
 assert.deepEqual(parsePrescriptionDrugs('TESTCODE02;1;qd;po;30;TESTCODE03;1;QD;PO;30;'), { drugs: [{ code: 'TESTCODE02', total: '30' }, { code: 'TESTCODE03', total: '30' }],
-  rx: [{ code: 'TESTCODE02', frequency: 'QD', route: 'PO' }, { code: 'TESTCODE03', frequency: 'QD', route: 'PO' }], encoding: '文字輸入' });
+  rx: [{ code: 'TESTCODE02', frequency: 'QD', route: 'PO', total: '30' }, { code: 'TESTCODE03', frequency: 'QD', route: 'PO', total: '30' }], encoding: '文字輸入' });
 assert.equal(parsePrescriptionDrugs('\uFEFFTESTCODE02;1;QD;PO;30;')?.drugs.length, 1);
 for (const other of [sample, slipFields.join(';') + ';', 'TESTCODE02;1;QD;PO;', '4710000000000']) assert.equal(parsePrescriptionDrugs(other), undefined);
 assert.throws(() => parsePrescriptionDrugs('TESTCODE02;1;QD;;30;'));

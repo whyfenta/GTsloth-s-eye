@@ -139,7 +139,7 @@ export function parsePrescriptionDrugs(scanned: string, scannedAs = '文字輸�
   const drugs = [], rx = [];
   for (let i = 0; i < f.length; i += 5) {
     drugs.push({ code: f[i], total: f[i + 4] });
-    rx.push({ code: f[i].toUpperCase(), frequency: f[i + 2].toUpperCase(), route: f[i + 3].toUpperCase() });
+    rx.push({ code: f[i].toUpperCase(), frequency: f[i + 2].toUpperCase(), route: f[i + 3].toUpperCase(), total: f[i + 4] });
   }
   return { drugs, rx, encoding };
 }
@@ -206,15 +206,15 @@ export const sexMark = (sex: Sex) => sex && `SEX${sex}`;
 export const markedSex = (field: string): Sex => ({ SEXM: 'M', SEXF: 'F' } as const)[field.trim().toUpperCase()] ?? '';
 /**
  * What the prescription check reads, each field trimmed and upper-cased as hospitals write either case: field 12's #-separated
- * diagnoses without dots, field 7's 就醫科別, each drug's code, frequency and route. The 就醫科別 has 2 characters, or 4 when a
+ * diagnoses without dots, field 7's 就醫科別, field 10's 給藥日份, each drug's code, frequency, route and 總量. The 就醫科別 has 2 characters, or 4 when a
  * hospital pads it (AB00, 0100); any other length is the hospital's own code (146, 0NB) and leaves the department unknown.
  */
 export function rxFacts(fields: string[], age: string, sex: Sex): RxFacts {
   const f = fields.map(value => value.trim().toUpperCase());
   const dept = f[6].length === 2 || (f[6].length === 4 && f[6].endsWith('00')) ? f[6].slice(0, 2) : '';
   const drugs = [];
-  for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3] });
-  return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, sex, drugs };
+  for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3], total: f[i + 4] });
+  return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, sex, days: f[9], drugs };
 }
 /** A first QR's fields start with the 10-digit institution code; this many or more is a prescription, whatever its layout. */
 const FIRST_QR_FIELDS = 10;
