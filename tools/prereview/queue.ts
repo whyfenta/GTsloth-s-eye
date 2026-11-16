@@ -54,7 +54,7 @@ const TABLE_MEANING: Record<string, string> = {
   specialty: '這個科別開的列出的藥，以「科別常用」解釋。',
   classes: '低風險：這類藥不提示；高警訊：這類藥判為黃色。',
 };
-const condText = (cond: NonNullable<Item['conds']>[number]) => cond.kind === '診斷' ? (cond.dx ?? []).map(chip => `${chip.t} ${chip.zh}`).join('、') : cond.kind === '同處方' ? cond.atc ?? '' : cond.text ?? '';
+const condText = (cond: NonNullable<Item['conds']>[number]) => ['診斷', '未診斷'].includes(cond.kind) ? (cond.dx ?? []).map(chip => `${chip.t} ${chip.zh}`).join('、') : cond.kind === '同處方' ? cond.atc ?? '' : cond.text ?? '';
 
 /** A rule's one-line title, as the page heads it. */
 export function ruleTitle(item: Item): string {

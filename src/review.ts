@@ -168,6 +168,9 @@ function searchText(item: Item): string {
 const conditionWords = (cond: NonNullable<Item['conds']>[number]): string | Node => {
   const text = cond.text ?? '';
   if (cond.kind === '診斷') return dxChips(cond.dx);
+  if (cond.kind === '未診斷') { const box = el('div'); box.append('本次沒有下列診斷：', dxChips(cond.dx)); return box; }
+  if (cond.kind === '科別外') return `就醫科別不是 ${codes(text).join('、')}`;
+  if (cond.kind === '日量') return `每日用量超過 ${text.replace('>', '')} 個單位（總量÷給藥日份）`;
   if (cond.kind === '同處方') return drugList(cond.atc);
   if (cond.kind === '年齡') return text.startsWith('<') ? `未滿 ${text.slice(1)} 歲` : `${text.replace('>=', '')} 歲以上`;
   if (cond.kind === '性別') return `${text}性`;

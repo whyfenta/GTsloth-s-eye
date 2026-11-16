@@ -42,7 +42,8 @@ const verdicts = (rx: RxFacts, use = rules) => checkPrescription(rx, drugs, use)
 
 // The QR fields the check reads: case, spaces and dots do not matter; a padded 就醫科別 is read, a hospital's own one is not.
 let rx = qr('e11.9#i10#', ['testmetf01 ', 'TESTCLOP01'], { 7: 'ab00' });
-assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', sex: 'M', drugs: [{ code: 'TESTMETF01', frequency: 'BID', route: 'PO' }, { code: 'TESTCLOP01', frequency: 'BID', route: 'PO' }] });
+assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', sex: 'M', days: '28',
+  drugs: [{ code: 'TESTMETF01', frequency: 'BID', route: 'PO', total: '56' }, { code: 'TESTCLOP01', frequency: 'BID', route: 'PO', total: '56' }] });
 for (const [dept, read] of [['AB', 'AB'], ['01', '01'], ['0100', '01'], ['AB01', ''], ['146', ''], ['0NB', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 7: dept }).dept, read, dept);
 assert.deepEqual(qr('', ['TESTSTAT01']).dx, []);
 assert.deepEqual(qr(' # E11 ##', ['TESTSTAT01']).dx, ['E11']);
@@ -219,6 +220,25 @@ assert.equal(rxCheckOn('?other=1', true), true);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,未同處方,=NAN,黃,x,') })), /不是健保碼/);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,同類數,3 A10,黃,x,') })), /同類數寫成/);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,腎功能,>30,黃,x,') })), /腎功能條件寫成/);
+}
+
+// 未診斷, 科別外 and 日量 (健保給付規定): no listed diagnosis, another department, more a day than the limit.
+{
+  const pay = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'P01,B01AC04,,未診斷,I21 Z95.5,黃,測試提示未診斷,', 'P02,N05BA,,科別外+日量,12 13;>1,黃,測試提示科別日量,', 'P03,,ALPRAZOLAM 0.5 MG,日量,>3,黃,測試提示含量,') }));
+  const notes = (rx: RxFacts) => checkPrescription(rx, drugs, pay).drugs.map(drug => `${drug.code} ${drug.notes.map(note => `${note.level} ${note.text}`).join('｜')}`);
+  assert.deepEqual(notes(qr('I25.10', ['TESTCLOP01'])), ['TESTCLOP01 黃 P01 測試提示未診斷（本次沒有：I21 Z95.5）']);
+  assert.deepEqual(notes(qr('I25.10#Z95.5', ['TESTCLOP01'])), ['TESTCLOP01 '], 'a stent is there');
+  // 56 tablets over 28 days is 2 a day: above 1 outside 神經科 and 精神科, nothing inside; an unknown department is grey.
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01'])), ['TESTALPR01 黃 P02 測試提示科別日量（心臟血管內科；每日 2 單位（總量÷給藥日份））']);
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01'], { 7: '13' })), ['TESTALPR01 ']);
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01'], { 7: '146' })), ['TESTALPR01 灰 P02 無法判斷就醫科別']);
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01'], { 19: '28' })), ['TESTALPR01 '], 'one a day');
+  // The same code on two lines (QD AM and QD PM) adds up; a strength keyword reaches one strength.
+  assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' })), ['TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））', 'TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））']);
+  assert.deepEqual(notes({ ...qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' }), days: '' }), ['TESTALPR01 灰 P03 無法計算每日用量', 'TESTALPR01 灰 P03 無法計算每日用量']);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,科別外,神經科,黃,x,') })), /科別外寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,日量,1,黃,x,') })), /日量寫成/);
 }
 
 // The published assets match docs/reference: rerun `npm run rx-assets` after editing a table or refreshing a reference file.
