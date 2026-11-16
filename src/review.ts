@@ -9,9 +9,15 @@ import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, 
 // npm run rx-review-page); the team's votes and the weekly proposals come from the team's sheet (docs/rx-review-apps-script.gs),
 // reached only with the team code in the shared link. Without a sheet or a code the page still works for one reviewer: the
 // decisions stay in this browser and can be copied out.
-const TABLES: [string, string][] = [['all', '全部'], ['proposals', '提案'], ['indications', '適應症'], ['co', '同處方'], ['cautions', '注意事項'],
+// 紅色／黃色警示 cut across the tables: the cautions at that level, so the heavier warnings are found and reviewed first.
+const TABLES: [string, string][] = [['all', '全部'], ['red', '紅色警示'], ['yellow', '黃色警示'], ['proposals', '提案'], ['indications', '適應症'], ['co', '同處方'], ['cautions', '注意事項'],
   ['specialty', '科別常用'], ['classes', '藥品分類'], ['settings', '設定'], ['questions', '待決定']];
 const FILTERS: [string, string][] = [['todo', '我的待審'], ['all', '全部'], ['split', '有分歧'], ['agreed', '達門檻'], ['attention', '需特別注意'], ['closed', '已結案'], ['retired', '已刪除']];
+const LEVEL_TABS: Record<string, string> = { red: '紅', yellow: '黃' };
+/** Whether an item is under a tab: a rule table, or the cautions of one warning level. */
+const inTab = (item: Item, tab: string) => tab === 'all' || (tab in LEVEL_TABS ? item.table === 'cautions' && item.level === LEVEL_TABS[tab] : item.table === tab);
+/** Red cautions before yellow before the rest, so the heavier warnings come up first in a batch. */
+const severity = (item: Item) => item.table !== 'cautions' ? 0 : item.level === '紅' ? 2 : item.level === '黃' ? 1 : 0;
 const KEYS = { me: 'gtsloth-review-me', code: 'gtsloth-review-code', votes: 'gtsloth-review-votes', mode: 'gtsloth-review-mode' };
 const POLL = 60_000;
 
@@ -301,7 +307,7 @@ function updateCard(item: Item) {
 }
 
 function visible(item: Item): boolean {
-  if (view.table !== 'all' && item.table !== view.table) return false;
+  if (!inTab(item, view.table)) return false;
   if (view.batch && item.batch !== view.batch) return false;
   const status = statusOf(item);
   if (view.filter === 'todo' && done(item, mine[item.id])) return false;
@@ -312,11 +318,11 @@ function visible(item: Item): boolean {
   if (view.q && !haystack[item.id].includes(view.q)) return false;
   return true;
 }
-/** Proposals first, then the newest batch, in table order within a batch. */
+/** Proposals first, then the newest batch; within a batch red cautions, then yellow, then table order. */
 function listOrder(): Item[] {
   const order = new Map(items.map((item, n) => [item.id, n]));
   const rank = (item: Item) => item.table === 'proposals' ? Infinity : batchOrder[item.batch] ?? -1;
-  return [...items].sort((a, b) => rank(b) - rank(a) || order.get(a.id)! - order.get(b.id)!);
+  return [...items].sort((a, b) => rank(b) - rank(a) || severity(b) - severity(a) || order.get(a.id)! - order.get(b.id)!);
 }
 function renderList() {
   renderLater = false;
@@ -352,7 +358,7 @@ function renderCounts() {
   const width = (n: number) => `${items.length ? n / items.length * 100 : 0}%`;
   $('m-closed').style.width = width(count.已結案); $('m-agreed').style.width = width(count.達門檻); $('m-split').style.width = width(count.有分歧); $('m-going').style.width = width(count.審核中);
   for (const button of $('tabs').children as HTMLCollectionOf<HTMLButtonElement>) {
-    const set = items.filter(item => button.dataset.t === 'all' || item.table === button.dataset.t);
+    const set = items.filter(item => inTab(item, button.dataset.t!));
     const open = set.filter(item => !done(item, mine[item.id])).length;
     button.textContent = open ? `${button.dataset.label} ${open} 待審` : `${button.dataset.label} ${set.length}`;
   }
@@ -384,13 +390,34 @@ function renderTeam() {
   const open = items.filter(item => !closed(item));
   const people = new Set([...Object.keys(team?.reviewers ?? {}), ...(Object.keys(mine).length ? [me.id] : [])]);
   if (!shared || !people.size) { box.hidden = true; return; }
-  box.replaceChildren(el('span', '', `團隊（結案門檻：${quorum()} 位同意且無人反對）：`));
-  // Pharmacists first; AI pre-reviews after them, marked as not counted.
-  for (const id of [...people].sort((a, b) => Number(isPre(a)) - Number(isPre(b)))) {
-    const decided = open.filter(item => { const vote = allVotesOn(item.id)[id]; return vote?.d && !stale(item, vote); }).length;
+  const decidedBy = (id: string, item: Item) => { const vote = allVotesOn(item.id)[id]; return !!vote?.d && !stale(item, vote); };
+  const row = el('div', 'team-row');
+  row.append(el('span', '', `團隊（結案門檻：${quorum()} 位同意且無人反對）：`));
+  for (const id of [...people].filter(id => !isPre(id))) {
     const span = el('span');
-    span.append(el('b', '', nameOf(id)), ` ${decided}／${open.length}${isPre(id) ? '（AI 預審，不計票）' : ''}`);
-    box.append(span);
+    span.append(el('b', '', nameOf(id)), ` ${open.filter(item => decidedBy(id, item)).length}／${open.length}`);
+    row.append(span);
+  }
+  box.replaceChildren(row);
+  // The AI pre-reviews share one denominator: how much of the open list has been pre-reviewed, and by which model.
+  const models = [...people].filter(isPre);
+  if (models.length) {
+    const covered = open.filter(item => models.some(id => decidedBy(id, item))).length;
+    const pre = el('div', 'team-row team-pre');
+    const head = el('span', 'pre-cover');
+    head.append(`AI 預審覆蓋（不計票）：`, el('b', '', `${covered}／${open.length}`), `（${open.length ? Math.round(covered / open.length * 100) : 0}%）`);
+    const meter = el('span', 'pre-meter');
+    meter.setAttribute('aria-hidden', 'true');
+    const fill = el('i');
+    fill.style.width = `${open.length ? covered / open.length * 100 : 0}%`;
+    meter.append(fill);
+    pre.append(head, meter);
+    for (const id of models) {
+      const span = el('span');
+      span.append(el('b', '', nameOf(id).replace(/預審$/, '')), ` ${open.filter(item => decidedBy(id, item)).length}`);
+      pre.append(span);
+    }
+    box.append(pre);
   }
   box.hidden = false;
 }
@@ -561,6 +588,7 @@ function setupBar() {
   for (const [table, label] of TABLES) {
     const button = el('button', 'tab', label);
     button.type = 'button'; button.dataset.t = table; button.dataset.label = label;
+    if (table in LEVEL_TABS) button.classList.add(`tab-${table}`);
     button.setAttribute('aria-pressed', String(view.table === table));
     button.addEventListener('click', () => { view.table = table; for (const other of $('tabs').children) other.setAttribute('aria-pressed', String((other as HTMLElement).dataset.t === table)); renderList(); });
     $('tabs').append(button);

@@ -38,6 +38,10 @@ button, input, textarea { font: inherit; color: inherit }
 .me[data-need="name"] { border-color: var(--other) }
 .team { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums }
 .team b { color: var(--ink); font-weight: 500 }
+.team { flex-direction: column }
+.team-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px }
+.pre-meter { display: inline-block; width: 120px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; vertical-align: middle }
+.pre-meter i { display: block; height: 100%; background: var(--accent) }
 
 .basis { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 18px }
 .basis summary { cursor: pointer; font-weight: 600 }
@@ -60,6 +64,13 @@ button, input, textarea { font: inherit; color: inherit }
 .counts b { color: var(--ink); font-weight: 600 }
 .tabs, .filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
 .tab, .chipbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 14px; font-variant-numeric: tabular-nums }
+.tab-red::before, .tab-yellow::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px }
+.tab-red::before { background: var(--red) } .tab-yellow::before { background: var(--yellow) }
+.tab-red { border-color: var(--red) } .tab-yellow { border-color: var(--yellow) }
+.tab.tab-red[aria-pressed="true"] { background: var(--red); color: var(--red-ink); border-color: var(--red) }
+.tab.tab-red[aria-pressed="true"]::before { background: var(--red-ink) }
+.tab.tab-yellow[aria-pressed="true"] { background: var(--yellow); color: var(--yellow-ink); border-color: var(--yellow) }
+.tab.tab-yellow[aria-pressed="true"]::before { background: var(--yellow-ink) }
 .tab[aria-pressed="true"], .chipbtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .grouplabel { font-size: 13px; color: var(--muted); margin-right: 2px }
