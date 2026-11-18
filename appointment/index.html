@@ -14,18 +14,18 @@
     <header class="calculator-header"><a class="calculator-brand" href="../" aria-label="樹懶的算數，返回樹懶的工作主目錄"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><span>樹懶的算數<span class="calculator-brand-sub">← 返回主目錄</span></span></a><a class="calculator-home" href="../">← 主目錄</a></header>
     <main>
       <section class="calculator-intro"><div><p class="eyebrow">PRESCRIPTION DATES, MADE CLEAR</p><h1>下次領藥，幫你算好。</h1><p>掃碼或選擇處方日期，查看領藥區間與回診建議。</p></div></section>
-      <div class="calculator-grid" id="calculator-grid" data-mode="calc">
+      <div class="calculator-grid" id="calculator-grid" data-mode="slip">
         <section class="panel" aria-labelledby="input-title">
           <h2 id="input-title">輸入處方資料</h2>
           <div class="mode-switch" role="radiogroup" aria-label="選擇用途">
-            <label><input type="radio" name="mode" value="calc" checked /><span>試算</span></label>
-            <label><input type="radio" name="mode" value="slip" /><span>憑單</span></label>
+            <label><input type="radio" name="mode" value="calc" /><span>試算</span></label>
+            <label><input type="radio" name="mode" value="slip" checked /><span>憑單</span></label>
             <label data-batch hidden><input type="radio" name="mode" value="batch" /><span>批次蒐集</span></label>
           </div>
           <form id="prescription-form" autocomplete="off">
             <label for="prescription-date"><span class="calc-only">處方日期</span><span class="slip-only">處方 QR</span><span class="batch-only">處方 QR</span></label>
             <div class="date-entry">
-              <input id="prescription-date" type="text" placeholder="掃碼或選擇日期" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
+              <input id="prescription-date" type="text" placeholder="掃描處方 QR" aria-describedby="date-help qr-status" autocomplete="off" spellcheck="false" maxlength="32769" required autofocus />
               <span class="calendar-control calc-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v15H4V6Zm0 5h16M8 3v6m8-6v6M8 15h2m4 0h2m-8 3h2"/></svg><input id="date-picker" type="date" aria-label="選擇處方日期" /></span>
               <button type="button" id="qr-camera" class="camera-control slip-only" aria-label="用相機掃描處方 QR" title="用相機掃描處方 QR" data-camera hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3V8Zm9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></button>
             </div>

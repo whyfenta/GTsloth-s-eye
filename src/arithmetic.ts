@@ -28,7 +28,8 @@ for (const node of document.querySelectorAll<HTMLElement>('[data-batch]')) node.
  * 試算 accepts a typed date; 憑單 needs every QR field, so it takes scans only and shows the slip instead of the result; 批次蒐集
  * takes scans only too, any prescription type, and lists them to be sent to the sample sheet.
  */
-let mode: 'calc' | 'slip' | 'batch' = 'calc';
+/** The page opens in 憑單, the store's everyday use; 試算 is a switch away. */
+let mode: 'calc' | 'slip' | 'batch' = 'slip';
 let calcDate = '';
 let scanBuffer = '';
 let scanTimer: ReturnType<typeof setTimeout> | undefined;
@@ -754,3 +755,6 @@ form.addEventListener('reset', () => {
   queueMicrotask(() => date.focus());
 });
 window.addEventListener('pagehide', () => { clearScan(); date.value = ''; });
+// The page opens in 憑單: a placeholder for the phone's camera, and focus on the camera rather than the keyboard.
+clearScan();
+if (camera) cameraButton.focus();
