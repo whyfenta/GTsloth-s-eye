@@ -52,7 +52,9 @@ const COLUMNS: Record<RuleFile, string[]> = {
 interface Indication { atc: string[]; dx: string[]; basis: string }
 interface CoDrug { atc: string[]; partners: string[]; basis: string; note: string }
 /** One condition of a caution; key is its type and written value, to tell when one caution has all of another's conditions. */
-export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] } | { kind: '年齡'; below: boolean; years: number } | { kind: '性別'; sex: 'M' | 'F' }
+export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] }
+  /** Holds when the age band is at least min and under below; one of them for >=65 or <50, both for a range such as 10-49. */
+  | { kind: '年齡'; min?: number; below?: number } | { kind: '性別'; sex: 'M' | 'F' }
   | { kind: '同處方'; partners: { atc: string; frequency: string }[] }
   /** Holds when no other drug on the prescription is one of these: an ATC prefix, or an exact 健保碼 (a 特材 has no ATC). */
   | { kind: '未同處方'; partners: { atc: string; code: string }[] }
@@ -101,6 +103,13 @@ export function ageAtLeast(band: string, n: number): boolean | undefined {
   if (!match) return undefined;
   const low = Number(match[1]), high = match[2] ? Number(match[2]) : 200;
   return low >= n ? true : high < n ? false : undefined;
+}
+/** The band at least min and under below (either may be missing): false as soon as one bound fails, undefined when a bound cannot be judged. */
+export function ageWithin(band: string, { min, below }: { min?: number; below?: number }): boolean | undefined {
+  const young = min === undefined ? false : ageAtLeast(band, min) === undefined ? undefined : !ageAtLeast(band, min);
+  const old = below === undefined ? false : ageAtLeast(band, below);
+  if (young === true || old === true) return false;
+  return young === undefined || old === undefined ? undefined : true;
 }
 
 /**
@@ -211,8 +220,11 @@ export function compileRules(tables: RuleTables): Rules {
       const part = parts[i], key = `${kind}:${tokens(part).join(' ')}`, bad = (why: string) => fail('條件', why);
       if (kind === '診斷') return { key, kind, icd: list(part, 'ICD', bad) };
       if (kind === '年齡') {
-        const match = /^(>=|<)(\d+)$/.exec(part);
-        return match ? { key, kind, below: match[1] === '<', years: Number(match[2]) } : bad('年齡條件寫成 >=65 或 <50 這樣。');
+        // 10-49: 10 to 49 years old, both included.
+        const match = /^(>=|<)(\d+)$/.exec(part), range = /^(\d+)-(\d+)$/.exec(part);
+        if (match) return match[1] === '<' ? { key, kind, below: Number(match[2]) } : { key, kind, min: Number(match[2]) };
+        if (range && Number(range[1]) <= Number(range[2])) return { key, kind, min: Number(range[1]), below: Number(range[2]) + 1 };
+        return bad('年齡條件寫成 >=65、<50 或 10-49（10 到 49 歲，前小後大）這樣。');
       }
       if (kind === '性別') return part === '男' || part === '女' ? { key, kind, sex: part === '男' ? 'M' : 'F' } : bad('性別條件寫成男或女。');
       if (kind === '同處方') {
@@ -359,10 +371,9 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
       switch (condition.kind) {
         case '診斷': { const hits = icdHits(dx, condition.icd); return { hit: hits.length > 0, detail: `本次：${dxText(hits)}` }; }
         case '年齡': {
-          const atLeast = ageAtLeast(age, condition.years);
-          // A band that straddles the threshold says so; no band, or a birth date in an unknown format (AGE?…), cannot be read.
-          return { hit: atLeast === undefined ? undefined : atLeast !== condition.below, detail: age,
-            why: /^AGE\d/.test(age) ? `無法判斷：${age} 跨過 ${condition.years} 歲` : '無法讀取年齡' };
+          // A band that straddles a threshold says which; no band, or a birth date in an unknown format (AGE?…), cannot be read.
+          const edge = condition.min !== undefined && ageAtLeast(age, condition.min) === undefined ? condition.min : condition.below;
+          return { hit: ageWithin(age, condition), detail: age, why: /^AGE\d/.test(age) ? `無法判斷：${age} 跨過 ${edge} 歲` : '無法讀取年齡' };
         }
         case '性別': return { hit: sex ? sex === condition.sex : undefined, detail: sex === 'F' ? '女性' : '男性', why: '無法取得性別資料' };
         case '同處方': {

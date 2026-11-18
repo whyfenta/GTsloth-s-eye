@@ -98,6 +98,20 @@ assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A823456789', 6: '075010
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A323456789', 6: '0750101' })), ['TESTDUTA01 灰 T07 無法取得性別資料']);
 assert.deepEqual(notes(qr('N40', ['TESTDUTA01'], { 5: 'A323456789' })), [], 'unknown sex, but AGE65-69 is not under 50');
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '' })), ['TESTDUTA01 灰 T07 無法讀取年齡']);
+// An age range: 10-49 is 10 to 49 years old, both included (the visit is 115/01/01).
+const ranged = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'R01,G04CB,,性別+年齡,女;10-49,紅,測試提示範圍,',
+  'R02,N05BA,,年齡,15-64,灰,測試提示跨過,') }));
+const rangeNotes = (code: string, birth: string, id = 'A923456789') => checkPrescription(qr('L64.9', [code], { 5: id, 6: birth }), drugs, ranged).drugs
+  .flatMap(drug => drug.notes.map(note => `${note.level} ${note.text}`));
+assert.deepEqual(rangeNotes('TESTDUTA01', '1000101'), ['紅 R01 測試提示範圍（女性；AGE10-19）']);
+assert.deepEqual(rangeNotes('TESTDUTA01', '0660101'), ['紅 R01 測試提示範圍（女性；AGE40-49）']);
+assert.deepEqual(rangeNotes('TESTDUTA01', '1100101'), [], 'AGE0-9 is under 10');
+assert.deepEqual(rangeNotes('TESTDUTA01', '0650101'), [], 'AGE50-59 is over 49');
+assert.deepEqual(rangeNotes('TESTDUTA01', '0750101', 'A123456789'), [], 'a man');
+assert.deepEqual(rangeNotes('TESTDUTA01', ''), ['灰 R01 無法讀取年齡']);
+assert.deepEqual(rangeNotes('TESTALPR01', '1000101'), ['灰 R02 無法判斷：AGE10-19 跨過 15 歲'], 'the lower end inside a band');
+assert.deepEqual(rangeNotes('TESTALPR01', '0520101'), ['灰 R02 測試提示跨過（AGE60-64）'], 'the upper end at a band edge');
+assert.deepEqual(rangeNotes('TESTALPR01', '0500101'), [], 'AGE65-69 is over 64');
 
 // Repeated ingredients, compared without strength, brackets or salt; a repeated code is not one.
 assert.deepEqual(ingredientBases('METFORMIN HCL 500 MG'), ['METFORMIN']);
@@ -171,6 +185,7 @@ const broken = (file: keyof RuleTables, header: string, row: string) => () => co
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,診斷,J45,橙,測試,'), /cautions\.csv 第 2 列「等級」/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,體重,>=65,黃,測試,'), /「條件類型」/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡,65,黃,測試,'), />=65/);
+for (const range of ['49-10', '10-', '-49', '10~49']) assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', `T01,C07AA,,年齡,${range},黃,測試,`), /10-49/, range);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,,,診斷,J45,黃,測試,'), /至少要填一個/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+同處方,>=65,黃,測試,'), /要有 2 段/);
 assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+年齡,>=65;<50,黃,測試,'), /只能寫一次/);
