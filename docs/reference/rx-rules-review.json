@@ -32,8 +32,8 @@
   },
   {
    "id": "2026-11-18",
-   "title": "懷孕與哺乳（適齡女性）",
-   "note": "適齡女性（10–49 歲）的懷孕與哺乳警示。成分逐一以 openFDA 美國仿單篩選（第 4 節、黑框、8.1–8.3），另對照舊制懷孕分級 X；方法與看了沒收的藥見 rx-rules.md「懷孕與哺乳」。"
+   "title": "懷孕與哺乳（115/11/18 加入，免審）",
+   "note": "適齡女性（10–49 歲）的懷孕與哺乳警示。成分逐一以 openFDA 美國仿單篩選（第 4 節、黑框、8.1–8.3），另對照舊制懷孕分級 X；方法與看了沒收的藥見 rx-rules.md「懷孕與哺乳」。依明確標準篩出，直接結案。"
   }
  ],
  "rules": [
@@ -1683,7 +1683,8 @@
      "t": "DailyMed：finasteride 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e482a50d-db15-4407-85c9-160c88e8a657"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C19",
@@ -2028,7 +2029,8 @@
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ca6bbec6-5631-4436-957e-fb8707e1683d"
     }
    ],
-   "prev": "C46 N03AG 性別+年齡 女;<50 → 黃：50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教"
+   "prev": "C46 N03AG 性別+年齡 女;<50 → 黃：50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教",
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C47",
@@ -3696,7 +3698,8 @@
      "t": "DailyMed：tazarotene 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=021744d1-a6d7-4ad6-99c2-7187c24e64c6"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C152",
@@ -3720,7 +3723,8 @@
      "t": "DailyMed：letrozole 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fa2d40a5-3504-44ef-8f5c-aa4c06308074"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C153",
@@ -3748,7 +3752,8 @@
      "t": "DailyMed：upadacitinib 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2966aec7-2ef0-923c-d8ff-fe1a957bf095"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C154",
@@ -3772,7 +3777,8 @@
      "t": "DailyMed：lovastatin 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c37206ae-52f1-4192-9ab9-3044247cf58d"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C155",
@@ -3792,7 +3798,8 @@
      "t": "DailyMed：triazolam 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=97164a9c-4bc7-4f15-829e-5f9e653c7fa5"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C156",
@@ -3808,7 +3815,8 @@
      "t": "DailyMed：methylergonovine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8bccff44-2a39-400a-b8a4-2eb5249fdbc8"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C157",
@@ -3824,7 +3832,8 @@
      "t": "DailyMed：misoprostol 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c842c35f-6a64-4ecc-95a1-41b6d056047e"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C158",
@@ -3856,7 +3865,8 @@
      "t": "DailyMed：testosterone 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ca5d4865-356b-45e7-b603-fe299e450abc"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C159",
@@ -3884,7 +3894,8 @@
      "t": "DailyMed：sotatercept 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=21693ee2-cd23-4137-ac67-066bb3a4a9b7"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C160",
@@ -3900,7 +3911,8 @@
      "t": "DailyMed：warfarin 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=61ab23a7-bc67-4777-854a-bf43c788a69a"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C161",
@@ -3924,7 +3936,8 @@
      "t": "DailyMed：voriconazole 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2b262849-9a29-44a2-9b9d-2378f771379c"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C162",
@@ -3940,7 +3953,8 @@
      "t": "DailyMed：ribavirin 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=35f99f76-f2ef-4a81-91ff-285419664be3"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C163",
@@ -3956,7 +3970,8 @@
      "t": "DailyMed：efavirenz 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=13ca3456-e5bf-4bb1-af95-b1378658a358"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C164",
@@ -3988,7 +4003,8 @@
      "t": "DailyMed：deferiprone 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=58dd1370-5042-833f-e063-6394a90a0777"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C165",
@@ -4008,7 +4024,8 @@
      "t": "DailyMed：zoledronic acid 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=4b699dd8-d232-4bdb-88ce-9b42ed93e036"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C166",
@@ -4024,7 +4041,8 @@
      "t": "DailyMed：topiramate 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1f327383-beb3-4d15-add6-5f1c749f2b3f"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C167",
@@ -4040,7 +4058,8 @@
      "t": "DailyMed：hydroxyzine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1a3e389f-391d-4f37-9e34-ce3c6f5fe8c1"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C168",
@@ -4056,7 +4075,8 @@
      "t": "DailyMed：metronidazole 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=353b7f5b-4bbc-4ec9-84ba-d82656ea1811"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C169",
@@ -4072,7 +4092,8 @@
      "t": "DailyMed：itraconazole 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2ab38a8a-3708-4b97-9f7f-8e554a15348d"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C170",
@@ -4088,7 +4109,8 @@
      "t": "DailyMed：azathioprine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ceab8e8b-d022-4d0c-a552-cc5782446248"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C171",
@@ -4108,7 +4130,8 @@
      "t": "DailyMed：nitrofurantoin 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=37606c6f-0d85-4314-94ae-f7732c7bc8d5"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C172",
@@ -4124,7 +4147,8 @@
      "t": "DailyMed：penicillamine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=f658b20a-269f-4e78-a79b-a56a5ed8dc1b"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C173",
@@ -4140,7 +4164,8 @@
      "t": "DailyMed：bromocriptine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d69003ee-0b6f-47a9-834e-ba59c02f566c"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C174",
@@ -4156,7 +4181,8 @@
      "t": "DailyMed：phenazopyridine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5dd1e5aa-df98-8482-e063-6294a90a878d"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C175",
@@ -4172,7 +4198,8 @@
      "t": "DailyMed：ketorolac tromethamine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=add10ccd-c205-4512-9619-253290fa1152"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C176",
@@ -4188,7 +4215,8 @@
      "t": "DailyMed：heptahydrate 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5a0f9db9-b8be-c923-e063-6394a90a7dd7"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C177",
@@ -4212,7 +4240,8 @@
      "t": "DailyMed：aliskiren hemifumarate 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3dd61fa5-1620-4ebf-bbdb-ede29b92fce2"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C178",
@@ -4240,7 +4269,8 @@
      "t": "DailyMed：fenofibrate 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=68024459-987a-9cf4-f539-4959093bc9f0"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C179",
@@ -4264,7 +4294,8 @@
      "t": "DailyMed：nateglinide 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e920b343-f53e-7487-e053-2995a90a719a"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C180",
@@ -4288,7 +4319,8 @@
      "t": "DailyMed：deferasirox 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=59f1d3fb-5bdb-4261-8557-9a4bde8b3c1c"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C181",
@@ -4312,7 +4344,8 @@
      "t": "DailyMed：tigecycline 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6e9a34af-8dee-4ba2-9157-2f5cb46958a9"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C182",
@@ -4336,7 +4369,8 @@
      "t": "DailyMed：alprazolam 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0ffcdbab-17e4-4395-8155-5b6ad00be6c2"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C183",
@@ -4360,7 +4394,8 @@
      "t": "DailyMed：mesna 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=49e9c804-9e88-4774-8faf-35bd61b3a8e9"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "C184",
@@ -4376,7 +4411,8 @@
      "t": "DailyMed：codeine 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5819bdf7-300e-45b8-8f3a-447b53656293"
     }
-   ]
+   ],
+   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
    "id": "S02",
