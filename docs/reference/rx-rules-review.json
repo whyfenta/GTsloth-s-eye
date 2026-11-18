@@ -29,6 +29,11 @@
    "id": "2026-11-16",
    "title": "健保給付規定（115/11/16 加入，法規免審）",
    "note": "依健保署現行藥品給付規定，挑出只用 QR 的診斷、藥品、年齡、性別、科別、總量與給藥日份就能判斷的條文，寫成黃色「健保給付」注意事項；屬法規，直接結案。"
+  },
+  {
+   "id": "2026-11-18",
+   "title": "懷孕與哺乳（適齡女性）",
+   "note": "適齡女性（10–49 歲）的懷孕與哺乳警示。成分逐一以 openFDA 美國仿單篩選（第 4 節、黑框、8.1–8.3），另對照舊制懷孕分級 X；方法與看了沒收的藥見 rx-rules.md「懷孕與哺乳」。"
   }
  ],
  "rules": [
@@ -1663,11 +1668,22 @@
    "id": "C18",
    "table": "cautions",
    "key": "C18",
-   "fp": "2d31c2bfa5db",
-   "text": "C18 G04CB 性別+年齡 女;<50 → 紅：50 歲以下女性的處方有 5α 還原酶抑制劑：可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象",
+   "fp": "84ca10318f94",
+   "text": "C18 G04CB G04CA52 性別+年齡 女;10-49 → 紅：懷孕：5α 還原酶抑制劑懷孕禁用（舊制 X），可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象",
    "batch": "2026-10-31",
-   "changed": "2026-10-31T00:00:00.000Z",
-   "outcome": "依 I61 的意見新增"
+   "changed": "2026-11-18T03:32:48.340Z",
+   "prev": "C18 G04CB 性別+年齡 女;<50 → 紅：50 歲以下女性的處方有 5α 還原酶抑制劑：可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象",
+   "why": "補上 dutasteride＋tamsulosin 複方（健保檔 ATC 是 G04CA52，原本的 G04CB 對不到）；年齡改成 10–49 歲，提示改以「懷孕：」開頭。",
+   "links": [
+    {
+     "t": "DailyMed：dutasteride 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6ebce680-5f82-f28e-da92-809928dc0f8f"
+    },
+    {
+     "t": "DailyMed：finasteride 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e482a50d-db15-4407-85c9-160c88e8a657"
+    }
+   ]
   },
   {
    "id": "C19",
@@ -2001,21 +2017,18 @@
    "id": "C46",
    "table": "cautions",
    "key": "C46",
-   "fp": "38fe63c95c3a",
-   "text": "C46 N03AG 性別+年齡 女;<50 → 黃：50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教",
+   "fp": "02d7b4508f04",
+   "text": "C46 N03AG 性別+年齡 女;10-49 → 紅：懷孕：valproate 致畸胎與神經發育風險（美國仿單黑框；用於偏頭痛時懷孕禁用，舊制 X），請確認未懷孕、有避孕與懷孕計畫的衛教",
    "batch": "2026-11-05",
-   "changed": "2026-11-05T00:00:00.000Z",
-   "why": "新的 97 張有 2 張用 valproate 的非男性處方：50 歲以下女性 1 張（會給黃色）、性別欄空白 1 張（會給灰色「無法取得性別資料」）。比照 C18（藥師要求 50 歲以下女性用 5α 還原酶抑制劑給紅色）。等級先填黃：雙極症、癲癇常是必要用藥，重點在確認衛教。FDA 黑框警語這次沒有查到原文。",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "依負責人決定（115/11/18）升為紅色並併入懷孕警示：偏頭痛用途在美國仿單列懷孕禁忌（舊制 X），黑框胚胎毒性，8.3 要求避孕。年齡改成 10–49 歲。",
    "links": [
     {
-     "t": "EMA 2018 valproate 新措施",
-     "u": "https://www.ema.europa.eu/en/documents/referral/valproate-article-31-referral-new-measures-avoid-valproate-exposure-pregnancy-endorsed_en.pdf"
+     "t": "DailyMed：valproate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ca6bbec6-5631-4436-957e-fb8707e1683d"
     }
    ],
-   "approved": {
-    "at": "2026-11-06",
-    "n": 1
-   }
+   "prev": "C46 N03AG 性別+年齡 女;<50 → 黃：50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教"
   },
   {
    "id": "C47",
@@ -3662,6 +3675,710 @@
    "outcome": "健保藥品給付規定（法規）：Angus 115/11/16 決定這類條文不另經藥師審核，照規定原文寫成規則；條文摘錄在 Drive「健保藥品給付規定摘錄（常用）」"
   },
   {
+   "id": "C151",
+   "table": "cautions",
+   "key": "C151",
+   "fp": "e3f1057f75ee",
+   "text": "C151 D10BA D05BB D05AX05 性別+年齡 女;10-49 → 紅：懷孕：口服維生素 A 衍生物（isotretinoin、acitretin、etretinate）與外用 tazarotene 懷孕禁用（舊制 X），用藥前須確認未懷孕並避孕；停藥後仍需避孕：isotretinoin 1 個月、acitretin 3 年",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。isotretinoin、acitretin 有懷孕禁忌與黑框；tazarotene 仿單懷孕禁忌並要求驗孕。外用 isotretinoin、tretinoin 不收（舊制不是 X）。",
+   "links": [
+    {
+     "t": "DailyMed：isotretinoin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=9f1c8971-c6dc-4708-848b-5cee50b6c32a"
+    },
+    {
+     "t": "DailyMed：acitretin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6af396c2-af3e-436d-ba9a-583637495910"
+    },
+    {
+     "t": "DailyMed：tazarotene 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=021744d1-a6d7-4ad6-99c2-7187c24e64c6"
+    }
+   ]
+  },
+  {
+   "id": "C152",
+   "table": "cautions",
+   "key": "C152",
+   "fp": "4077a4b96c5c",
+   "text": "C152 L01 L02 性別+年齡 女;10-49 → 紅：懷孕：抗腫瘤藥與腫瘤荷爾蒙治療（含 GnRH 促效劑），美國仿單要求驗孕或避孕（胚胎毒性），請確認未懷孕並有避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。抗腫瘤藥（L01）與腫瘤荷爾蒙治療（L02）的美國仿單 8.3 幾乎都要求驗孕或避孕；整類收錄，個別藥不逐一列。",
+   "links": [
+    {
+     "t": "DailyMed：capecitabine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0b59e98c-5b34-4b93-90f6-20526f4d4f88"
+    },
+    {
+     "t": "DailyMed：tamoxifen 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8c0eb763-420a-4106-ba56-526b53a7f72b"
+    },
+    {
+     "t": "DailyMed：letrozole 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fa2d40a5-3504-44ef-8f5c-aa4c06308074"
+    }
+   ]
+  },
+  {
+   "id": "C153",
+   "table": "cautions",
+   "key": "C153",
+   "fp": "540c1954cdc3",
+   "text": "C153 L04AX03 L04AK L04AA06 L04AA40 L04AX02 L04AX04 L04AX06 L04AE L04AH L04AF03 L04AG06 L04AG10 L04AJ03 L04AC11 性別+年齡 女;10-49 → 紅：懷孕：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib 等免疫調節藥，美國仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。免疫調節藥中，美國仿單懷孕禁忌、黑框或 8.3 要求驗孕避孕的：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide／lenalidomide／pomalidomide、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib、alemtuzumab、inebilizumab、pegcetacoplan、siltuximab。tacrolimus、tofacitinib 等沒有這些要求的不收。",
+   "links": [
+    {
+     "t": "DailyMed：mycophenolate mofetil 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=75a76397-bb62-4014-8488-949a711b25f0"
+    },
+    {
+     "t": "DailyMed：leflunomide 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c66cacd1-93f7-483a-a2fc-aad53d5342b0"
+    },
+    {
+     "t": "DailyMed：fingolimod 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=a545c6fc-7006-52c2-f476-34e9801ac04f"
+    },
+    {
+     "t": "DailyMed：upadacitinib 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2966aec7-2ef0-923c-d8ff-fe1a957bf095"
+    }
+   ]
+  },
+  {
+   "id": "C154",
+   "table": "cautions",
+   "key": "C154",
+   "fp": "1fb75ad9c71f",
+   "text": "C154 C10AA C10BA C10BX 性別+年齡 女;10-49 → 紅：懷孕：statin 舊制 X（現行美國仿單：發現懷孕應停藥、不建議哺乳），請確認未懷孕、未哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。舊制 X。FDA 2021 年要求拿掉 statin 的懷孕禁忌，現行仿單改為發現懷孕應停藥、不建議哺乳；依負責人的標準（舊制 X 也收）給紅色。樣本中適齡女性用 statin 的處方可能不少，試跑後再看。",
+   "links": [
+    {
+     "t": "DailyMed：atorvastatin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8cc6240a-58d3-4bca-aa1e-662228957f75"
+    },
+    {
+     "t": "DailyMed：rosuvastatin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5f848148-74a7-86c3-e063-6394a90af3a7"
+    },
+    {
+     "t": "DailyMed：lovastatin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c37206ae-52f1-4192-9ab9-3044247cf58d"
+    }
+   ]
+  },
+  {
+   "id": "C155",
+   "table": "cautions",
+   "key": "C155",
+   "fp": "173453f1a140",
+   "text": "C155 N05CD01 N05CD04 N05CD05 N05CD07 性別+年齡 女;10-49 → 紅：懷孕：flurazepam、estazolam、triazolam、temazepam 舊制 X（可能傷害胎兒），請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。舊制 X 的 BZD 安眠藥。nitrazepam、flunitrazepam、brotizolam 等美國沒有上市，沒有舊制分級，不收。",
+   "links": [
+    {
+     "t": "DailyMed：temazepam 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=62379cd5-a314-43eb-a1ee-33997623bfa3"
+    },
+    {
+     "t": "DailyMed：triazolam 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=97164a9c-4bc7-4f15-829e-5f9e653c7fa5"
+    }
+   ]
+  },
+  {
+   "id": "C156",
+   "table": "cautions",
+   "key": "C156",
+   "fp": "e0e60c9ecfcc",
+   "text": "C156 N02CA G02AB 性別+年齡 女;10-49 → 紅：懷孕：麥角鹼類（ergotamine、dihydroergotamine、methylergonovine、ergonovine）懷孕禁用（子宮收縮），請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。麥角鹼類懷孕禁忌（子宮收縮）。腦循環用的 dihydroergotoxine（C04AE01）美國仿單沒有懷孕禁忌，不收。",
+   "links": [
+    {
+     "t": "DailyMed：methylergonovine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8bccff44-2a39-400a-b8a4-2eb5249fdbc8"
+    }
+   ]
+  },
+  {
+   "id": "C157",
+   "table": "cautions",
+   "key": "C157",
+   "fp": "af965c86e98b",
+   "text": "C157 A02BB01 性別+年齡 女;10-49 → 紅：懷孕：misoprostol 懷孕禁用（流產、早產、先天異常；美國仿單黑框），用藥前須確認未懷孕並避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單懷孕禁忌與黑框（流產、早產、先天異常）；以成分關鍵字涵蓋與 diclofenac 的複方。",
+   "links": [
+    {
+     "t": "DailyMed：misoprostol 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c842c35f-6a64-4ecc-95a1-41b6d056047e"
+    }
+   ]
+  },
+  {
+   "id": "C158",
+   "table": "cautions",
+   "key": "C158",
+   "fp": "f84121ac7531",
+   "text": "C158 G03A G03B G03C G03E G03F G03H G03XA G03XC G03GB G03DA02 G03DB08 G03DC02 A14A H01CA02 性別+年齡 女;10-49 → 紅：懷孕：性荷爾蒙與調節劑（雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、抗雄性素、danazol、SERM、clomiphene、nafarelin）懷孕禁用（舊制 X 或仿單禁忌），請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、抗雄性素（cyproterone）、danazol、gestrinone、SERM、clomiphene、nafarelin：美國仿單懷孕禁忌或舊制 X。依負責人決定（115/11/18），安胎或助孕的 progesterone、hydroxyprogesterone、dydrogesterone、allylestrenol 與促性腺激素不收；lynestrenol 以成分關鍵字收錄（健保檔 ATC 只到 G03DC，和 allylestrenol 同一層）。",
+   "links": [
+    {
+     "t": "DailyMed：estradiol 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=aa396e57-0a93-49cc-82e5-cd35c987bb0b"
+    },
+    {
+     "t": "DailyMed：norethindrone 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=534c5717-382c-4109-3208-e21b32e4c4c9"
+    },
+    {
+     "t": "DailyMed：clomiphene 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=79f64995-7425-44c6-9f44-f7d20daeff65"
+    },
+    {
+     "t": "DailyMed：raloxifene 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3798c70b-a4b0-4811-9788-e4c9cff47ebe"
+    },
+    {
+     "t": "DailyMed：testosterone 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ca5d4865-356b-45e7-b603-fe299e450abc"
+    }
+   ]
+  },
+  {
+   "id": "C159",
+   "table": "cautions",
+   "key": "C159",
+   "fp": "27e470489807",
+   "text": "C159 C02KX01 C02KX02 C02KX04 C02KX05 C02KX06 C02KX54 性別+年齡 女;10-49 → 紅：懷孕：肺動脈高壓用藥（bosentan、ambrisentan、macitentan、riociguat、sotatercept）懷孕禁用或要求驗孕避孕（美國仿單黑框），請確認驗孕與避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。endothelin 受體拮抗劑與 riociguat 有懷孕禁忌與黑框（每月驗孕）；sotatercept 的 8.3 要求驗孕與避孕。",
+   "links": [
+    {
+     "t": "DailyMed：ambrisentan 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=4396bab5-2851-62ef-e063-6294a90af76e"
+    },
+    {
+     "t": "DailyMed：macitentan 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=a654726e-f12f-4b03-8bfe-727f26761dce"
+    },
+    {
+     "t": "DailyMed：riociguat 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8092c64b-e240-43c3-9d2e-e0dd7708d96f"
+    },
+    {
+     "t": "DailyMed：sotatercept 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=21693ee2-cd23-4137-ac67-066bb3a4a9b7"
+    }
+   ]
+  },
+  {
+   "id": "C160",
+   "table": "cautions",
+   "key": "C160",
+   "fp": "1a2618bdc98d",
+   "text": "C160 B01AA03 性別+年齡 女;10-49 → 紅：懷孕：warfarin 懷孕禁用（機械瓣膜且血栓風險高者除外；胚胎病變），美國仿單要求驗孕並避孕，請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單懷孕禁忌（機械瓣膜且血栓風險高者除外），8.3 要求驗孕與避孕。",
+   "links": [
+    {
+     "t": "DailyMed：warfarin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=61ab23a7-bc67-4777-854a-bf43c788a69a"
+    }
+   ]
+  },
+  {
+   "id": "C161",
+   "table": "cautions",
+   "key": "C161",
+   "fp": "3e559952d72d",
+   "text": "C161 J05AB06 J05AB14 D01BA01 J04BA01 J02AC03 J02AC05 性別+年齡 女;10-49 → 紅：懷孕：ganciclovir、valganciclovir、griseofulvin、clofazimine、voriconazole、isavuconazonium 懷孕禁用或美國仿單要求驗孕避孕，請確認未懷孕並有避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。ganciclovir、valganciclovir 黑框與 8.3；griseofulvin 懷孕禁忌；clofazimine、voriconazole、isavuconazonium 的 8.3 要求驗孕或避孕。",
+   "links": [
+    {
+     "t": "DailyMed：valganciclovir 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2f742420-d5f1-4fda-b6a7-e11fdb651dbc"
+    },
+    {
+     "t": "DailyMed：griseofulvin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=efb8a660-802c-4ca6-bbff-ad7b48b91aef"
+    },
+    {
+     "t": "DailyMed：voriconazole 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2b262849-9a29-44a2-9b9d-2378f771379c"
+    }
+   ]
+  },
+  {
+   "id": "C162",
+   "table": "cautions",
+   "key": "C162",
+   "fp": "14ec2274b0b3",
+   "text": "C162 RIBAVIRIN 性別+年齡 女;10-49 → 紅：懷孕：ribavirin 懷孕禁用（舊制 X；男性伴侶用藥也算），治療期間與停藥後 6 個月須避孕並每月驗孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單懷孕禁忌與黑框（男性伴侶用藥也算）；健保檔有 J05APX4 這類不合 ATC 格式的複方碼，只能用成分關鍵字。",
+   "links": [
+    {
+     "t": "DailyMed：ribavirin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=35f99f76-f2ef-4a81-91ff-285419664be3"
+    }
+   ]
+  },
+  {
+   "id": "C163",
+   "table": "cautions",
+   "key": "C163",
+   "fp": "b9c9a16d7428",
+   "text": "C163 EFAVIRENZ 性別+年齡 女;10-49 → 紅：懷孕：efavirenz 美國仿單要求用藥前驗孕並避孕（停藥後 12 週），請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單 8.3 要求驗孕與避孕；以成分關鍵字涵蓋複方。",
+   "links": [
+    {
+     "t": "DailyMed：efavirenz 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=13ca3456-e5bf-4bb1-af95-b1378658a358"
+    }
+   ]
+  },
+  {
+   "id": "C164",
+   "table": "cautions",
+   "key": "C164",
+   "fp": "7f140c8ec2d8",
+   "text": "C164 C01BD07 C01EB24 C01EB17 A05AA01 C10AX02 B03XA06 B02BX05 B02BX06 V03AC02 M09AX10 L03AX16 S01LA05 S01LA09 性別+年齡 女;10-49 → 紅：懷孕：dronedarone、mavacamten、ivabradine、chenodiol、probucol、luspatercept、eltrombopag、emicizumab、deferiprone、risdiplam、plerixafor、眼內注射 aflibercept／faricimab，仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單懷孕禁忌或 8.3 要求驗孕避孕的其他藥；probucol 是日本仿單懷孕禁忌（美國沒有上市）。",
+   "links": [
+    {
+     "t": "DailyMed：dronedarone 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3bd4006a-8bad-4909-ac6d-b6d84390155c"
+    },
+    {
+     "t": "DailyMed：mavacamten 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=669c936b-3ee6-4e36-8a22-79dd11b1255b"
+    },
+    {
+     "t": "DailyMed：ivabradine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=92018a65-38f6-45f7-91d4-a34921b81d0d"
+    },
+    {
+     "t": "DailyMed：eltrombopag 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=9af1e314-91ca-4ebc-ac12-f9fddc6d7902"
+    },
+    {
+     "t": "DailyMed：deferiprone 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=58dd1370-5042-833f-e063-6394a90a0777"
+    }
+   ]
+  },
+  {
+   "id": "C165",
+   "table": "cautions",
+   "key": "C165",
+   "fp": "35bcdb13a7d8",
+   "text": "C165 M05BX04 M05BA03 M05BA08 性別+年齡 女;10-49 → 紅：懷孕：denosumab 懷孕禁用；zoledronic acid、pamidronate 美國仿單要求用藥前確認未懷孕（可能傷害胎兒），請確認未懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。denosumab 懷孕禁忌；zoledronic acid、pamidronate 的 8.3 要求用藥前確認未懷孕。口服雙磷酸鹽沒有這項要求，不收。",
+   "links": [
+    {
+     "t": "DailyMed：denosumab 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=39a0a789-778f-4695-b3a9-61643e6396cd"
+    },
+    {
+     "t": "DailyMed：zoledronic acid 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=4b699dd8-d232-4bdb-88ce-9b42ed93e036"
+    }
+   ]
+  },
+  {
+   "id": "C166",
+   "table": "cautions",
+   "key": "C166",
+   "fp": "c0460c6ca157",
+   "text": "C166 N03AX11 性別+年齡 女;10-49 → 紅：懷孕：topiramate 致先天異常（唇顎裂）與胎兒過小，美國仿單建議未計畫懷孕者有效避孕，請確認未懷孕並有避孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。美國仿單 8.3：未計畫懷孕者應有效避孕（先天異常、唇顎裂、胎兒過小）。起草時原本以為只是警語，篩選時讀到 8.3 原文後收錄。",
+   "links": [
+    {
+     "t": "DailyMed：topiramate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1f327383-beb3-4d15-add6-5f1c749f2b3f"
+    }
+   ]
+  },
+  {
+   "id": "C167",
+   "table": "cautions",
+   "key": "C167",
+   "fp": "00e53e028267",
+   "text": "C167 N05BB01 性別+年齡 女;10-49 → 紅：懷孕：hydroxyzine（仿單：懷孕初期禁用），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。只限特定情形的懷孕禁忌，依負責人決定（115/11/18）全部給紅色、由現場藥師判斷，提示附仿單原句的中文。",
+   "links": [
+    {
+     "t": "DailyMed：hydroxyzine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1a3e389f-391d-4f37-9e34-ce3c6f5fe8c1"
+    }
+   ]
+  },
+  {
+   "id": "C168",
+   "table": "cautions",
+   "key": "C168",
+   "fp": "90ac0ed19943",
+   "text": "C168 P01AB01 J01XD01 G01AF01 性別+年齡 女;10-49 → 紅：懷孕：metronidazole（仿單：治療陰道滴蟲時，懷孕前三個月禁用），請確認是否懷孕與用途",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167。外用 metronidazole 不收。",
+   "links": [
+    {
+     "t": "DailyMed：metronidazole 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=353b7f5b-4bbc-4ec9-84ba-d82656ea1811"
+    }
+   ]
+  },
+  {
+   "id": "C169",
+   "table": "cautions",
+   "key": "C169",
+   "fp": "df0e2708c461",
+   "text": "C169 J02AC02 性別+年齡 女;10-49 → 紅：懷孕：itraconazole（仿單：治療甲癬時，孕婦或計畫懷孕者禁用，治療期間與停藥後 2 個月須避孕），請確認是否懷孕與用途",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167。",
+   "links": [
+    {
+     "t": "DailyMed：itraconazole 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2ab38a8a-3708-4b97-9f7f-8e554a15348d"
+    }
+   ]
+  },
+  {
+   "id": "C170",
+   "table": "cautions",
+   "key": "C170",
+   "fp": "e256dada9741",
+   "text": "C170 L04AX01 性別+年齡 女;10-49 → 紅：懷孕：azathioprine（仿單：治療類風濕性關節炎時，孕婦禁用），請確認是否懷孕與用途",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167。",
+   "links": [
+    {
+     "t": "DailyMed：azathioprine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ceab8e8b-d022-4d0c-a552-cc5782446248"
+    }
+   ]
+  },
+  {
+   "id": "C171",
+   "table": "cautions",
+   "key": "C171",
+   "fp": "f8df4966203b",
+   "text": "C171 J01XE J01RA02 性別+年齡 女;10-49 → 紅：懷孕：sulfadiazine、外用 silver sulfadiazine、nitrofurantoin（仿單：接近足月、待產與分娩時禁用，新生兒核黃疸或溶血），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167；sulfadiazine 與 nitrofurantoin 有同一個複方，合成一條以免一個藥出現兩則。J01XE 也包含 nifurtoinol（同為 nitrofuran）。",
+   "links": [
+    {
+     "t": "DailyMed：sulfadiazine silver 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cb7d2adf-d69d-4686-b9cf-c83d73acc441"
+    },
+    {
+     "t": "DailyMed：nitrofurantoin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=37606c6f-0d85-4314-94ae-f7732c7bc8d5"
+    }
+   ]
+  },
+  {
+   "id": "C172",
+   "table": "cautions",
+   "key": "C172",
+   "fp": "b4ea2d3e2de3",
+   "text": "C172 M01CC01 性別+年齡 女;10-49 → 紅：懷孕：penicillamine（仿單：除 Wilson 病與部分胱胺酸尿症外，孕婦禁用），請確認是否懷孕與用途",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167。",
+   "links": [
+    {
+     "t": "DailyMed：penicillamine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=f658b20a-269f-4e78-a79b-a56a5ed8dc1b"
+    }
+   ]
+  },
+  {
+   "id": "C173",
+   "table": "cautions",
+   "key": "C173",
+   "fp": "dd92785ef40f",
+   "text": "C173 G02CB01 性別+年齡 女;10-49 → 紅：懷孕：bromocriptine（仿單：治療高泌乳素血症時確診懷孕應停藥，無月經期間每 4 週驗孕），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167；8.3 寫無月經期間每 4 週驗孕。",
+   "links": [
+    {
+     "t": "DailyMed：bromocriptine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d69003ee-0b6f-47a9-834e-ba59c02f566c"
+    }
+   ]
+  },
+  {
+   "id": "C174",
+   "table": "cautions",
+   "key": "C174",
+   "fp": "9c77939ef7c6",
+   "text": "C174 PHENAZOPYRIDINE 性別+年齡 女;10-49 → 紅：懷孕：phenazopyridine（仿單：孕期腎盂腎炎禁用），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167。",
+   "links": [
+    {
+     "t": "DailyMed：phenazopyridine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5dd1e5aa-df98-8482-e063-6294a90a878d"
+    }
+   ]
+  },
+  {
+   "id": "C175",
+   "table": "cautions",
+   "key": "C175",
+   "fp": "7d44cc32b0a5",
+   "text": "C175 M01AB15 性別+年齡 女;10-49 → 紅：懷孕：ketorolac（仿單：待產與分娩時禁用，可能影響胎兒循環並抑制子宮收縮），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167；眼用 ketorolac 不收。",
+   "links": [
+    {
+     "t": "DailyMed：ketorolac tromethamine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=add10ccd-c205-4512-9619-253290fa1152"
+    }
+   ]
+  },
+  {
+   "id": "C176",
+   "table": "cautions",
+   "key": "C176",
+   "fp": "f8f947af133e",
+   "text": "C176 B05XA05 性別+年齡 女;10-49 → 紅：懷孕：靜脈 magnesium sulfate（仿單：妊娠毒血症產婦分娩前 2 小時內不可給），請確認是否懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。同 C167；只收靜脈注射劑。",
+   "links": [
+    {
+     "t": "DailyMed：heptahydrate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5a0f9db9-b8be-c923-e063-6394a90a7dd7"
+    }
+   ]
+  },
+  {
+   "id": "C177",
+   "table": "cautions",
+   "key": "C177",
+   "fp": "f33576c91aaa",
+   "text": "C177 C09 性別+年齡 女;10-49 → 黃：懷孕停藥：ACEI、ARB、aliskiren 有胎兒毒性（美國仿單黑框：發現懷孕應盡快停藥），請確認是否懷孕或計畫懷孕",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "ACEI、ARB、aliskiren 有胎兒毒性黑框，但不是禁忌也不要求避孕，依負責人決定（115/11/18）另給黃色；這些藥的哺乳黃色由這條取代。",
+   "links": [
+    {
+     "t": "DailyMed：losartan 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6286ea54-2350-49fc-8f37-4b979bd7f986"
+    },
+    {
+     "t": "DailyMed：valsartan 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5afd7c3d-c66b-479c-bfd0-6c04658b157d"
+    },
+    {
+     "t": "DailyMed：aliskiren hemifumarate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3dd61fa5-1620-4ebf-bbdb-ede29b92fce2"
+    }
+   ]
+  },
+  {
+   "id": "C178",
+   "table": "cautions",
+   "key": "C178",
+   "fp": "09beab273e91",
+   "text": "C178 B01AC24 B01AE07 B01AF02 B01AF03 B01AC11 B02BX04 C03XA01 C07AB12 C07AA07 C10AB05 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：ticagrelor 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c4c1ca82-99bd-451a-ad77-7fe28c4ae3e8"
+    },
+    {
+     "t": "DailyMed：apixaban 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=41a133ef-e461-48ad-8221-b735bdd0ec25"
+    },
+    {
+     "t": "DailyMed：dabigatran etexilate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e7eff2fc-3fac-4ad5-985b-2b8cc28eb84a"
+    },
+    {
+     "t": "DailyMed：fenofibrate 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=68024459-987a-9cf4-f539-4959093bc9f0"
+    }
+   ]
+  },
+  {
+   "id": "C179",
+   "table": "cautions",
+   "key": "C179",
+   "fp": "407cc7fd6928",
+   "text": "C179 A10BK A10BX03 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：dapagliflozin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5dc0e9df-3b45-4469-93fe-3d2eddbfe2b7"
+    },
+    {
+     "t": "DailyMed：empagliflozin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=faf3dd6a-9cd0-39c2-0d2e-232cb3f67565"
+    },
+    {
+     "t": "DailyMed：nateglinide 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=e920b343-f53e-7487-e053-2995a90a719a"
+    }
+   ]
+  },
+  {
+   "id": "C180",
+   "table": "cautions",
+   "key": "C180",
+   "fp": "a0699ddd3359",
+   "text": "C180 A16AX06 A16AX08 H01CB03 H05AA02 M04AA01 V03AC03 V03AF07 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：allopurinol 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=682dd8b8-fc6e-47c5-95b7-82d7ad96b750"
+    },
+    {
+     "t": "DailyMed：teriparatide 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=d371f0f7-d492-4481-b360-051456d56d65"
+    },
+    {
+     "t": "DailyMed：deferasirox 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=59f1d3fb-5bdb-4261-8557-9a4bde8b3c1c"
+    }
+   ]
+  },
+  {
+   "id": "C181",
+   "table": "cautions",
+   "key": "C181",
+   "fp": "6d4a7a0aea9b",
+   "text": "C181 J01AA12 J01MA02 P01AB02 J01XD02 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：ciprofloxacin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fa32aafd-e3f5-4be6-9413-c7663c1c2cec"
+    },
+    {
+     "t": "DailyMed：tinidazole 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=7f552a9b-3190-4301-8352-36451a73b956"
+    },
+    {
+     "t": "DailyMed：tigecycline 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6e9a34af-8dee-4ba2-9157-2f5cb46958a9"
+    }
+   ]
+  },
+  {
+   "id": "C182",
+   "table": "cautions",
+   "key": "C182",
+   "fp": "7f152aecc367",
+   "text": "C182 N02BF02 N05BA12 N07XX08 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：pregabalin 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=08ad87e3-e00c-46d1-98f8-df493cf1712e"
+    },
+    {
+     "t": "DailyMed：tramadol 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=ccb3e0f9-57db-40bc-84d2-b66a827a5b96"
+    },
+    {
+     "t": "DailyMed：alprazolam 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0ffcdbab-17e4-4395-8155-5b6ad00be6c2"
+    }
+   ]
+  },
+  {
+   "id": "C183",
+   "table": "cautions",
+   "key": "C183",
+   "fp": "f9b4c241d6a6",
+   "text": "C183 D11AH08 L04AF01 L04AJ02 L04AJ07 L04AJ08 L04AJ09 R05CB05 V03AF01 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：tofacitinib 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cf74ba2f-afc5-4baa-8594-979c889a5831"
+    },
+    {
+     "t": "DailyMed：abrocitinib 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=16c12a56-4550-414b-ac9d-b785b41fea6b"
+    },
+    {
+     "t": "DailyMed：mesna 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=49e9c804-9e88-4774-8faf-35bd61b3a8e9"
+    }
+   ]
+  },
+  {
+   "id": "C184",
+   "table": "cautions",
+   "key": "C184",
+   "fp": "75f254f9ba3c",
+   "text": "C184 CODEINE 性別+年齡 女;10-49 → 黃：哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳",
+   "batch": "2026-11-18",
+   "changed": "2026-11-18T03:32:48.340Z",
+   "why": "只在美國仿單 8.2 寫不要哺乳（至少 8 成的單方仿單這樣寫）的藥，給黃色。愛滋病藥「感染者不要哺乳」是怕傳染，不收；舊式抗組織胺與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33/50、fluoxetine）不收。",
+   "links": [
+    {
+     "t": "DailyMed：codeine 仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=5819bdf7-300e-45b8-8f3a-447b53656293"
+    }
+   ]
+  },
+  {
    "id": "S02",
    "table": "specialty",
    "key": "02",
@@ -4702,7 +5419,105 @@
   "S01EE03": "Bimatoprost",
   "S01EE04": "Travoprost",
   "S01EE05": "Tafluprost",
-  "S01EE06": "Latanoprostene bunod"
+  "S01EE06": "Latanoprostene bunod",
+  "A02BB01": "misoprostol",
+  "A05AA01": "chenodeoxycholic acid",
+  "A10BX03": "nateglinide",
+  "A14A": "同化類固醇",
+  "A16AX06": "miglustat",
+  "A16AX08": "teduglutide",
+  "B01AC11": "iloprost",
+  "B02BX04": "romiplostim",
+  "B02BX06": "emicizumab",
+  "B03XA06": "luspatercept",
+  "B05XA05": "magnesium sulfate",
+  "C01BD07": "dronedarone",
+  "C01EB17": "ivabradine",
+  "C01EB24": "mavacamten",
+  "C02KX01": "bosentan",
+  "C02KX02": "ambrisentan",
+  "C02KX04": "macitentan",
+  "C02KX05": "riociguat",
+  "C02KX06": "sotatercept",
+  "C02KX54": "macitentan/tadalafil",
+  "C03XA01": "tolvaptan",
+  "C07AA07": "sotalol",
+  "C07AB12": "nebivolol",
+  "C10AA": "HMG-CoA 還原酶抑制劑（statin）",
+  "C10AB05": "fenofibrate",
+  "C10AX02": "probucol",
+  "C10BA": "HMG-CoA 還原酶抑制劑複方（statin＋其他調血脂藥）",
+  "C10BX": "HMG-CoA 還原酶抑制劑＋其他藥物複方",
+  "D01BA01": "griseofulvin",
+  "D05AX05": "tazarotene",
+  "D10BA": "全身性抗痤瘡 retinoid 類",
+  "D11AH08": "abrocitinib",
+  "G01AF01": "metronidazole",
+  "G02AB": "麥角生物鹼（子宮收縮劑）",
+  "G02CB01": "bromocriptine",
+  "G03A": "全身性荷爾蒙避孕藥",
+  "G03C": "雌激素",
+  "G03DA02": "medroxyprogesterone",
+  "G03DC02": "norethisterone",
+  "G03E": "雄性素與雌激素複方",
+  "G03F": "助孕素與雌激素複方",
+  "G03GB": "排卵誘導劑（合成類）",
+  "G03H": "抗雄性素",
+  "G03XA": "抗性腺激素與類似藥",
+  "G03XC": "選擇性雌激素受體調節劑（SERM）",
+  "G04CA52": "tamsulosin/dutasteride",
+  "H01CA02": "nafarelin",
+  "H01CB03": "lanreotide",
+  "H05AA02": "teriparatide",
+  "J01AA12": "tigecycline",
+  "J01RA02": "磺胺類與其他抗菌劑複方",
+  "J01XD01": "metronidazole",
+  "J01XD02": "tinidazole",
+  "J01XE": "硝基呋喃衍生物",
+  "J02AC03": "voriconazole",
+  "J02AC05": "isavuconazole",
+  "J04BA01": "clofazimine",
+  "J05AB06": "ganciclovir",
+  "J05AB14": "valganciclovir",
+  "L03AX16": "plerixafor",
+  "L04AA06": "mycophenolic acid",
+  "L04AA40": "cladribine",
+  "L04AC11": "siltuximab",
+  "L04AE": "鞘氨醇-1-磷酸（S1P）受體調節劑",
+  "L04AF01": "tofacitinib",
+  "L04AF03": "upadacitinib",
+  "L04AG06": "alemtuzumab",
+  "L04AG10": "inebilizumab",
+  "L04AH": "mTOR 抑制劑",
+  "L04AJ02": "ravulizumab",
+  "L04AJ03": "pegcetacoplan",
+  "L04AJ07": "crovalimab",
+  "L04AJ08": "iptacopan",
+  "L04AJ09": "danicopan",
+  "L04AK": "嘧啶合成抑制劑（DHODH 抑制劑）",
+  "L04AX02": "thalidomide",
+  "L04AX04": "lenalidomide",
+  "L04AX06": "pomalidomide",
+  "M01CC01": "penicillamine",
+  "M05BA03": "pamidronic acid",
+  "M05BA08": "zoledronic acid",
+  "M05BX04": "denosumab",
+  "M09AX10": "risdiplam",
+  "N05BA12": "alprazolam",
+  "N05CD01": "flurazepam",
+  "N05CD04": "estazolam",
+  "N05CD05": "triazolam",
+  "N05CD07": "temazepam",
+  "N07XX08": "tafamidis",
+  "P01AB01": "metronidazole",
+  "P01AB02": "tinidazole",
+  "R05CB05": "mesna",
+  "S01LA05": "aflibercept",
+  "S01LA09": "faricimab",
+  "V03AC02": "deferiprone",
+  "V03AC03": "deferasirox",
+  "V03AF01": "mesna",
+  "V03AF07": "rasburicase"
  },
  "proposals": [
   {

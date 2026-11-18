@@ -172,7 +172,7 @@ const conditionWords = (cond: NonNullable<Item['conds']>[number]): string | Node
   if (cond.kind === '科別外') return `就醫科別不是 ${codes(text).join('、')}`;
   if (cond.kind === '日量') return `每日用量超過 ${text.replace('>', '')} 個單位（總量÷給藥日份）`;
   if (cond.kind === '同處方') return drugList(cond.atc);
-  if (cond.kind === '年齡') return text.startsWith('<') ? `未滿 ${text.slice(1)} 歲` : `${text.replace('>=', '')} 歲以上`;
+  if (cond.kind === '年齡') return /^\d+-\d+$/.test(text) ? `${text.replace('-', '–')} 歲` : text.startsWith('<') ? `未滿 ${text.slice(1)} 歲` : `${text.replace('>=', '')} 歲以上`;
   if (cond.kind === '性別') return `${text}性`;
   if (cond.kind === '腎功能') return `腎絲球過濾率（eGFR）低於 ${text.replace('<', '')}（依慢性腎病分期的診斷判斷）`;
   if (cond.kind === '未同處方') return text.startsWith('=') ? `同處方沒有健保碼 ${text.slice(1)} 的品項` : drugList(text);

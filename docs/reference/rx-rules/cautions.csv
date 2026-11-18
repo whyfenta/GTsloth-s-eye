@@ -15,7 +15,7 @@ C14,H01BA02,,診斷,E87.1,紅,Desmopressin＋低血鈉,仿單禁忌
 C15,H01BA02,,年齡,>=65,黃,65 歲以上使用 desmopressin 治療夜尿：低血鈉風險，請詢問有無噁心、食慾下降、體重增加、倦怠嗜睡等症狀,Beers 2023 建議避免
 C16,N02A,,同處方,N05BA N05CD N05CF N03AE01,黃,鴉片類＋BZD／Z-drug 同時使用：呼吸抑制,FDA 黑框警語
 C17,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡+同處方,>=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS,黃,65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高,藥師審核意見（C09 升一級）
-C18,G04CB,,性別+年齡,女;<50,紅,50 歲以下女性的處方有 5α 還原酶抑制劑：可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌；藥師審核意見
+C18,G04CB G04CA52,,性別+年齡,女;10-49,紅,懷孕：5α 還原酶抑制劑懷孕禁用（舊制 X），可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌（懷孕分級 X）；藥師審核意見
 C19,N02A,,同處方,N02BF,黃,鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）,FDA 2019 安全通訊；Beers 2023 表 5
 C20,,CLOPIDOGREL,同處方,A02BC01 A02BC05,灰,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等,仿單警語（Plavix）
 C21,J01MA,,同處方,H02AB,灰,Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加,FDA 黑框警語
@@ -43,7 +43,7 @@ C42,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,診斷,F01-F03 G30 G31.0 G31.1 G3
 C43,A10BK,GLIFLOZIN,年齡+同處方,>=65;C03 C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54,灰,65 歲以上 SGLT2 抑制劑＋利尿劑（含利尿劑的降血壓複方）：體液不足、姿勢性低血壓、急性腎損傷，請提醒頭暈時告知醫師並注意水分攝取,仿單警語（Jardiance、Forxiga：老人與併用利尿劑者需評估體液）
 C44,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,同處方,N05BA N05CD N05CF N03AE01,灰,同處方兩種以上 BZD／Z-drug：作用重複，鎮靜、跌倒與依賴風險增加（含 chlordiazepoxide 的胃腸複方也算）,起草者判斷；Beers 2023 建議避免合計 3 種以上中樞神經藥
 C45,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,,同處方,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,灰,同處方兩種以上抗精神病藥：作用重複，副作用累加；clozapine 合併治療等情況常見，請確認是刻意合併,起草者判斷
-C46,N03AG,,性別+年齡,女;<50,黃,50 歲以下女性使用 valproate：致畸胎與神經發育風險，請確認有避孕與懷孕計畫的衛教,EMA 2018 懷孕預防計畫（國內仿單未核對）
+C46,N03AG,,性別+年齡,女;10-49,紅,懷孕：valproate 致畸胎與神經發育風險（美國仿單黑框；用於偏頭痛時懷孕禁用，舊制 X），請確認未懷孕、有避孕與懷孕計畫的衛教,美國仿單黑框與 4 禁忌；EMA 2018 懷孕預防計畫
 C47,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH01 N05AH03 N05AH05 N05AH06 N05AL N05AX A03FA01 R06AD02,,診斷,G20,黃,巴金森氏症＋抗精神病藥（clozapine、quetiapine 除外）或 metoclopramide、promethazine：可能使巴金森症狀惡化,Beers 2023 表 3
 C48,H01BA02,,同處方,N06AA N06AB N05AA01 N03AF01 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,Desmopressin＋三環抗憂鬱劑／SSRI／chlorpromazine／carbamazepine／NSAID：水分滯留與低血鈉風險增加，請留意症狀或追蹤血鈉,仿單警語（英國 SmPC、美國注射劑仿單；國內仿單未核對）
 C49,N05AH02,,同處方,N04AA N04AC A03AB A03B G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 N06AA,黃,Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況,FDA 2020 安全通訊
@@ -148,3 +148,37 @@ C147,S01E,,科別外,10,黃,健保給付：降眼壓藥限眼科醫師開立慢�
 C148,R03AL08 R03AL09 R03AL11 R03AL12,,同處方,R03AK R03AL03 R03AL04 R03AL06 R03AL07 R03AL08 R03AL09 R03AL11 R03AL12 R03AC12 R03AC13 R03AC18 R03AC19 R03BB04 R03BB05 R03BB06 R03BB07 R03BA,黃,健保給付：三合一吸入劑不得與其他含吸入性類固醇、長效 β2 作用劑或長效抗膽鹼劑的吸入劑併用,給付規定 6.1
 C149,,FLUTICASONE FUROATE (MICRONISED) 200 MCG,診斷+未診斷,J44;J45,黃,健保給付：Trelegy 用於慢性阻塞性肺病限 92/55/22 mcg 規格（184/55/22 mcg 限氣喘）,給付規定 6.1
 C150,L01XX35,,未診斷,D47.3,黃,健保給付：anagrelide 限原發性血小板過多症（初次使用需事前審查）,給付規定 4.3.3
+C151,D10BA D05BB D05AX05,,性別+年齡,女;10-49,紅,懷孕：口服維生素 A 衍生物（isotretinoin、acitretin、etretinate）與外用 tazarotene 懷孕禁用（舊制 X），用藥前須確認未懷孕並避孕；停藥後仍需避孕：isotretinoin 1 個月、acitretin 3 年,美國仿單 4 禁忌與黑框；仿單（懷孕分級 X）
+C152,L01 L02,,性別+年齡,女;10-49,紅,懷孕：抗腫瘤藥與腫瘤荷爾蒙治療（含 GnRH 促效劑），美國仿單要求驗孕或避孕（胚胎毒性），請確認未懷孕並有避孕,美國仿單 8.3
+C153,L04AX03 L04AK L04AA06 L04AA40 L04AX02 L04AX04 L04AX06 L04AE L04AH L04AF03 L04AG06 L04AG10 L04AJ03 L04AC11,,性別+年齡,女;10-49,紅,懷孕：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib 等免疫調節藥，美國仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
+C154,C10AA C10BA C10BX,,性別+年齡,女;10-49,紅,懷孕：statin 舊制 X（現行美國仿單：發現懷孕應停藥、不建議哺乳），請確認未懷孕、未哺乳,仿單（懷孕分級 X）；美國仿單 8.1、8.2
+C155,N05CD01 N05CD04 N05CD05 N05CD07,,性別+年齡,女;10-49,紅,懷孕：flurazepam、estazolam、triazolam、temazepam 舊制 X（可能傷害胎兒），請確認未懷孕,仿單（懷孕分級 X）
+C156,N02CA G02AB,ERGOTAMINE,性別+年齡,女;10-49,紅,懷孕：麥角鹼類（ergotamine、dihydroergotamine、methylergonovine、ergonovine）懷孕禁用（子宮收縮），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
+C157,A02BB01,MISOPROSTOL,性別+年齡,女;10-49,紅,懷孕：misoprostol 懷孕禁用（流產、早產、先天異常；美國仿單黑框），用藥前須確認未懷孕並避孕,美國仿單 4 禁忌與黑框
+C158,G03A G03B G03C G03E G03F G03H G03XA G03XC G03GB G03DA02 G03DB08 G03DC02 A14A H01CA02,LYNESTRENOL,性別+年齡,女;10-49,紅,懷孕：性荷爾蒙與調節劑（雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、抗雄性素、danazol、SERM、clomiphene、nafarelin）懷孕禁用（舊制 X 或仿單禁忌），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
+C159,C02KX01 C02KX02 C02KX04 C02KX05 C02KX06 C02KX54,,性別+年齡,女;10-49,紅,懷孕：肺動脈高壓用藥（bosentan、ambrisentan、macitentan、riociguat、sotatercept）懷孕禁用或要求驗孕避孕（美國仿單黑框），請確認驗孕與避孕,美國仿單 4 禁忌、黑框與 8.3
+C160,B01AA03,,性別+年齡,女;10-49,紅,懷孕：warfarin 懷孕禁用（機械瓣膜且血栓風險高者除外；胚胎病變），美國仿單要求驗孕並避孕，請確認未懷孕,美國仿單 4 禁忌與 8.3
+C161,J05AB06 J05AB14 D01BA01 J04BA01 J02AC03 J02AC05,,性別+年齡,女;10-49,紅,懷孕：ganciclovir、valganciclovir、griseofulvin、clofazimine、voriconazole、isavuconazonium 懷孕禁用或美國仿單要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
+C162,,RIBAVIRIN,性別+年齡,女;10-49,紅,懷孕：ribavirin 懷孕禁用（舊制 X；男性伴侶用藥也算），治療期間與停藥後 6 個月須避孕並每月驗孕,美國仿單 4 禁忌與黑框
+C163,,EFAVIRENZ,性別+年齡,女;10-49,紅,懷孕：efavirenz 美國仿單要求用藥前驗孕並避孕（停藥後 12 週），請確認未懷孕,美國仿單 8.3
+C164,C01BD07 C01EB24 C01EB17 A05AA01 C10AX02 B03XA06 B02BX05 B02BX06 V03AC02 M09AX10 L03AX16 S01LA05 S01LA09,,性別+年齡,女;10-49,紅,懷孕：dronedarone、mavacamten、ivabradine、chenodiol、probucol、luspatercept、eltrombopag、emicizumab、deferiprone、risdiplam、plerixafor、眼內注射 aflibercept／faricimab，仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌與 8.3；仿單（懷孕分級 X）
+C165,M05BX04 M05BA03 M05BA08,,性別+年齡,女;10-49,紅,懷孕：denosumab 懷孕禁用；zoledronic acid、pamidronate 美國仿單要求用藥前確認未懷孕（可能傷害胎兒），請確認未懷孕,美國仿單 4 禁忌與 8.3
+C166,N03AX11,,性別+年齡,女;10-49,紅,懷孕：topiramate 致先天異常（唇顎裂）與胎兒過小，美國仿單建議未計畫懷孕者有效避孕，請確認未懷孕並有避孕,美國仿單 8.3
+C167,N05BB01,,性別+年齡,女;10-49,紅,懷孕：hydroxyzine（仿單：懷孕初期禁用），請確認是否懷孕,美國仿單 4 禁忌
+C168,P01AB01 J01XD01 G01AF01,,性別+年齡,女;10-49,紅,懷孕：metronidazole（仿單：治療陰道滴蟲時，懷孕前三個月禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C169,J02AC02,,性別+年齡,女;10-49,紅,懷孕：itraconazole（仿單：治療甲癬時，孕婦或計畫懷孕者禁用，治療期間與停藥後 2 個月須避孕），請確認是否懷孕與用途,美國仿單 4 禁忌
+C170,L04AX01,,性別+年齡,女;10-49,紅,懷孕：azathioprine（仿單：治療類風濕性關節炎時，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C171,J01XE J01RA02,SULFADIAZINE,性別+年齡,女;10-49,紅,懷孕：sulfadiazine、外用 silver sulfadiazine、nitrofurantoin（仿單：接近足月、待產與分娩時禁用，新生兒核黃疸或溶血），請確認是否懷孕,美國仿單 4 禁忌
+C172,M01CC01,,性別+年齡,女;10-49,紅,懷孕：penicillamine（仿單：除 Wilson 病與部分胱胺酸尿症外，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C173,G02CB01,,性別+年齡,女;10-49,紅,懷孕：bromocriptine（仿單：治療高泌乳素血症時確診懷孕應停藥，無月經期間每 4 週驗孕），請確認是否懷孕,美國仿單 4 禁忌與 8.3
+C174,,PHENAZOPYRIDINE,性別+年齡,女;10-49,紅,懷孕：phenazopyridine（仿單：孕期腎盂腎炎禁用），請確認是否懷孕,美國仿單 4 禁忌
+C175,M01AB15,,性別+年齡,女;10-49,紅,懷孕：ketorolac（仿單：待產與分娩時禁用，可能影響胎兒循環並抑制子宮收縮），請確認是否懷孕,美國仿單 4 禁忌與黑框
+C176,B05XA05,,性別+年齡,女;10-49,紅,懷孕：靜脈 magnesium sulfate（仿單：妊娠毒血症產婦分娩前 2 小時內不可給），請確認是否懷孕,美國仿單 4 禁忌
+C177,C09,,性別+年齡,女;10-49,黃,懷孕停藥：ACEI、ARB、aliskiren 有胎兒毒性（美國仿單黑框：發現懷孕應盡快停藥），請確認是否懷孕或計畫懷孕,美國仿單黑框
+C178,B01AC24 B01AE07 B01AF02 B01AF03 B01AC11 B02BX04 C03XA01 C07AB12 C07AA07 C10AB05,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C179,A10BK A10BX03,GLIFLOZIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C180,A16AX06 A16AX08 H01CB03 H05AA02 M04AA01 V03AC03 V03AF07,TIOPRONIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C181,J01AA12 J01MA02 P01AB02 J01XD02,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C182,N02BF02 N05BA12 N07XX08,TRAMADOL,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C183,D11AH08 L04AF01 L04AJ02 L04AJ07 L04AJ08 L04AJ09 R05CB05 V03AF01,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C184,,CODEINE,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2

@@ -32,7 +32,7 @@
 - **ATC**：寫前綴，例如 `C`（所有心血管藥）、`C10`、`C10AA`、`C10AA05`。
 - **ICD-10-CM**：寫前綴，例如 `E11`、`N18.4`；或寫範圍，例如 `I10-I16`。範圍兩端的碼長要相同、前小後大，比對時取診斷碼的前幾碼（與範圍兩端同長）落在兩端之間，所以 `I20-I25` 包含 `I25.10`、不包含 `I26`。
 - 等級只能是 `紅`、`黃`、`灰`。
-- **注意事項的條件**：`條件類型` 寫 `診斷`、`年齡`、`性別`、`同處方` 之一，多種時以 `+` 連接，例如 `年齡+同處方`；`條件` 依同樣順序寫成以 `;` 分隔的幾段，例如 `>=65;G04CA C02CA`。年齡寫 `>=65`（65 歲以上）或 `<50`（未滿 50 歲）；性別寫 `男` 或 `女`；同處方的 ATC 後面加 `@HS` 表示那個藥的頻率含 HS 才算（HS、QHS、HSPRN、QD&HS 等），例如 `C08@HS`。
+- **注意事項的條件**：`條件類型` 寫 `診斷`、`年齡`、`性別`、`同處方` 之一，多種時以 `+` 連接，例如 `年齡+同處方`；`條件` 依同樣順序寫成以 `;` 分隔的幾段，例如 `>=65;G04CA C02CA`。年齡寫 `>=65`（65 歲以上）、`<50`（未滿 50 歲）或 `10-49`（10 到 49 歲，兩端都含；115/11/18 起，因為同一種條件只能寫一次）；性別寫 `男` 或 `女`；同處方的 ATC 後面加 `@HS` 表示那個藥的頻率含 HS 才算（HS、QHS、HSPRN、QD&HS 等），例如 `C08@HS`。
 - **後來加的三種條件（115/11/10）**：
   - `未同處方`：同處方（合併比對時含其他張）沒有這些藥才成立。寫 ATC 前綴，或 `=健保碼` 指定一個沒有 ATC 的特材，例如 C67 的 `=NAN02A1000ZZ`（胰島素注射針頭）。
   - `同類數`：寫成 `>=3 N05A N05B …`，同處方有至少幾種不同健保碼的藥（這個藥本身也算）屬於這些 ATC 才成立；同一張只在第一個算到的藥提示一次，避免每個藥都重複一則。
@@ -60,7 +60,7 @@
 1. 改 CSV。表頭不要動；用 Excel 編輯時另存成「CSV UTF-8」。新增藥品清單時，用 `nhi-drug-codes.csv` 的成分核對每個 ATC：前綴可能多抓（`G04BD` 含 β3 促效劑 mirabegron），ATC 也可能標錯（A04AD01 唯一的品項其實是 butylscopolamine）。
 2. 執行 `npm run rx-assets`。格式不對時會停下，並指出哪個檔、第幾列、哪一欄。
 3. 執行 `npm run rx-review-page -- 樣本…`（見下方「審核頁」）。它更新審核紀錄 `rx-rules-review.json` 與審核頁讀的清單 `public/assets/rx/review.json`；發布後，新條文和改過內容的規則會出現在藥師團隊的待審。
-4. 執行 `npm test`。`public/assets/rx/rules.json` 沒有重產、審核紀錄或審核頁清單沒有更新、或注意事項的依據沒有對到 `rx-sources.csv` 的來源時，測試會失敗。
+4. 執行 `npm test`。`public/assets/rx/rules.json` 沒有重產、審核紀錄或審核頁清單沒有更新、或注意事項的依據沒有對到 `rx-sources.csv` 的來源時，測試會失敗。懷孕與哺乳的規則另有 `tests/rx-pregnancy.test.ts`：健保檔裡含這些規則成分的品項（含複方）沒有被對到、或被兩條對到時會失敗（見下方「懷孕與哺乳」）。`nhi-drug-codes.csv` 更新後，新成分要照同一標準篩一次。
 5. 有本機樣本時，可另外跑和原型的比對（見下方）。比對只看邏輯：原型會改用 repo 裡的規則表，所以改規則不會讓比對失敗；但 `settings.csv` 要是原型的做法（同成分重複＝黃、科別常用＝保留）。
 6. 照一般流程開 PR。
 
@@ -255,6 +255,73 @@ Angus 的決定（115/11/16，逐字）：「此規則屬於法規, 不必另外
   - **D01**（胃藥可由同處方的藥解釋）：celecoxib、etoricoxib、meloxicam、etodolac、nabumetone、nimesulide「不得預防性併用」消化性潰瘍用藥，從可解釋的 NSAID 拿掉（M01AB、M01AC、M01AE 改列明確的代碼；健保檔裡 ATC 只寫到 M01AC 的 piroxicam 因此不再列入）。
 - **試跑**：235 張樣本中，新條文共 31 則黃色（28 張處方，11.9%）、4 則灰色（年齡層跨過門檻 1 則、院內 3 碼科別讀不到 3 則）。最多的是消化性潰瘍用藥只有胃炎、噁心或沒有相關診斷（C129，6）、失智症藥品沒有阿茲海默或巴金森失智診斷（C91，5）、膀胱過動藥沒有頻尿急尿診斷（C97，3；N40.1、N40.3 攝護腺肥大併下泌尿道症狀算有）、clopidogrel＋aspirin 沒有支架或急性冠心症診斷（C100，3）。
 - **讀了但沒有收的**：限事前審查、檢驗值（降血脂、B、C 型肝炎、eGFR 與 uACR）、病歷記載、處方醫師資格（除了上面的科別）、藥價、療程月數與支架日期的條文；人工淚液只限初次使用，判斷不了是不是初次；劑量以毫克計的上限（例如 gabapentin 每日 3,600 mg）要乘含量，現有寫法做不到；methylphenidate 緩釋劑型的年齡限制分不出劑型。
+
+### 懷孕與哺乳（115/11/18 加入，未審）
+
+負責人的要求（115/11/18）：PLLR 不適用於孕婦、哺乳婦、預備懷孕的適齡女子的藥品，或舊制懷孕分級為 X 的藥品，出現在處方中而病人是適齡女性時，給紅色。PLLR（美國 FDA 2015 年起的仿單格式）沒有字母分級，「不適用」分散在仿單第 4 節（禁忌）、黑框警語、8.1（懷孕）、8.2（哺乳）與 8.3（有生育能力者：驗孕、避孕），所以先定下對應的標準，再用標準篩全部成分，不靠記憶列舉。
+
+**標準（負責人決定，115/11/18）**：
+
+- **適齡女性＝10–49 歲**：條件寫 `性別+年齡`、`女;10-49`。QR 的年齡層 10 歲一層，AGE10-19 整層算在內（含 10–14 歲）；性別或年齡讀不到時給灰色，和其他性別、年齡條件相同。
+- **紅色**（提示以「懷孕：」開頭）：舊制懷孕分級 X；美國仿單第 4 節列懷孕禁忌；黑框胚胎毒性；8.3 要求驗孕或避孕。禁忌只限某個適應症或懷孕某個時期的（hydroxyzine 懷孕初期、metronidazole 治療陰道滴蟲的前三個月、itraconazole 治療甲癬、azathioprine 治療類風濕性關節炎、penicillamine 除 Wilson 病外、sulfadiazine 與 nitrofurantoin 接近足月、ketorolac 與靜脈 magnesium sulfate 待產分娩、phenazopyridine 孕期腎盂腎炎、bromocriptine 確診懷孕應停藥）也給紅色，由現場藥師判斷，提示附仿單原句的中文（C167–C176）。
+- **黃色「懷孕停藥：」**：ACEI、ARB、aliskiren 有胎兒毒性的黑框警語，但不是禁忌、也不要求避孕，另給一條黃色（C177）。它也取代這些藥的哺乳提示，一個藥只出現一則。
+- **黃色「哺乳：」**：不在紅色裡、只有 8.2 寫不要哺乳，而且至少 8 成的單方仿單這樣寫的藥（C178–C184）。愛滋病藥「感染者不要哺乳」是怕傳染，不是藥的問題，不收；舊式第一代抗組織胺（carbinoxamine 等）與 imipramine 的通則性句子不收；不到 8 成的（例如 amiodarone 33／50、fluoxetine）不收。
+- **Valproate 升為紅色**（C46，原本黃色）：用於偏頭痛時美國仿單列懷孕禁忌（舊制 X），黑框胚胎毒性，8.3 要求避孕。
+- **C18 補上 G04CA52**：健保檔的 dutasteride＋tamsulosin 複方 ATC 是 G04CA52，原本只寫 `G04CB` 對不到。
+- 每條的 ATC、提示與依據見 `cautions.csv` C18、C46、C151–C184；每條的理由與仿單出處（DailyMed）在審核頁。
+
+| 編號 | 內容 | 等級 |
+|---|---|---|
+| C18 | 5α 還原酶抑制劑（含與 tamsulosin 的複方） | 紅 |
+| C46 | valproate | 紅 |
+| C151 | 口服維生素 A 衍生物、外用 tazarotene | 紅 |
+| C152 | 抗腫瘤藥與腫瘤荷爾蒙治療（L01、L02，含 GnRH 促效劑） | 紅 |
+| C153 | 免疫調節藥：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib、alemtuzumab、inebilizumab、pegcetacoplan、siltuximab | 紅 |
+| C154 | statin（含複方） | 紅 |
+| C155 | 舊制 X 的 BZD 安眠藥：flurazepam、estazolam、triazolam、temazepam | 紅 |
+| C156 | 麥角鹼類 | 紅 |
+| C157 | misoprostol（含複方） | 紅 |
+| C158 | 性荷爾蒙與調節劑：雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、cyproterone、danazol、gestrinone、SERM、clomiphene、nafarelin、lynestrenol | 紅 |
+| C159 | 肺動脈高壓：bosentan、ambrisentan、macitentan、riociguat、sotatercept | 紅 |
+| C160 | warfarin | 紅 |
+| C161 | ganciclovir、valganciclovir、griseofulvin、clofazimine、voriconazole、isavuconazonium | 紅 |
+| C162、C163 | ribavirin、efavirenz（以成分關鍵字涵蓋複方） | 紅 |
+| C164 | dronedarone、mavacamten、ivabradine、chenodiol、probucol、luspatercept、eltrombopag、emicizumab、deferiprone、risdiplam、plerixafor、眼內注射 aflibercept 與 faricimab | 紅 |
+| C165 | denosumab、zoledronic acid、pamidronate | 紅 |
+| C166 | topiramate | 紅 |
+| C167–C176 | 只限特定情形的禁忌（見上） | 紅 |
+| C177 | ACEI、ARB、aliskiren（懷孕停藥） | 黃 |
+| C178–C184 | 只有不建議哺乳：ticagrelor、新型口服抗凝血劑、SGLT2 抑制劑、pregabalin、tramadol、alprazolam、codeine、fenofibrate、allopurinol、ciprofloxacin 等 | 黃 |
+
+**篩選方法（115/11/18）**：
+
+1. 範圍是 `nhi-drug-codes.csv` 有給付的品項，以 `ingredientBases` 取成分基名（3,285 種，單方 2,165 種）。QR 只有健保碼，所以只看這些就夠。
+2. openFDA 仿單 API（`api.fda.gov/drug/label.json`）以各節文字反查：第 4 節提到懷孕、黑框胚胎毒性、8.3 要求驗孕或避孕、仍寫「Pregnancy Category X」的舊格式仿單、8.2 寫不要哺乳；再對到健保的成分，算每個成分有幾份仿單命中、共有幾份單方仿單，並讀原句。472 種成分有命中，其中很多是複方或順帶提到懷孕，逐條讀原句後決定收不收。8.3 的「避孕」有一部分只是「會降低荷爾蒙避孕藥效果」（omeprazole、amoxicillin、rifabutin），不收。
+3. 舊制 X 另列一份清單對照（132 列）：只有 15 列上網查證過，其餘依記憶整理；openFDA 仍有舊格式仿單的（statin、temazepam、griseofulvin、chenodiol 等）以原文確認。美國沒有上市的藥，以歐盟或日本仿單確認：cyproterone、probucol、gestrinone、lynestrenol、tegafur（屬 C152）。國內仿單這次沒有核對。
+4. 篩選用的腳本與資料不放進 repo，只在 Drive 外的工作環境執行一次。
+
+**看了但沒收的**：
+
+- 安胎或助孕的藥（負責人決定）：progesterone（G03DA04）、hydroxyprogesterone（G03DA03）、dydrogesterone（G03DB01）、allylestrenol（G03DC01）、促性腺激素（G03GA）。美國仿單多寫「已知或疑似懷孕」禁用，但國內常用來安胎或做黃體支持，本來就開給可能懷孕的人。Clomiphene 照收。
+- 禁忌只在國內沒有的品項：Saxenda（減重用 liraglutide）、Brisdelle（paroxetine 7.5 mg）、含 benzyl alcohol 的多劑量 epoetin、Opfolda（miglustat）、Zonisade（zonisamide 口服液）、copper IUD（健保的 copper 是微量元素注射劑）。
+- 不是懷孕禁忌、也不要求避孕的：aminoglycoside 與 terbutaline 的黑框、lithium、carbamazepine、phenytoin、tetracycline、methimazole（舊制 D）；belimumab 的避孕是「評估後若需要」，不收。
+- 美國沒有上市、沒有舊制分級的 BZD 安眠藥：nitrazepam、flunitrazepam、brotizolam、lormetazepam、nimetazepam。
+- 外用與眼耳用的劑型（`tests/rx-pregnancy.test.ts` 的 `LEFT_OUT`，附理由）：外用 isotretinoin 與 tretinoin（D10AD）、外用 metronidazole、眼耳用 ciprofloxacin 與 ketorolac、陰道用抗感染複方裡少量的雌激素；腦循環用的 dihydroergotoxine（C04AE01）。
+- 劑量決定的：高劑量 vitamin A 是舊制 X，現有寫法不看劑量，不收。
+
+**已知的誤報**：健保檔有一個中藥複方（A024246100，含川芎、茯苓、牡丹皮、桃仁、芍藥等）的 ATC 標成 G03CA53（estradiol 複方），會被 C158 當成性荷爾蒙給紅色。同一個 ATC 底下還有 3 個真的 estradiol 複方，所以不能用 ATC 排除；規則也沒有排除單一健保碼的寫法。健保檔更正 ATC 後就會消失。
+
+**完整性測試**：`tests/rx-pregnancy.test.ts` 讀網站用的 `rules.json` 與 `drugs.json`。條件一律是 `女;10-49`，等級依提示開頭（懷孕紅、懷孕停藥黃、哺乳黃）。這些規則對到的單方品項的成分，在健保檔裡的每個品項（含複方、ATC 標得怪的品項）都要被其中一條對到，不收的寫進 `LEFT_OUT` 並說明理由；同一個健保碼只能對到一條，避免一個藥出現兩則。健保檔更新出現新的複方時，這個測試會失敗。
+
+**試跑（115/11/18）**：「驗證用」與「已用於調整」的 597 張處方（1,837 個藥品），規則修改前後比較：
+
+- 有紅色的處方從 2 張（0.3%）變 18 張（3.0%）；有紅或黃的從 99 張變 113 張；最高是灰色的從 132 張變 147 張。判定改變的共 48 張。
+- 新增紅色或黃色最多的是 C154 statin（5 張）、C158 性荷爾蒙（4）、C152 抗腫瘤藥（3）、C155 BZD 安眠藥（3）、C179 SGLT2 抑制劑哺乳（2），C166 topiramate、C170 azathioprine、C177 ACEI／ARB 各 1 張。
+- 灰色很多，原因是性別或年齡讀不到：C154 命中 20 張裡 15 張是灰色，C177 命中 13 張裡 12 張是灰色。
+- 這批 597 張裡女性 147 張、10–49 歲 99 張，多是慢性病處方，所以抗腫瘤、肺高壓、維生素 A 衍生物、急性用藥的規則大多沒有命中；C151、C153、C160、C164、C184 有這些藥，但病人不是適齡女性。
+- 用合成處方逐條確認過 36 條（C18、C46、C151–C184）：女性 10–19、20–29、40–49 歲給該條等級；0–9 歲、50–59 歲、男性不提示；性別或年齡讀不到給灰色；複方、外用與眼用劑型、安胎藥的例外都照預期。
+
+**和原型的比對**：原型 `check_rules.py` 不認得 `10-49` 這種年齡寫法；有本機樣本跑 `tests/rx-check-samples.test.ts` 時，要先讓原型支援，否則這一批會不一致。
 
 ### 還沒審的（115/11/05 時 80 條；最新的待審清單以審核頁為準）
 

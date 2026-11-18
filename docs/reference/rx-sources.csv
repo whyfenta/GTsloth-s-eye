@@ -23,4 +23,5 @@ S21,CredibleMeds QTdrugs 清單,AZCERT,線上清單,,持續更新,6,,待決定,�
 S22,抗膽鹼負荷量表（Anticholinergic Cognitive Burden）,Regenstrief Institute 等,,,不定期,24,,待決定,「2 種以上抗膽鹼藥」的清單（同類數條件已能寫，清單要先審）；目前強抗膽鹼藥照 Beers 表 7,抗膽鹼負荷,, 
 S23,WHO ATC/DDD Index,WHO Collaborating Centre for Drug Statistics Methodology,2026,2026-01,每年 1 月,12,2026-11-11,使用中,規則表以 ATC 前綴寫藥品；DDD 之後可用於劑量上限,ATC,https://atcddd.fhi.no/atc_ddd_index/,115/11/11 查詢：2026 年版的改碼（L04AA／L04AG → L04AL、L01EX → L01EP、J07）不影響規則表用到的前綴；2027 年版只有名稱修改。規則用的是健保用藥品項裡的 ATC（見 nhi-drug-codes.md）。
 S24,健保用藥品項與 ICD-10-CM 中文版,衛生福利部中央健康保險署,見 nhi-drug-codes.md、icd10cm-zh.md,,每月（用藥品項）,3,2026-11-11,使用中,藥品碼對 ATC 與成分、診斷碼中文名；週檢查出現「查無藥品碼」時更新,健保用藥品項,https://www.nhi.gov.tw/,115/11/11：健保用藥品項資料基準日 2026-10-25、ICD-10-CM 是 115/8/27 更新的 2023 年版，都在 3 個月內。資料日期記在各自的說明檔。
+S25,美國 FDA 仿單（PLLR 格式；DailyMed／openFDA）,U.S. Food and Drug Administration（National Library of Medicine 收錄）,各品項現行仿單,,隨時,12,2026-11-18,使用中,cautions.csv 懷孕與哺乳：第 4 節禁忌、黑框、8.1 懷孕、8.2 哺乳、8.3 有生育能力者（驗孕、避孕）,美國仿單,https://dailymed.nlm.nih.gov/dailymed/,115/11/18 以 openFDA 仿單 API 篩選健保用藥品項的成分（方法與標準見 rx-rules.md「懷孕與哺乳」）；每年對新成分再篩一次。
 S90,藥師的審核決定,本站審核團隊,,,,,,使用中,審核頁的決定與意見；起草者沒有單一出處的判斷,藥師決定|藥師審核意見|起草者判斷,,不需要定期確認。

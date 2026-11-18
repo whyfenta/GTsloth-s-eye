@@ -4,7 +4,7 @@
  * prescriptions a caution would have caught had it looked inside combination products. Pure functions: no DOM, no network, no files.
  */
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
-import { ageAtLeast, atcHit, checkPrescription, kidneyBelow, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
+import { ageWithin, atcHit, checkPrescription, kidneyBelow, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 import { sampleCheck } from './rx-sample';
 
@@ -43,7 +43,8 @@ export function componentAtcs(info: DrugInfo, index: ComponentIndex): string[] {
 
 /** How a drug or condition is there: as the rule is written, only inside a combination product, not judgeable (age, sex), or not. */
 type Match = 'direct' | 'combo' | 'unknown' | '';
-const conditionLabel = (condition: Condition) => condition.kind === '年齡' ? `年齡${condition.below ? '<' : '>='}${condition.years}`
+const conditionLabel = (condition: Condition) => condition.kind === '年齡'
+  ? `年齡${condition.min !== undefined && condition.below !== undefined ? `${condition.min}-${condition.below - 1}` : condition.below !== undefined ? `<${condition.below}` : `>=${condition.min}`}`
   : condition.kind === '性別' ? `性別${condition.sex === 'M' ? '男' : '女'}` : condition.kind === '腎功能' ? `腎功能<${condition.below}`
   : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind === '日量' ? `日量>${condition.above}`
   : condition.kind === '科別外' ? `科別外${condition.departments.join(' ')}` : condition.kind;
@@ -84,7 +85,7 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
     const holds = (condition: Condition, self: string): Match => {
       switch (condition.kind) {
         case '診斷': return icdHits(rx.dx, condition.icd).length ? 'direct' : '';
-        case '年齡': { const atLeast = ageAtLeast(rx.age, condition.years); return atLeast === undefined ? 'unknown' : atLeast !== condition.below ? 'direct' : ''; }
+        case '年齡': { const within = ageWithin(rx.age, condition); return within === undefined ? 'unknown' : within ? 'direct' : ''; }
         case '性別': return !rx.sex ? 'unknown' : rx.sex === condition.sex ? 'direct' : '';
         case '同處方': {
           let found: Match = '';
