@@ -249,6 +249,7 @@ Angus 的決定（115/11/16，逐字）：「此規則屬於法規, 不必另外
 
 - **新增 `cautions.csv` C80–C150（71 條，全部黃色，提示以「健保給付：」開頭，依據寫「給付規定 節次」）**：gabapentin、pregabalin、duloxetine 的止痛用途與纖維肌痛的處方科別；bupropion 戒菸；第二代抗精神病藥用於雙極性鬱症；非精神、神經科 Z-drug 每日超過一顆；topiramate、levetiracetam、zonisamide 限癲癇（topiramate 另含偏頭痛）；失智症藥品的診斷、科別與巴金森失智限 rivastigmine；atomoxetine；cevimeline；膀胱過動藥的診斷、不宜使用的情形與每日一錠；clopidogrel＋aspirin、ticagrelor、cilostazol；rivaroxaban 10 mg 與 2.5 mg；新一代口服抗凝血劑的心房顫動年齡條件、腎功能排除、瓣膜疾病排除與每日顆數；ezetimibe 複方＋gemfibrozil；sacubitril/valsartan；SGLT-2 抑制劑與複方的每日顆數；GLP-1 促效劑不併用 DPP-4、SGLT-2；acarbose、miglitol；mecobalamin；活性維生素 D3；Ketosteril；febuxostat、allopurinol；消化性潰瘍用藥；COX-2 等 NSAID 的適用條件與不得預防性併用胃藥；montelukast；tacrolimus；芳香環轉化酶抑制劑；5α 還原酶抑制劑；cabergoline；肝庇護劑；腦循環與代謝改善劑最多一類；triptan；entecavir；降眼壓藥不得併用同類與限眼科開立連續處方；三合一吸入劑；Trelegy 184/55/22 用於 COPD；anagrelide。另外 C68 的依據加上給付規定 2.1.5（內容不變）。
 - **為了表達這些條文，判定程式新增三種條件**：`未診斷`、`科別外`、`日量`（見上方「寫法」）。
+- **畫面收合（115/11/20）**：負責人要求維持視覺簡明：這批警示在憑單與批次蒐集的處方警示裡，一行只寫藥名與「不符健保」，詳文（編號、給付規定、本次診斷或科別等）預設收合，點「不符健保」才展開；和懷孕與哺乳的「孕哺確認」同一套寫法（`src/rx-check.ts` 的 `FOLDS`）。判定、等級與送出的樣本摘要都不變；判斷不了的灰色提示照舊不收合。
 - **和已結案規則衝突、已修改的（4 條）**：只在給付規定明文「不得」「排除」已結案規則說可以解釋的情形時才改；規定只是列出可給付的條件（例如消化性潰瘍用藥不含胃炎、ticagrelor 限急性冠心症），已結案的適應症仍是臨床上的解釋，不改，由新的黃色注意事項提示給付問題。
   - **I24**（抗凝血劑的適應症）：新一代口服抗凝血劑排除嚴重心臟瓣膜疾病，拿掉人工瓣膜與瓣膜疾病（Z95.2、Z95.4、I05–I08、I34–I37），這些只留給 warfarin（新的 I105）。
   - **I47**（痛風用藥）：allopurinol「不得使用於非核准之適應症」、febuxostat 限慢性痛風，無症狀高尿酸血症（E79.0）只留給促尿酸排泄劑（新的 I106）；allopurinol 另加癌症或化療的高尿酸血症（新的 I107）。

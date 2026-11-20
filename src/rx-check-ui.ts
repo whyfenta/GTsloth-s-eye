@@ -16,7 +16,7 @@ function list(lines: Line[]): HTMLUListElement {
     const badge = make('span', 'rx-level', level);
     badge.dataset.level = level;
     if (fold) {
-      // 孕哺確認: the drug and the label stay on the line; the caution itself waits behind the label, folded until opened.
+      // 孕哺確認, 不符健保: the drug and the label stay on the line; the caution itself waits behind the label, folded until opened.
       const details = make('details', 'rx-fold');
       details.append(make('summary', '', fold), make('span', 'rx-fold-text', text));
       const body = make('span', 'rx-fold-line', drug ? `${drug}：` : '');
