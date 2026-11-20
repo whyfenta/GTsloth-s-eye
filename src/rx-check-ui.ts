@@ -1,7 +1,7 @@
 import { checkPrescriptions, DEPARTMENTS, dxLabel, dxParts, icdDisplay, SUPPLIES, type Layer, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 
-interface Line { level: Level | Layer; drug: string; text: string }
+interface Line { level: Level | Layer; drug: string; text: string; fold?: string }
 const RANK: Record<Level, number> = { 紅: 0, 黃: 1, 灰: 2 };
 function make<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -11,11 +11,18 @@ function make<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', tex
 }
 function list(lines: Line[]): HTMLUListElement {
   const ul = make('ul');
-  for (const { level, drug, text } of lines) {
+  for (const { level, drug, text, fold } of lines) {
     const li = make('li');
     const badge = make('span', 'rx-level', level);
     badge.dataset.level = level;
-    li.append(badge, make('span', '', drug ? `${drug}：${text}` : text));
+    if (fold) {
+      // 孕哺確認, 不符健保: the drug and the label stay on the line; the caution itself waits behind the label, folded until opened.
+      const details = make('details', 'rx-fold');
+      details.append(make('summary', '', fold), make('span', 'rx-fold-text', text));
+      const body = make('span', 'rx-fold-line', drug ? `${drug}：` : '');
+      body.append(details);
+      li.append(badge, body);
+    } else li.append(badge, make('span', '', drug ? `${drug}：${text}` : text));
     ul.append(li);
   }
   return ul;

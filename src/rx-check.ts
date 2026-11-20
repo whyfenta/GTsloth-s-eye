@@ -16,7 +16,20 @@ export type Sex = 'M' | 'F' | '';
  */
 export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; days?: string; drugs: { code: string; frequency: string; route: string; total?: string }[] }
 export interface DrugInfo { atc: string; ingredients: string }
-export interface Note { level: Level; text: string }
+/**
+ * fold: a label shown in place of the text, which the page keeps folded behind it until opened (孕哺確認, 不符健保; see FOLDS).
+ * The text is the same either way, so samples and the review page read it as before.
+ */
+export interface Note { level: Level; text: string; fold?: string }
+/** The 懷孕／哺乳 cautions (docs/reference/rx-rules.md「懷孕與哺乳」) start their message with one of these; the page folds them. */
+export const PREGNANCY_PREFIX = /^(懷孕停藥|懷孕|哺乳)：/;
+export const PREGNANCY_FOLD = '孕哺確認';
+/** The 健保給付規定 cautions (rx-rules.md「健保給付規定」) start their message with this; the page folds them too. */
+export const NHI_PREFIX = /^健保給付：/;
+export const NHI_FOLD = '不符健保';
+/** A caution's message start and the label its fired note is folded behind. */
+export const FOLDS: [RegExp, string][] = [[PREGNANCY_PREFIX, PREGNANCY_FOLD], [NHI_PREFIX, NHI_FOLD]];
+export const foldLabel = (message: string) => FOLDS.find(([prefix]) => prefix.test(message))?.[1];
 /**
  * A drug's verdict and one-line reason, then the cautions it triggers. info is missing for a code outside the NHI drug list.
  * part: the prescription it is on, when one patient's prescriptions are checked together (0 for a single prescription).
@@ -415,7 +428,8 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
       if (outcomes.some(outcome => outcome.hit === false)) continue;
       const unknown = outcomes.find(outcome => outcome.hit === undefined);
       fired.push({ caution, note: unknown ? { level: '灰', text: `${caution.id} ${unknown.why}` }
-        : { level: caution.level, text: `${caution.id} ${caution.message}（${outcomes.map(outcome => outcome.detail).join('；')}）` } });
+        : { level: caution.level, text: `${caution.id} ${caution.message}（${outcomes.map(outcome => outcome.detail).join('；')}）`,
+          ...foldLabel(caution.message) ? { fold: foldLabel(caution.message) } : {} } });
     }
     const cautions = fired.filter(({ caution }) => !fired.some(other => covers(other.caution, caution))).map(({ note }) => note);
     return { code, frequency, route, part, info, ...verdict(), notes: cautions };

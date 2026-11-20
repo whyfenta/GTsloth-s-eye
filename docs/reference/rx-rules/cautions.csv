@@ -151,7 +151,7 @@ C150,L01XX35,,未診斷,D47.3,黃,健保給付：anagrelide 限原發性血小�
 C151,D10BA D05BB D05AX05,,性別+年齡,女;10-49,紅,懷孕：口服維生素 A 衍生物（isotretinoin、acitretin、etretinate）與外用 tazarotene 懷孕禁用（舊制 X），用藥前須確認未懷孕並避孕；停藥後仍需避孕：isotretinoin 1 個月、acitretin 3 年,美國仿單 4 禁忌與黑框；仿單（懷孕分級 X）
 C152,L01 L02,,性別+年齡,女;10-49,紅,懷孕：抗腫瘤藥與腫瘤荷爾蒙治療（含 GnRH 促效劑），美國仿單要求驗孕或避孕（胚胎毒性），請確認未懷孕並有避孕,美國仿單 8.3
 C153,L04AX03 L04AK L04AA06 L04AA40 L04AX02 L04AX04 L04AX06 L04AE L04AH L04AF03 L04AG06 L04AG10 L04AJ03 L04AC11,,性別+年齡,女;10-49,紅,懷孕：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib 等免疫調節藥，美國仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
-C154,C10AA C10BA C10BX,,性別+年齡,女;10-49,紅,懷孕：statin 舊制 X（現行美國仿單：發現懷孕應停藥、不建議哺乳），請確認未懷孕、未哺乳,仿單（懷孕分級 X）；美國仿單 8.1、8.2
+C154,C10AA C10BA C10BX,,性別+年齡,女;10-49,紅,懷孕：statin 一般建議停用（FDA 2021 已移除禁忌，FH／ASCVD 高風險者可由醫師評估續用）；哺乳：避免使用,仿單（懷孕分級 X）；美國仿單 8.1、8.2
 C155,N05CD01 N05CD04 N05CD05 N05CD07,,性別+年齡,女;10-49,紅,懷孕：flurazepam、estazolam、triazolam、temazepam 舊制 X（可能傷害胎兒），請確認未懷孕,仿單（懷孕分級 X）
 C156,N02CA G02AB,ERGOTAMINE,性別+年齡,女;10-49,紅,懷孕：麥角鹼類（ergotamine、dihydroergotamine、methylergonovine、ergonovine）懷孕禁用（子宮收縮），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
 C157,A02BB01,MISOPROSTOL,性別+年齡,女;10-49,紅,懷孕：misoprostol 懷孕禁用（流產、早產、先天異常；美國仿單黑框），用藥前須確認未懷孕並避孕,美國仿單 4 禁忌與黑框

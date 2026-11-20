@@ -3759,11 +3759,11 @@
    "id": "C154",
    "table": "cautions",
    "key": "C154",
-   "fp": "1fb75ad9c71f",
-   "text": "C154 C10AA C10BA C10BX 性別+年齡 女;10-49 → 紅：懷孕：statin 舊制 X（現行美國仿單：發現懷孕應停藥、不建議哺乳），請確認未懷孕、未哺乳",
+   "fp": "16dbd4c921a3",
+   "text": "C154 C10AA C10BA C10BX 性別+年齡 女;10-49 → 紅：懷孕：statin 一般建議停用（FDA 2021 已移除禁忌，FH／ASCVD 高風險者可由醫師評估續用）；哺乳：避免使用",
    "batch": "2026-11-18",
    "changed": "2026-11-18T03:32:48.340Z",
-   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。舊制 X。FDA 2021 年要求拿掉 statin 的懷孕禁忌，現行仿單改為發現懷孕應停藥、不建議哺乳；依負責人的標準（舊制 X 也收）給紅色。樣本中適齡女性用 statin 的處方可能不少，試跑後再看。",
+   "why": "標準見 rx-rules.md「懷孕與哺乳」：適齡女性（10–49 歲）處方有美國仿單懷孕禁忌、黑框胚胎毒性、8.3 要求驗孕或避孕，或舊制懷孕分級 X 的藥時給紅色。舊制 X。FDA 2021 年要求拿掉 statin 的懷孕禁忌，現行仿單改為發現懷孕應停藥、不建議哺乳；2025 ESC 與 2026 ACC/AHA 指引都同意家族性高膽固醇血症或已確診 ASCVD 的孕婦可個別評估續用（IIb／2b），哺乳期仍避免。依負責人的標準（舊制 X 也收）維持紅色，提示改寫成現行建議。樣本中適齡女性用 statin 的處方可能不少，試跑後再看。",
    "links": [
     {
      "t": "DailyMed：atorvastatin 仿單",
@@ -3776,9 +3776,22 @@
     {
      "t": "DailyMed：lovastatin 仿單",
      "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=c37206ae-52f1-4192-9ab9-3044247cf58d"
+    },
+    {
+     "t": "FDA 2021 安全通報：要求移除 statin 懷孕禁忌",
+     "u": "https://www.fda.gov/safety/medical-product-safety-information/statins-drug-safety-communication-fda-requests-removal-strongest-warning-against-using-cholesterol"
+    },
+    {
+     "t": "2025 ESC 心血管疾病與懷孕指引（Eur Heart J）",
+     "u": "https://doi.org/10.1093/eurheartj/ehaf193"
+    },
+    {
+     "t": "2026 ACC/AHA 血脂異常指引（JACC）",
+     "u": "https://www.jacc.org/doi/10.1016/j.jacc.2025.11.016"
     }
    ],
-   "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
+   "outcome": "負責人決定（115/11/20）：提示改為現行建議（一般建議停用；FDA 2021 已移除禁忌，FH／ASCVD 高風險者可由醫師評估續用；哺乳避免），等級維持紅色；懷孕與哺乳這批仍屬明確標準，不另經藥師審核",
+   "prev": "C154 C10AA C10BA C10BX 性別+年齡 女;10-49 → 紅：懷孕：statin 舊制 X（現行美國仿單：發現懷孕應停藥、不建議哺乳），請確認未懷孕、未哺乳"
   },
   {
    "id": "C155",

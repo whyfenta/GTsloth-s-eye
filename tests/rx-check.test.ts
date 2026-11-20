@@ -252,6 +252,12 @@ assert.equal(rxCheckOn('?other=1', true), true);
   // The same code on two lines (QD AM and QD PM) adds up; a strength keyword reaches one strength.
   assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' })), ['TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））', 'TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））']);
   assert.deepEqual(notes({ ...qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' }), days: '' }), ['TESTALPR01 灰 P03 無法計算每日用量', 'TESTALPR01 灰 P03 無法計算每日用量']);
+  // A 健保給付 caution is folded behind 不符健保 on the page; its text stays the same, and a grey one is not folded.
+  const nhi = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P04,B01AC04,,未診斷,I21,黃,健保給付：測試提示,') }));
+  assert.deepEqual(checkPrescription(qr('I25.10', ['TESTCLOP01']), drugs, nhi).drugs[0].notes, [{ level: '黃', text: 'P04 健保給付：測試提示（本次沒有：I21）', fold: '不符健保' }]);
+  assert.deepEqual(checkPrescription(qr('I25.10', ['TESTCLOP01']), drugs, pay).drugs[0].notes[0].fold, undefined, 'other cautions are not folded');
+  const nhiDept = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P05,N05BA,,科別外,12 13,黃,健保給付：測試提示,') }));
+  assert.deepEqual(checkPrescription(qr('F41.9', ['TESTALPR01'], { 7: '146' }), drugs, nhiDept).drugs[0].notes, [{ level: '灰', text: 'P05 無法判斷就醫科別' }]);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,科別外,神經科,黃,x,') })), /科別外寫成/);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,日量,1,黃,x,') })), /日量寫成/);
 }
