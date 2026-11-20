@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { atcHit, ingredientBases, type Caution, type DrugInfo } from '../src/rx-check';
+import { atcHit, checkPrescription, ingredientBases, PREGNANCY_FOLD, PREGNANCY_PREFIX, type Caution, type DrugInfo, type RxFacts } from '../src/rx-check';
 import { readRxData } from '../src/rx-data';
 
 // The 懷孕／哺乳 cautions (docs/reference/rx-rules.md「懷孕與哺乳」): a woman aged 10-49 with a drug her label says not to take
@@ -8,7 +8,7 @@ import { readRxData } from '../src/rx-data';
 // odd ATC is easily missed (dutasteride with tamsulosin is G04CA52, not G04CB). Checked against the whole NHI file the page reads.
 const data = readRxData(...(['rules', 'drugs', 'icd10cm'].map(name => JSON.parse(readFileSync(`public/assets/rx/${name}.json`, 'utf8'))) as Parameters<typeof readRxData>));
 const LEVEL: Record<string, string> = { 懷孕: '紅', 懷孕停藥: '黃', 哺乳: '黃' };
-const prefix = (caution: Caution) => /^(懷孕停藥|懷孕|哺乳)：/.exec(caution.message)?.[1];
+const prefix = (caution: Caution) => PREGNANCY_PREFIX.exec(caution.message)?.[1];
 const group = data.rules.cautions.filter(prefix);
 assert.ok(group.length, '找不到提示以「懷孕：」「懷孕停藥：」或「哺乳：」開頭的注意事項');
 
@@ -52,3 +52,14 @@ for (const [code, info] of data.drugs) {
 assert.deepEqual(missed, [], '這些健保碼含懷孕／哺乳規則的成分，卻沒有被任何一條對到：在該條加上 ATC 或成分關鍵字，或寫進 LEFT_OUT 並說明理由');
 assert.deepEqual(twice, [], '這些健保碼對到兩條以上的懷孕／哺乳規則，同一個藥會出現兩則：調整 ATC，讓每個藥只對到一條');
 console.log(`懷孕／哺乳規則 ${group.length} 條，涵蓋 ${meant.size} 種成分，passed`);
+
+// On the page a fired 懷孕／哺乳 caution shows 孕哺確認 with its text folded behind it; other cautions keep their text on the line.
+const atorvastatin = [...data.drugs].find(([, info]) => info.atc === 'C10AA05' && ingredientBases(info.ingredients).length === 1)![0];
+const statinFor = (sex: RxFacts['sex'], age: string) => checkPrescription({ dx: ['E785'], dept: '01', age, sex, drugs: [{ code: atorvastatin, frequency: 'QD', route: 'PO' }] },
+  data.drugs, data.rules).drugs[0].notes;
+const [statin] = statinFor('F', 'AGE20-29');
+assert.equal(statin.level, '紅');
+assert.equal(statin.fold, PREGNANCY_FOLD);
+assert.match(statin.text, /^C154 懷孕：statin 一般建議停用（FDA 2021 已移除禁忌/, 'the folded text is the caution itself, unchanged');
+assert.deepEqual(statinFor('M', 'AGE20-29'), [], 'a man');
+assert.equal(statinFor('', 'AGE20-29')[0].fold, undefined, 'a grey note that cannot be judged is not folded');
