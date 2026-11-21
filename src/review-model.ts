@@ -11,6 +11,9 @@ export const CHOICES = ['同意', '不同意', '其他意見'] as const;
 export type Choice = typeof CHOICES[number];
 /** A proposal is voted on with the same three values, worded for what they mean there. */
 export const PROPOSAL_LABEL: Record<Choice, string> = { 同意: '採用', 不同意: '不採用', 其他意見: '需更多樣本或修改' };
+export const PROPOSALS_CAT = '規則提案';
+export const inReviewCategory = (item: Item, cat: string) => cat === PROPOSALS_CAT ? item.table === 'proposals' && !item.cat : item.cat === cat;
+export const reviewChoiceLabel = (item: Item, value: Choice) => inReviewCategory(item, PROPOSALS_CAT) ? PROPOSAL_LABEL[value] : value;
 /** A link a reviewer gives as evidence: what it is ('' when not said) and an https address. */
 export interface Link { t: string; u: string }
 /**
@@ -95,6 +98,7 @@ export const agreedWithComment = (item: Item, votes: Record<string, Vote> | unde
 export function proposalItem(proposal: Proposal, done?: { status: string; decided: string; note?: string }): Item {
   return { id: proposal.id, table: 'proposals', batch: proposal.id.slice(1, 9), changed: '', basis: proposal.basis, flags: [], hits: null,
     title: proposal.title, kind: proposal.kind, file: proposal.file, row: proposal.row, evidence: proposal.evidence, trial: proposal.trial, note: proposal.note,
+    ...(proposal.kind === '臨床併用' ? { cat: '臨床', kinds: ['併用'] } : {}),
     ...(done ? { outcome: `${done.status}（${done.decided}）${done.note ? `：${done.note}` : ''}` } : {}) };
 }
 

@@ -1,3 +1,5 @@
+import { csvRows } from './csv';
+
 /**
  * Proposals from the weekly review of samples (docs/rx-samples-weekly-review.md): what the reviewing Claude suggests, one row
  * each, for the pharmacists to vote on in the review page before anything reaches the rule tables. The weekly review writes them
@@ -6,7 +8,7 @@
  */
 /** public/assets/rx/proposals.json: the open proposals as published with the site (`npm run rx-proposals -- --publish`). */
 export const PROPOSALS_FORMAT = 'gtsloth-rx-proposals';
-export const PROPOSAL_KINDS = ['新增規則', '修改規則', '刪除規則', '新功能', '資料品質', '待決定'] as const;
+export const PROPOSAL_KINDS = ['新增規則', '修改規則', '刪除規則', '新功能', '資料品質', '待決定', '臨床併用'] as const;
 export type ProposalKind = typeof PROPOSAL_KINDS[number];
 export const PROPOSAL_FILES = ['', 'indications', 'co-drugs', 'cautions', 'specialty', 'drug-classes', 'settings'] as const;
 /** The sheet's header, in order. 整列內容 is the whole CSV row a rule proposal would add or leave, as the table would hold it. */
@@ -39,8 +41,14 @@ export function proposalProblems(proposal: Partial<Record<keyof Proposal, unknow
   if (!(PROPOSAL_KINDS as readonly string[]).includes(text('kind'))) problems.push(`類型只能是 ${PROPOSAL_KINDS.join('、')}`);
   if (!text('title').trim()) problems.push('沒有標題');
   if (!(PROPOSAL_FILES as readonly string[]).includes(text('file'))) problems.push(`檔案只能是 ${PROPOSAL_FILES.filter(Boolean).join('、')} 或空白`);
-  const ruleChange = ['新增規則', '修改規則', '刪除規則'].includes(text('kind'));
+  const clinical = text('kind') === '臨床併用';
+  const ruleChange = ['新增規則', '修改規則', '刪除規則'].includes(text('kind')) || (clinical && !!(text('file') || text('row')));
   if (ruleChange && (!text('file') || !text('row').trim())) problems.push('規則的提案要有檔案與整列內容');
+  if (clinical && ruleChange) {
+    const [row] = csvRows(text('row'));
+    if (text('file') !== 'cautions' || row?.length !== 9 || row[1] !== '臨床' || !row[4].split('+').includes('同處方'))
+      problems.push('臨床併用要填臨床類別的同處方注意事項，或將檔案與整列內容留空');
+  }
   if (!text('evidence').trim()) problems.push('沒有證據（張數、院所數、藥品與診斷的組合）');
   if (!text('basis').trim()) problems.push('沒有依據等級');
   if (ruleChange && !text('trial').trim()) problems.push('規則的提案要有試跑結果');

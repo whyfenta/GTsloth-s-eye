@@ -4,7 +4,7 @@ import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATEGORIES, KINDS } from './rx-check';
 import { legacyId } from './rx-ids';
-import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
+import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSALS_CAT, inReviewCategory as inCat, reviewChoiceLabel, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
   agreedWithComment, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
@@ -25,9 +25,6 @@ const ageOf = (batch: string) => Date.now() - new Date(`${batch}T00:00:00`).getT
 /** Whether an item is in a batch filter: 新／舊, or one batch by id (the 最新一批 box). Proposals belong to no batch. */
 const inBatch = (item: Item, batch: string) => item.table !== 'proposals' && (batch === 'new' || batch === 'old' ? ageOf(item.batch) === batch : item.batch === batch);
 /** Whether an item is under a tab: a rule table, or the cautions of one warning level. */
-/** 規則提案 sits with the 類別 of the cautions on the bar: the proposals, rather than cautions of one category. */
-const PROPOSALS_CAT = '規則提案';
-const inCat = (item: Item, cat: string) => cat === PROPOSALS_CAT ? item.table === 'proposals' : item.cat === cat;
 const inTab = (item: Item, tab: string) => tab === 'all' || (tab in LEVEL_TABS ? item.table === 'cautions' && item.level === LEVEL_TABS[tab] : item.table === tab);
 /** Red cautions before yellow before the rest, so the heavier warnings come up first in a batch. */
 const severity = (item: Item) => item.table !== 'cautions' ? 0 : item.level === '紅' ? 2 : item.level === '黃' ? 1 : 0;
@@ -205,7 +202,8 @@ function buildCard(item: Item) {
   if (item.cat && item.cat !== '臨床') head.append(el('span', 'badge b-cat', item.cat));
   else if (item.kinds?.length) head.append(el('span', 'badge b-kind', item.kinds.join('・')));
   if (item.table === 'specialty') head.append(el('span', 'atc', item.dept));
-  if (item.table === 'proposals') head.append(el('span', 'badge', `提案・${item.kind}`));
+  if (inCat(item, PROPOSALS_CAT)) head.append(el('span', 'badge', `提案・${item.kind}`));
+  if (item.kind === '臨床併用' && !closed(item)) head.append(el('span', 'badge', '待啟用'));
   head.append(el('span', 'title', headline(item)), basisBadge(item.basis));
   const hits = hitsText(item);
   if (hits) head.append(el('span', `hits${item.hits ? '' : ' zero'}`, hits));
@@ -246,7 +244,7 @@ function buildCard(item: Item) {
   if (!closed(item)) {
     const choices = el('div', 'choices');
     for (const value of CHOICES) {
-      const button = el('button', 'choice', item.table === 'proposals' ? PROPOSAL_LABEL[value] : value);
+      const button = el('button', 'choice', reviewChoiceLabel(item, value));
       button.type = 'button'; button.dataset.v = value; button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => choose(item, mine[item.id]?.d === value ? '' : value));
       choices.append(button);
@@ -295,7 +293,7 @@ function updateCard(item: Item) {
   }
 
   const counted = tally(item, votesOn(item.id));
-  const label = (value: Choice) => item.table === 'proposals' ? PROPOSAL_LABEL[value] : value;
+  const label = (value: Choice) => reviewChoiceLabel(item, value);
   const votes = card.querySelector('.votes')!;
   votes.replaceChildren();
   const status = statusOf(item);
@@ -546,8 +544,11 @@ async function load(first = false) {
     mine = merged;
     keep(KEYS.votes, mine);
     if (!me.name && state.reviewers[me.id]) { me.name = state.reviewers[me.id]; keep(KEYS.me, me); $<HTMLInputElement>('name').value = me.name; }
-    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${new Set([...published, ...state.proposals].map(proposal => proposal.id)).size} 項`];
-    if (state.skipped) notes.push(`另有 ${state.skipped} 項提案格式不對，沒有顯示`);
+    const loaded = reviewRows();
+    const clinical = loaded.filter(proposal => proposal.kind === '臨床併用').length;
+    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${loaded.length - clinical} 項`];
+    if (clinical) notes.push(`臨床併用 ${clinical} 項`);
+    if (state.skipped) notes.push(`另有 ${state.skipped} 項審核資料格式不對，沒有顯示`);
     if (state.proposalProblem) notes.push(`最新的提案表讀不到（${state.proposalProblem}），目前顯示隨網站發布的提案；請負責人在 Apps Script 執行 checkProposals`);
     sayStore(`已連上團隊共用儲存：${notes.join('；')}。`, !!state.proposalProblem);
     applyItems();
@@ -559,13 +560,13 @@ async function load(first = false) {
     sayStore('連不上團隊共用儲存，決定暫時只存在這個瀏覽器，連上後會自動送出。', true);
   }
 }
-/** The catalog's rules with the proposals: open ones from the team's sheet, closed ones as the repo records them. */
+const reviewRows = () => [...new Map([...published, ...team?.proposals ?? []].map(proposal => [proposal.id, proposal])).values()];
+/** The catalog's rules with the review entries from the team's sheet and their outcomes from the repo. */
 function applyItems() {
   if (!catalog) return;
   const closedProposals = new Map((catalog.proposals ?? []).map(proposal => [proposal.id, proposal]));
-  const known = new Map([...published, ...team?.proposals ?? []].map(proposal => [proposal.id, proposal]));
   const week = (proposal: Proposal) => proposal.id.slice(1, 9);
-  const open = [...known.values()].sort((a, b) => week(b).localeCompare(week(a)) || a.id.localeCompare(b.id)).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
+  const open = reviewRows().sort((a, b) => week(b).localeCompare(week(a)) || a.id.localeCompare(b.id)).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
   const listed = new Set(open.map(item => item.id));
   const past = [...closedProposals.values()].filter(proposal => !listed.has(proposal.id))
     .map(proposal => proposalItem({ id: proposal.id, kind: '待決定', title: proposal.title, file: '', row: '', evidence: '', basis: '提案', trial: '', note: '' }, proposal));
@@ -633,7 +634,8 @@ function setupBar() {
     clearTimeout(timer);
     timer = setTimeout(() => { view.q = (event.target as HTMLInputElement).value.trim().toLowerCase(); renderList(); }, 150);
   });
-  const label = Object.fromEntries(TABLES);
+  const labels = Object.fromEntries(TABLES);
+  const label = (item: Item) => item.kind === '臨床併用' ? '臨床併用' : labels[item.table];
   const copy = async (lines: string[][], what: string) => {
     const text = lines.map(line => line.map(value => value.replace(/\s+/g, ' ')).join('\t')).join('\n');
     try { await navigator.clipboard.writeText(text); say(`已複製 ${lines.length - 1} 項${what}`); }
@@ -645,7 +647,7 @@ function setupBar() {
   };
   $('copy-mine').addEventListener('click', () => {
     const lines = [['編號', '規則表', '規則', '決定', '意見', '狀態', '證據連結']];
-    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label[item.table], summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審', linksLine(vote.l)]); }
+    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label(item), summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審', linksLine(vote.l)]); }
     void copy(lines, '審核結果');
   });
   $('copy-team').addEventListener('click', () => {
@@ -655,7 +657,7 @@ function setupBar() {
       const counted = tally(item, votesOn(item.id));
       const pre = preShownOn(item);
       if (!counted.同意.length && !counted.不同意.length && !counted.其他意見.length && !counted.comments.length && !pre.length) continue;
-      lines.push([item.id, label[item.table], summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
+      lines.push([item.id, label(item), summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
         counted.comments.filter(opinion => opinion.c).map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ '),
         pre.map(([who, vote]) => `${nameOf(who)}${vote.d ? `（${vote.d}）` : ''}：${vote.c.trim()}`).join(' ／ '),
         [...counted.comments.map(opinion => [opinion.who, opinion.l] as const), ...pre.map(([who, vote]) => [who, vote.l] as const)]
@@ -707,9 +709,8 @@ function renderFacets() {
     }
   };
   box.replaceChildren();
-  const cautions = items.filter(item => item.table === 'cautions');
-  row('類別', [...Object.keys(CATEGORIES).filter(cat => cautions.some(item => item.cat === cat)), PROPOSALS_CAT], 'cat');
-  row('型態', KINDS.filter(kind => cautions.some(item => item.kinds?.includes(kind))), 'kind');
+  row('類別', [...Object.keys(CATEGORIES).filter(cat => items.some(item => inCat(item, cat))), PROPOSALS_CAT], 'cat');
+  row('型態', KINDS.filter(kind => items.some(item => item.kinds?.includes(kind))), 'kind');
 }
 function renderFoot() {
   if (!catalog) return;
