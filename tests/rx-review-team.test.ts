@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { agreedWithComment, cleanLinks, closed, done, inReviewCategory, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewChoiceLabel, reviewerId, splitVotes, stale, tally, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { agreedWithComment, cleanLinks, closed, done, inReviewBatch, inReviewCategory, inReviewTab, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewBatches, reviewChoiceLabel, reviewerId, splitVotes, stale, tally, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
 import { ruleId } from '../src/rx-ids';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
@@ -113,7 +113,7 @@ assert.equal(proposalItem(back.proposals[0], { status: '已採用', decided: '20
 
 // Clinical interactions can use either a complete caution row or a description of work needed before activation.
 const clinical = proposal({ id: 'P20261116-03', kind: '臨床併用', file: 'cautions',
-  row: '新1,臨床,C03DA01,,同處方,C09CA03,黃,確認併用期間的血鉀監測,仿單警語' });
+  row: '新1,臨床,C03DA01,,同處方,C09CA03,黃,"確認血鉀,評估腎功能",仿單警語' });
 assert.deepEqual(proposalProblems(clinical), []);
 assert.match(problemOf({ ...clinical, file: 'settings' }), /臨床併用要填/);
 assert.match(problemOf({ ...clinical, row: clinical.row.replace('同處方', '診斷') }), /臨床併用要填/);
@@ -128,6 +128,29 @@ assert.equal(reviewChoiceLabel(clinicalItem, '同意'), '同意');
 assert.equal(reviewChoiceLabel(asItem, '同意'), '採用');
 assert.equal(done(clinicalItem, vote('同意')), true);
 assert.equal(inReviewCategory(proposalItem(clinicalCheck), '臨床'), true);
+// Exercise the same predicates used for the counts and the list, including the Taipei date boundary and a pending vote.
+const utcBeforeTaipeiMidnight = new Date('2026-11-30T15:59:59Z');
+const taipeiMidnight = new Date('2026-11-30T16:00:00Z');
+const greyInteraction = proposalItem({ ...clinical, id: 'P20261116-05', row: clinical.row.replace(',黃,', ',灰,') });
+const clinicalWithoutLevel = proposalItem(clinicalCheck);
+const pending = [clinicalItem, greyInteraction, clinicalWithoutLevel, asItem];
+assert.equal(clinicalItem.batch, '2026-11-16');
+assert.deepEqual(pending.filter(item => inReviewBatch(item, 'new', utcBeforeTaipeiMidnight)).map(item => item.id),
+  [clinicalItem.id, greyInteraction.id, clinicalWithoutLevel.id]);
+assert.equal(inReviewBatch(clinicalItem, 'old', taipeiMidnight), true);
+assert.equal(inReviewBatch(clinicalItem, clinicalItem.batch), true);
+assert.equal(inReviewBatch(asItem, clinicalItem.batch), false);
+assert.deepEqual(pending.filter(item => inReviewTab(item, 'yellow')).map(item => item.id), [clinicalItem.id]);
+const redInteraction = proposalItem({ ...clinical, row: clinical.row.replace(',黃,', ',紅,') });
+assert.equal(inReviewTab(redInteraction, 'red'), true);
+assert.equal(inReviewTab(item({ level: '黃' }), 'yellow'), true);
+const reviewerVotes: Record<string, Vote> = { [clinicalItem.id]: vote('同意') };
+assert.equal(pending.filter(item => inReviewTab(item, 'yellow') && !done(item, reviewerVotes[item.id])).length, 0);
+const existingBatch = { id: '2026-11-05', title: '已發布的一批' };
+const clinicalBatch = { id: clinicalItem.batch, title: '臨床併用' };
+assert.deepEqual(reviewBatches([existingBatch], pending), [existingBatch, clinicalBatch]);
+assert.deepEqual(reviewBatches([existingBatch, clinicalBatch], pending), [existingBatch, clinicalBatch]);
+
 
 // The proposals published with the site: every one could be published again, none twice, none already closed without the ledger saying so.
 const publishedFile = JSON.parse(readFileSync('public/assets/rx/proposals.json', 'utf8'));
