@@ -27,6 +27,8 @@ export interface Item {
   id: string; table: string; batch: string; changed: string; basis: string; flags: string[]; hits: number | null;
   why?: string; ref?: string; links?: { t: string; u: string }[]; outcome?: string; prev?: string; approved?: { at: string; n: number };
   atc?: string; cls?: string; icd?: Chip[]; note?: string; partners?: string; keyword?: string; conds?: Condition[]; level?: string; msg?: string;
+  /** A caution's 類別 (臨床, 孕哺, 健保) and, for 臨床, its kinds read from the conditions (疾病, 併用 …). */
+  cat?: string; kinds?: string[];
   dept?: string; name?: string; kind?: string; desc?: string; value?: string; options?: string; title?: string;
   file?: string; row?: string; evidence?: string; trial?: string;
 }

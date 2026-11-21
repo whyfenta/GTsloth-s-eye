@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULE_FILES, ruleTable, type RuleTables } from '../src/rx-check';
-import { reconcile, unsynced, type Ledger } from '../scripts/rx-review-ledger';
+import { idProblems, reconcile, unsynced, type Ledger } from '../scripts/rx-review-ledger';
 import { rulesVersion } from '../src/rx-data';
 
 const row = (atc: string, icd: string, basis = '仿單') => ({ ATC: atc, 藥理類別: atc, '可解釋的ICD-10': icd, 依據: basis, 備註: '' });
@@ -62,10 +62,27 @@ test('a wording change in 備註 does not come back for review', () => {
   assert.deepEqual(reworded.changed, []);
 });
 
+// A caution's 編號: the format, once only, and never a number the ledger has retired (old samples and votes point at it).
+test('a caution number is well formed, unique and never a retired one', () => {
+  const retired = { retired: [{ id: 'C05', table: 'cautions' as const, text: '', batch: 'b1', retired: 't1' }, { id: 'C07', table: 'specialty' as const, text: '', batch: 'b1', retired: 't1' }] };
+  assert.deepEqual(idProblems([caution('C01'), caution('C185'), caution('C07')], retired), [], 'a number retired from another table does not count');
+  const problems = idProblems([caution('C01'), caution('新1'), caution('C1'), caution('C01'), caution('C05')], retired);
+  assert.equal(problems.length, 4);
+  assert.match(problems[0], /第 3 列「編號」：「新1」要寫成 C 加兩位以上數字/);
+  assert.match(problems[1], /第 4 列「編號」：「C1」/);
+  assert.match(problems[2], /第 5 列「編號」：C01 重複/);
+  assert.match(problems[3], /第 6 列「編號」：C05 已經刪除過/);
+});
+
 // The ledger matches docs/reference/rx-rules/: a rule added or edited there has to reach the pharmacist's review page.
 const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(readFileSync(`docs/reference/rx-rules/${file}.csv`, 'utf8'))])) as RuleTables;
 const ledgerText = readFileSync('docs/reference/rx-rules-review.json', 'utf8');
 const ledger: Ledger = JSON.parse(ledgerText);
+test('every caution in the tables has its own number, and so does every rule in the ledger', () => {
+  assert.deepEqual(idProblems(tables.cautions, ledger), []);
+  const ids = [...ledger.rules, ...ledger.retired].map(rule => rule.id);
+  assert.equal(new Set(ids).size, ids.length, '審核紀錄裡有重複的編號');
+});
 test('the review ledger knows every rule in the tables', () => {
   assert.deepEqual(unsynced(tables, ledger), [], '規則表改過了：請執行 npm run rx-review-page（docs/reference/rx-rules.md「審核頁」），把審核紀錄與審核頁清單一起 commit');
 });

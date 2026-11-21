@@ -92,6 +92,7 @@ button, input, textarea { font: inherit; color: inherit }
 .badge { font-size: 12px; border-radius: 5px; padding: 1px 7px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted) }
 .badge.b-label { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); color: var(--accent) }
 .badge.b-off { border-color: var(--other); color: var(--other) }
+.badge.b-cat { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); color: var(--accent) }
 .badge.b-wrap { white-space: normal }
 .state { font-size: 12px; border-radius: 5px; padding: 1px 7px; white-space: nowrap; font-weight: 500 }
 .state.s-todo { background: var(--accent); color: var(--accent-ink) }

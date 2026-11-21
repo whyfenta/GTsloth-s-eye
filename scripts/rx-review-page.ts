@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
-import { atcHit, BASIS_RANK, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
+import { atcHit, BASIS_RANK, cautionKinds, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion } from '../src/rx-data';
 import { isFailure } from '../src/rx-sample';
 import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
@@ -141,6 +141,7 @@ function atcInfo(prefix: string) {
   return { zh: ledger.atcZh[prefix] ?? '', ex: ordered.slice(0, 6).map(([label, group]) => group.brand ? `${label}（${group.brand}）` : label), n: groups.size, seen: ordered.filter(([, group]) => group.seen).length };
 }
 
+const compiledCautions = new Map(rules.cautions.map(caution => [caution.id, caution]));
 const common = ({ rule }: LedgerRow) => ({ id: rule.id, batch: rule.batch, changed: rule.changed, flags: rule.flags ?? [], ...(rule.why ? { why: rule.why } : {}), ...(rule.ref ? { ref: rule.ref } : {}),
   ...(rule.links?.length ? { links: rule.links } : {}), ...(rule.outcome ? { outcome: rule.outcome } : {}), ...(rule.approved ? { approved: rule.approved } : {}),
   ...(rule.prev ? { prev: rule.prev } : {}), hits: hitCount(rule.id, rule.changed) });
@@ -150,7 +151,8 @@ const items = [
   ...rowsOf('cautions').map(entry => {
     const parts = entry.row['條件'].split(';').map(part => part.trim());
     const conds = entry.row['條件類型'].split('+').map((kind, i) => ['診斷', '未診斷'].includes(kind.trim()) ? { kind: kind.trim(), dx: chips(parts[i]) } : kind.trim() === '同處方' ? { kind: '同處方', atc: parts[i] } : { kind: kind.trim(), text: parts[i] });
-    return { ...common(entry), table: 'cautions', atc: entry.row['ATC'], keyword: entry.row['成分關鍵字'], conds, level: entry.row['等級'], msg: entry.row['提示'], basis: entry.row['依據'] };
+    return { ...common(entry), table: 'cautions', cat: entry.row['類別'], kinds: cautionKinds(compiledCautions.get(entry.row['編號'])!), atc: entry.row['ATC'], keyword: entry.row['成分關鍵字'],
+      conds, level: entry.row['等級'], msg: entry.row['提示'], basis: entry.row['依據'] };
   }),
   ...rowsOf('specialty').map(entry => ({ ...common(entry), table: 'specialty', dept: entry.row['科別代碼'], name: entry.row['科別'], atc: entry.row['該科常開的ATC'], basis: '起草者判斷' })),
   ...rowsOf('drug-classes').map(entry => ({ ...common(entry), table: 'classes', atc: entry.row['ATC'], kind: entry.row['類型'], desc: entry.row['說明'], basis: entry.row['類型'] === '低風險' ? '起草者判斷' : 'ISMP 高警訊藥品概念' })),

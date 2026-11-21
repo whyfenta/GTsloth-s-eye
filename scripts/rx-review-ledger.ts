@@ -82,6 +82,24 @@ export function reconcile(tables: RuleTables, ledger: Ledger, options: { batch: 
   const retired = [...ledger.retired, ...retiring.map(({ id, table, text, batch: from, outcome }): RetiredRule => ({ id, table, text, batch: from, retired: now, ...(outcome ? { outcome } : {}) }))];
   return { ledger: { ...ledger, rules: rows.map(row => row.rule), retired }, rows, added, changed, retired: retiring.map(rule => rule.id) };
 }
+/** A caution's 編號 as written now (docs/reference/rx-rules.md「寫法」): C and two or more digits. */
+export const CAUTION_ID = /^C\d{2,}$/;
+/**
+ * What is wrong with the cautions' 編號, for `npm run rx-assets` and `npm test`: the format, a number written twice, or one the
+ * ledger has retired. A retired number is never given to another rule: old samples, votes and notes still point at it.
+ */
+export function idProblems(rows: Record<string, string>[], ledger: Pick<Ledger, 'retired'>): string[] {
+  const problems: string[] = [], seen = new Set<string>();
+  const retired = new Set(ledger.retired.filter(rule => rule.table === 'cautions').map(rule => rule.id));
+  rows.forEach((row, i) => {
+    const id = row['編號'] ?? '', at = `cautions.csv 第 ${i + 2} 列「編號」`;
+    if (!CAUTION_ID.test(id)) problems.push(`${at}：「${id}」要寫成 C 加兩位以上數字，例如 C185（提案暫用的「新1」要換成目前最大編號的下一號）。`);
+    if (seen.has(id)) problems.push(`${at}：${id} 重複。`);
+    if (retired.has(id)) problems.push(`${at}：${id} 已經刪除過（審核紀錄的 retired），新規則要用新的編號。`);
+    seen.add(id);
+  });
+  return problems;
+}
 /** What `npm test` asks: does the ledger already know the tables as they are? */
 export function unsynced(tables: RuleTables, ledger: Ledger): string[] {
   const result = reconcile(tables, ledger, { batch: '', now: '' });

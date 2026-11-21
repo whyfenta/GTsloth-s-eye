@@ -1,22 +1,24 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { atcHit, checkPrescription, ingredientBases, PREGNANCY_FOLD, PREGNANCY_PREFIX, type Caution, type DrugInfo, type RxFacts } from '../src/rx-check';
+import { atcHit, checkPrescription, ingredientBases, PREGNANCY_FOLD, PREGNANCY_LEVEL, PREGNANCY_PREFIX, type Caution, type DrugInfo, type RxFacts } from '../src/rx-check';
 import { readRxData } from '../src/rx-data';
 
 // The 懷孕／哺乳 cautions (docs/reference/rx-rules.md「懷孕與哺乳」): a woman aged 10-49 with a drug her label says not to take
 // while pregnant (red), to stop once pregnant (yellow, 懷孕停藥) or not to take while breastfeeding (yellow). They name drugs by ATC and keyword, so a combination product or a code with an
 // odd ATC is easily missed (dutasteride with tamsulosin is G04CA52, not G04CB). Checked against the whole NHI file the page reads.
 const data = readRxData(...(['rules', 'drugs', 'icd10cm'].map(name => JSON.parse(readFileSync(`public/assets/rx/${name}.json`, 'utf8'))) as Parameters<typeof readRxData>));
-const LEVEL: Record<string, string> = { 懷孕: '紅', 懷孕停藥: '黃', 哺乳: '黃' };
 const prefix = (caution: Caution) => PREGNANCY_PREFIX.exec(caution.message)?.[1];
-const group = data.rules.cautions.filter(prefix);
-assert.ok(group.length, '找不到提示以「懷孕：」「懷孕停藥：」或「哺乳：」開頭的注意事項');
+// The group is the 類別 孕哺 (docs/reference/rx-rules.md「類別」); its message start says which of the three a caution is.
+const group = data.rules.cautions.filter(caution => caution.category === '孕哺');
+assert.ok(group.length, '找不到類別為孕哺的注意事項');
+assert.deepEqual(data.rules.cautions.filter(caution => !!prefix(caution) !== (caution.category === '孕哺')).map(caution => caution.id), [],
+  '提示以「懷孕：」「懷孕停藥：」或「哺乳：」開頭的規則，類別要是孕哺；孕哺類的提示也要這樣開頭');
 
 // Every one is for a woman aged 10-49, and nothing else: red for pregnancy, yellow to stop once pregnant or for breastfeeding.
 for (const caution of group) {
   const conditions = caution.conditions.map(condition => condition.key).sort();
   assert.deepEqual(conditions, ['年齡:10-49', '性別:女'], `${caution.id} 的條件要是 性別+年齡、女;10-49`);
-  assert.equal(caution.level, LEVEL[prefix(caution)!], `${caution.id}：「懷孕：」給紅色，「懷孕停藥：」與「哺乳：」給黃色`);
+  assert.equal(caution.level, PREGNANCY_LEVEL[prefix(caution)!], `${caution.id}：「懷孕：」給紅色，「懷孕停藥：」與「哺乳：」給黃色`);
 }
 
 /**

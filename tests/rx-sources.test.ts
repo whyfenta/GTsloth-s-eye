@@ -32,6 +32,12 @@ for (const row of table('rx-rules/cautions.csv')) {
   assert.ok(cited.sources.length, `${row['編號']} 的依據「${row['依據']}」沒有對到 docs/reference/rx-sources.csv 的任何來源：請用清單上的引用寫法，或把來源加進清單`);
   assert.deepEqual(cited.outdated, [], `${row['編號']} 的依據「${row['依據']}」寫的版本和 rx-sources.csv 不同：來源換版後要重新核對這條，再改依據欄`);
 }
+// A 健保 caution rests on the 給付規定 (docs/reference/rx-rules.md「類別」).
+const payment = sources.find(item => item.cites.includes('給付規定'));
+assert.ok(payment, 'rx-sources.csv 要有引用寫法為「給付規定」的來源');
+for (const row of table('rx-rules/cautions.csv').filter(item => item['類別'] === '健保')) {
+  assert.ok(citation(row['依據'], sources).sources.includes(payment.id), `${row['編號']} 是健保類，依據要引用給付規定（例如「給付規定 1.3.3」）`);
+}
 // A source the rules cite is one the list says is in use.
 const cited = new Set(table('rx-rules/cautions.csv').flatMap(row => citation(row['依據'], sources).sources));
 for (const item of sources) if (cited.has(item.id)) assert.equal(item.state, '使用中', `${item.id} ${item.name} 已有注意事項引用，狀態要是使用中`);

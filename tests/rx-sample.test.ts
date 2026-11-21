@@ -11,7 +11,7 @@ const csv = (header: string, ...rows: string[]) => ruleTable([header, ...rows].j
 const tables: RuleTables = {
   indications: csv('ATC,藥理類別,可解釋的ICD-10,依據,備註', 'A10,測試類別,E08-E13,仿單,'),
   'co-drugs': csv('ATC,可由同處方的ATC解釋,依據,備註', 'A02BC,B01AC,常見,胃腸保護'),
-  cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,G04CB,,性別+年齡,女;<50,紅,測試提示甲,', 'T02,N05BA,,年齡,>=65,灰,測試提示乙,'),
+  cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,G04CB,,性別+年齡,女;<50,紅,測試提示甲,', 'T02,臨床,N05BA,,年齡,>=65,灰,測試提示乙,'),
   specialty: csv('科別代碼,科別,該科常開的ATC', 'AB,心臟血管內科,C10'),
   'drug-classes': csv('ATC,類型,說明', 'A06,低風險,', 'N05A,高警訊,'),
   settings: csv('設定,值,可選的值,說明', '同成分重複,黃,紅 黃 灰,', '科別常用,保留,保留 停用,'),

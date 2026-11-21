@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parsePrescriptionSlip } from '../src/prescription-qr';
-import { checkPrescription, checkPrescriptions, compileRules, dxLabel, kidneyBelow, kidneyStage, roughEgfr, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
+import { cautionKinds, checkPrescription, checkPrescriptions, compileRules, dxLabel, kidneyBelow, kidneyStage, roughEgfr, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
 import { rxCheckOn } from '../src/rx-check-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -11,10 +11,10 @@ const tables = (changes: Partial<RuleTables> = {}): RuleTables => ({
   indications: csv('ATC,藥理類別,可解釋的ICD-10,依據,備註',
     'A10BA,測試類別,R73.0,常見仿單外,', 'A10,測試類別,E08-E13,仿單,', 'B01AC,測試類別,I20-I25,仿單,', 'N05BA,測試類別,F40-F48,仿單,'),
   'co-drugs': csv('ATC,可由同處方的ATC解釋,依據,備註', 'A02BC,B01AC,常見,胃腸保護'),
-  cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
-    'T01,C07AA,,診斷,J45 J44,紅,測試提示甲,', 'T02,,METFORMIN,診斷,N18.4,紅,測試提示乙,', 'T03,N05BA,,年齡,>=65,灰,測試提示丙,',
-    'T04,N02A,,同處方,N05BA,黃,測試提示丁,', 'T05,N05BA,,年齡,>=67,黃,測試提示戊,', 'T06,N05BA,,年齡+同處方,>=65;G04CA C08@HS,黃,測試提示己,',
-    'T07,G04CB,,性別+年齡,女;<50,紅,測試提示庚,'),
+  cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'T01,臨床,C07AA,,診斷,J45 J44,紅,測試提示甲,', 'T02,臨床,,METFORMIN,診斷,N18.4,紅,測試提示乙,', 'T03,臨床,N05BA,,年齡,>=65,灰,測試提示丙,',
+    'T04,臨床,N02A,,同處方,N05BA,黃,測試提示丁,', 'T05,臨床,N05BA,,年齡,>=67,黃,測試提示戊,', 'T06,臨床,N05BA,,年齡+同處方,>=65;G04CA C08@HS,黃,測試提示己,',
+    'T07,臨床,G04CB,,性別+年齡,女;<50,紅,測試提示庚,'),
   specialty: csv('科別代碼,科別,該科常開的ATC', 'AB,心臟血管內科,C10'),
   'drug-classes': csv('ATC,類型,說明', 'A06,低風險,', 'N05A N02A,高警訊,'),
   settings: csv('設定,值,可選的值,說明', '同成分重複,黃,紅 黃 灰,', '科別常用,保留,保留 停用,'),
@@ -99,8 +99,8 @@ assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'A323456789', 6: '075010
 assert.deepEqual(notes(qr('N40', ['TESTDUTA01'], { 5: 'A323456789' })), [], 'unknown sex, but AGE65-69 is not under 50');
 assert.deepEqual(notes(qr('L64.9', ['TESTDUTA01'], { 5: 'B234567890', 6: '' })), ['TESTDUTA01 灰 T07 無法讀取年齡']);
 // An age range: 10-49 is 10 to 49 years old, both included (the visit is 115/01/01).
-const ranged = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'R01,G04CB,,性別+年齡,女;10-49,紅,測試提示範圍,',
-  'R02,N05BA,,年齡,15-64,灰,測試提示跨過,') }));
+const ranged = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'R01,臨床,G04CB,,性別+年齡,女;10-49,紅,測試提示範圍,',
+  'R02,臨床,N05BA,,年齡,15-64,灰,測試提示跨過,') }));
 const rangeNotes = (code: string, birth: string, id = 'A923456789') => checkPrescription(qr('L64.9', [code], { 5: id, 6: birth }), drugs, ranged).drugs
   .flatMap(drug => drug.notes.map(note => `${note.level} ${note.text}`));
 assert.deepEqual(rangeNotes('TESTDUTA01', '1000101'), ['紅 R01 測試提示範圍（女性；AGE10-19）']);
@@ -182,15 +182,15 @@ assert.deepEqual(checkPrescription(qr('M54.5#F41.1', ['TESTTRAM01', 'TESTALPR01'
 
 // A mistyped table stops `npm run rx-assets` with the file, row and column.
 const broken = (file: keyof RuleTables, header: string, row: string) => () => compileRules(tables({ [file]: csv(header, row) }));
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,診斷,J45,橙,測試,'), /cautions\.csv 第 2 列「等級」/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,體重,>=65,黃,測試,'), /「條件類型」/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡,65,黃,測試,'), />=65/);
-for (const range of ['49-10', '10-', '-49', '10~49']) assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', `T01,C07AA,,年齡,${range},黃,測試,`), /10-49/, range);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,,,診斷,J45,黃,測試,'), /至少要填一個/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+同處方,>=65,黃,測試,'), /要有 2 段/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,年齡+年齡,>=65;<50,黃,測試,'), /只能寫一次/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,性別,F,黃,測試,'), /男或女/);
-assert.throws(broken('cautions', '編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,C07AA,,同處方,C08@hs,黃,測試,'), /C08@HS/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,診斷,J45,橙,測試,'), /cautions\.csv 第 2 列「等級」/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,體重,>=65,黃,測試,'), /「條件類型」/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,年齡,65,黃,測試,'), />=65/);
+for (const range of ['49-10', '10-', '-49', '10~49']) assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', `T01,臨床,C07AA,,年齡,${range},黃,測試,`), /10-49/, range);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,,,診斷,J45,黃,測試,'), /至少要填一個/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,年齡+同處方,>=65,黃,測試,'), /要有 2 段/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,年齡+年齡,>=65;<50,黃,測試,'), /只能寫一次/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,性別,F,黃,測試,'), /男或女/);
+assert.throws(broken('cautions', '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'T01,臨床,C07AA,,同處方,C08@hs,黃,測試,'), /C08@HS/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C1O,測試,I10,仿單,'), /不是 ATC 前綴/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C10,測試,I10-I1,仿單,'), /範圍兩端的碼長相同/);
 assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,依據,備註', 'C10,測試,I16-I10,仿單,'), /前小後大/);
@@ -198,6 +198,40 @@ assert.throws(broken('indications', 'ATC,藥理類別,可解釋的ICD-10,備註'
 assert.throws(broken('specialty', '科別代碼,科別,該科常開的ATC,出處', 'AB,測試,C,'), /「出處」：多出此欄/);
 assert.throws(broken('settings', '設定,值,可選的值,說明', '同成分重複,橙,紅 黃 灰,'), /settings\.csv 第 2 列「值」/);
 assert.throws(broken('settings', '設定,值,可選的值,說明', '同成分重複,黃,紅 黃 灰,'), /缺少「科別常用」/);
+
+// 類別: every caution is 臨床, 孕哺 or 健保 and keeps that family's agreement (docs/reference/rx-rules.md「類別」); 編號 is unique.
+const CAUTIONS = '編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據';
+assert.throws(broken('cautions', CAUTIONS, 'T01,安全,C07AA,,診斷,J45,黃,測試,'), /「類別」：要是臨床、孕哺、健保之一/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,臨床,C07AA,,診斷,J45,黃,健保給付：測試,'), /「類別」：提示以「健保給付：」開頭的規則屬於健保類/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,臨床,G04CB,,性別+年齡,女;10-49,紅,懷孕：測試,'), /「類別」：提示以「懷孕：」開頭的規則屬於孕哺類/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,健保,C07AA,,未診斷,J45,紅,健保給付：測試,'), /「等級」：健保類一律黃色/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,健保,C07AA,,未診斷,J45,黃,測試,'), /「提示」：健保類的提示要以「健保給付：」開頭/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,孕哺,G04CB,,性別+年齡,女;10-49,紅,測試,'), /「提示」：孕哺類的提示要以/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,孕哺,G04CB,,性別+年齡,女;<50,紅,懷孕：測試,'), /「條件」：孕哺類的條件要是 性別\+年齡、女;10-49/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,孕哺,G04CB,,性別+年齡+診斷,女;10-49;N40,紅,懷孕：測試,'), /「條件」：孕哺類/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,孕哺,G04CB,,性別+年齡,女;10-49,黃,懷孕：測試,'), /「等級」：孕哺類「懷孕：」開頭的規則要是紅色/);
+assert.throws(broken('cautions', CAUTIONS, 'T01,孕哺,C09,,性別+年齡,女;10-49,紅,懷孕停藥：測試,'), /「等級」：孕哺類「懷孕停藥：」開頭的規則要是黃色/);
+assert.doesNotThrow(broken('cautions', CAUTIONS, 'T01,孕哺,C09,,年齡+性別,10-49;女,黃,哺乳：測試,'), 'the conditions in either order');
+assert.throws(() => compileRules(tables({ cautions: csv(CAUTIONS, 'T01,臨床,C07AA,,診斷,J45,黃,測試,', 'T01,臨床,N05BA,,年齡,>=65,灰,測試,') })), /第 3 列「編號」：T01 重複/);
+assert.throws(broken('cautions', CAUTIONS, ',臨床,C07AA,,診斷,J45,黃,測試,'), /「編號」：不能空白/);
+// A 孕哺 caution is folded behind 孕哺確認, as a 健保 one is behind 不符健保 (below); a grey one it cannot judge is not folded.
+{
+  const pregnancy = compileRules(tables({ cautions: csv(CAUTIONS, 'T01,孕哺,G04CB,,性別+年齡,女;10-49,紅,懷孕：測試提示,') }));
+  const dutasteride = (age: string): RxFacts => ({ dx: ['N40'], dept: '01', age, sex: 'F', drugs: [{ code: 'TESTDUTA01', frequency: 'QD', route: 'PO' }] });
+  assert.deepEqual(checkPrescription(dutasteride('AGE20-29'), drugs, pregnancy).drugs[0].notes, [{ level: '紅', text: 'T01 懷孕：測試提示（女性；AGE20-29）', fold: '孕哺確認' }]);
+  assert.deepEqual(checkPrescription(dutasteride(''), drugs, pregnancy).drugs[0].notes, [{ level: '灰', text: 'T01 無法讀取年齡' }]);
+}
+// 型態 is read from a 臨床 caution's conditions, one or more; the other families have none.
+{
+  const kinds = compileRules(tables({ cautions: csv(CAUTIONS,
+    'K01,臨床,C07AA,,診斷,J45,紅,測試,', 'K02,臨床,M01AE M01AB,,同處方,M01AB M01AE,黃,測試,', 'K03,臨床,N05BA,,年齡+同處方,>=65;G04CA C08@HS,黃,測試,',
+    'K04,臨床,A10A,,未同處方,=NAN02A1000ZZ,黃,測試,', 'K05,臨床,N03 N05A,,年齡+同類數,>=65;>=3 N03 N05A,黃,測試,', 'K06,臨床,A02BA,,腎功能,<50,灰,測試,',
+    'K07,臨床,J01MA,,年齡+同處方,>=60;H02AB,黃,測試,', 'K08,臨床,N06BA09,,年齡,<6,黃,測試,', 'K09,臨床,C07AA,,診斷+同處方,J45;C07AA,紅,測試,',
+    'K10,健保,N06BA09,,年齡,<6,黃,健保給付：測試,', 'K11,孕哺,C09,,性別+年齡,女;10-49,黃,懷孕停藥：測試,') })).cautions;
+  assert.deepEqual(Object.fromEntries(kinds.map(caution => [caution.id, cautionKinds(caution)])), {
+    K01: ['疾病'], K02: ['重複'], K03: ['併用', '老人'], K04: ['缺漏'], K05: ['重複', '老人'], K06: ['腎功能'], K07: ['併用', '老人'], K08: [], K09: ['疾病', '重複'],
+    K10: [], K11: [] });
+}
 
 // The switch: on by default; the address turns it on or off for one page load.
 assert.equal(rxCheckOn(''), true);
@@ -207,9 +241,9 @@ assert.equal(rxCheckOn('?other=1', true), true);
 
 // 未同處方, 同類數 and 腎功能, and the 特材 the check knows by code.
 {
-  const more = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
-    'U01,A10A,,未同處方,=NAN02A1000ZZ,黃,測試提示針頭,', 'U02,N05BA N05AH N02A,,年齡+同類數,>=65;>=3 N05BA N05AH N02A,黃,測試提示數量,',
-    'U03,A10BA,,腎功能,<30,黃,測試提示腎,', 'U04,A10BA,,腎功能,<50,灰,測試提示腎二,') }));
+  const more = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'U01,臨床,A10A,,未同處方,=NAN02A1000ZZ,黃,測試提示針頭,', 'U02,臨床,N05BA N05AH N02A,,年齡+同類數,>=65;>=3 N05BA N05AH N02A,黃,測試提示數量,',
+    'U03,臨床,A10BA,,腎功能,<30,黃,測試提示腎,', 'U04,臨床,A10BA,,腎功能,<50,灰,測試提示腎二,') }));
   const extra = new Map([...drugs, ['TESTINSU01', { atc: 'A10AE04', ingredients: 'INSULIN GLARGINE 100 U/ML' }]]);
   const notes = (rx: RxFacts) => checkPrescription(rx, extra, more).drugs.map(drug => `${drug.code} ${drug.notes.map(note => `${note.level} ${note.text}`).join('｜')}`);
   assert.deepEqual(notes(qr('E11.9', ['TESTINSU01'])), ['TESTINSU01 黃 U01 測試提示針頭（未見：胰島素注射針頭）']);
@@ -232,15 +266,15 @@ assert.equal(rxCheckOn('?other=1', true), true);
   assert.equal(roughEgfr('AGE70-79', 'F'), 88);
   assert.equal(roughEgfr('AGE10-19', 'M'), undefined);
   assert.deepEqual(kidneyBelow([], 'AGE90+', 'M', 80), { hit: undefined, why: '依年齡性別粗估 eGFR 約 79（假設肌酸酐正常），可能 <80，請確認腎功能' });
-  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,未同處方,=NAN,黃,x,') })), /不是健保碼/);
-  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,同類數,3 A10,黃,x,') })), /同類數寫成/);
-  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,腎功能,>30,黃,x,') })), /腎功能條件寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,未同處方,=NAN,黃,x,') })), /不是健保碼/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,同類數,3 A10,黃,x,') })), /同類數寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,腎功能,>30,黃,x,') })), /腎功能條件寫成/);
 }
 
 // 未診斷, 科別外 and 日量 (健保給付規定): no listed diagnosis, another department, more a day than the limit.
 {
-  const pay = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
-    'P01,B01AC04,,未診斷,I21 Z95.5,黃,測試提示未診斷,', 'P02,N05BA,,科別外+日量,12 13;>1,黃,測試提示科別日量,', 'P03,,ALPRAZOLAM 0.5 MG,日量,>3,黃,測試提示含量,') }));
+  const pay = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'P01,臨床,B01AC04,,未診斷,I21 Z95.5,黃,測試提示未診斷,', 'P02,臨床,N05BA,,科別外+日量,12 13;>1,黃,測試提示科別日量,', 'P03,臨床,,ALPRAZOLAM 0.5 MG,日量,>3,黃,測試提示含量,') }));
   const notes = (rx: RxFacts) => checkPrescription(rx, drugs, pay).drugs.map(drug => `${drug.code} ${drug.notes.map(note => `${note.level} ${note.text}`).join('｜')}`);
   assert.deepEqual(notes(qr('I25.10', ['TESTCLOP01'])), ['TESTCLOP01 黃 P01 測試提示未診斷（本次沒有：I21 Z95.5）']);
   assert.deepEqual(notes(qr('I25.10#Z95.5', ['TESTCLOP01'])), ['TESTCLOP01 '], 'a stent is there');
@@ -253,13 +287,13 @@ assert.equal(rxCheckOn('?other=1', true), true);
   assert.deepEqual(notes(qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' })), ['TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））', 'TESTALPR01 黃 P03 測試提示含量（每日 4 單位（總量÷給藥日份））']);
   assert.deepEqual(notes({ ...qr('F41.9', ['TESTALPR01', 'TESTALPR01'], { 7: '13' }), days: '' }), ['TESTALPR01 灰 P03 無法計算每日用量', 'TESTALPR01 灰 P03 無法計算每日用量']);
   // A 健保給付 caution is folded behind 不符健保 on the page; its text stays the same, and a grey one is not folded.
-  const nhi = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P04,B01AC04,,未診斷,I21,黃,健保給付：測試提示,') }));
+  const nhi = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P04,健保,B01AC04,,未診斷,I21,黃,健保給付：測試提示,') }));
   assert.deepEqual(checkPrescription(qr('I25.10', ['TESTCLOP01']), drugs, nhi).drugs[0].notes, [{ level: '黃', text: 'P04 健保給付：測試提示（本次沒有：I21）', fold: '不符健保' }]);
   assert.deepEqual(checkPrescription(qr('I25.10', ['TESTCLOP01']), drugs, pay).drugs[0].notes[0].fold, undefined, 'other cautions are not folded');
-  const nhiDept = compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P05,N05BA,,科別外,12 13,黃,健保給付：測試提示,') }));
+  const nhiDept = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'P05,健保,N05BA,,科別外,12 13,黃,健保給付：測試提示,') }));
   assert.deepEqual(checkPrescription(qr('F41.9', ['TESTALPR01'], { 7: '146' }), drugs, nhiDept).drugs[0].notes, [{ level: '灰', text: 'P05 無法判斷就醫科別' }]);
-  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,科別外,神經科,黃,x,') })), /科別外寫成/);
-  assert.throws(() => compileRules(tables({ cautions: csv('編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,A10A,,日量,1,黃,x,') })), /日量寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,科別外,神經科,黃,x,') })), /科別外寫成/);
+  assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,日量,1,黃,x,') })), /日量寫成/);
 }
 
 // The published assets match docs/reference: rerun `npm run rx-assets` after editing a table or refreshing a reference file.

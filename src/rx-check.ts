@@ -17,19 +17,26 @@ export type Sex = 'M' | 'F' | '';
 export interface RxFacts { dx: string[]; dept: string; age: string; sex: Sex; days?: string; drugs: { code: string; frequency: string; route: string; total?: string }[] }
 export interface DrugInfo { atc: string; ingredients: string }
 /**
- * fold: a label shown in place of the text, which the page keeps folded behind it until opened (孕哺確認, 不符健保; see FOLDS).
+ * fold: a label shown in place of the text, which the page keeps folded behind it until opened (孕哺確認, 不符健保; see CATEGORIES).
  * The text is the same either way, so samples and the review page read it as before.
  */
 export interface Note { level: Level; text: string; fold?: string }
-/** The 懷孕／哺乳 cautions (docs/reference/rx-rules.md「懷孕與哺乳」) start their message with one of these; the page folds them. */
+/** The 孕哺 cautions (docs/reference/rx-rules.md「懷孕與哺乳」) start their message with one of these: 懷孕 red, the others yellow. */
 export const PREGNANCY_PREFIX = /^(懷孕停藥|懷孕|哺乳)：/;
+export const PREGNANCY_LEVEL: Record<string, Level> = { 懷孕: '紅', 懷孕停藥: '黃', 哺乳: '黃' };
 export const PREGNANCY_FOLD = '孕哺確認';
-/** The 健保給付規定 cautions (rx-rules.md「健保給付規定」) start their message with this; the page folds them too. */
+/** The 健保 cautions (rx-rules.md「健保給付規定」) start their message with this. */
 export const NHI_PREFIX = /^健保給付：/;
 export const NHI_FOLD = '不符健保';
-/** A caution's message start and the label its fired note is folded behind. */
-export const FOLDS: [RegExp, string][] = [[PREGNANCY_PREFIX, PREGNANCY_FOLD], [NHI_PREFIX, NHI_FOLD]];
-export const foldLabel = (message: string) => FOLDS.find(([prefix]) => prefix.test(message))?.[1];
+/**
+ * 類別 (rx-rules.md「類別」): every caution belongs to one family, with an agreement compileRules holds it to. 臨床 is reviewed
+ * by the team and shown as written; 孕哺 (women aged 10-49) and 健保 (給付規定) are closed by a standard and folded on the page.
+ */
+export type Category = '臨床' | '孕哺' | '健保';
+export const CATEGORIES: Record<Category, { fold?: string }> = { 臨床: {}, 孕哺: { fold: PREGNANCY_FOLD }, 健保: { fold: NHI_FOLD } };
+/** What a 臨床 caution is about, read from its conditions (rx-rules.md「類別」): never written down, so it cannot disagree with them. */
+export type Kind = '疾病' | '併用' | '重複' | '老人' | '腎功能' | '缺漏';
+export const KINDS: Kind[] = ['疾病', '併用', '重複', '老人', '腎功能', '缺漏'];
 /**
  * A drug's verdict and one-line reason, then the cautions it triggers. info is missing for a code outside the NHI drug list.
  * part: the prescription it is on, when one patient's prescriptions are checked together (0 for a single prescription).
@@ -57,7 +64,7 @@ export type RuleTables = Record<RuleFile, Record<string, string>[]>;
 const COLUMNS: Record<RuleFile, string[]> = {
   indications: ['ATC', '藥理類別', '可解釋的ICD-10', '依據', '備註'],
   'co-drugs': ['ATC', '可由同處方的ATC解釋', '依據', '備註'],
-  cautions: ['編號', 'ATC', '成分關鍵字', '條件類型', '條件', '等級', '提示', '依據'],
+  cautions: ['編號', '類別', 'ATC', '成分關鍵字', '條件類型', '條件', '等級', '提示', '依據'],
   specialty: ['科別代碼', '科別', '該科常開的ATC'],
   'drug-classes': ['ATC', '類型', '說明'],
   settings: ['設定', '值', '可選的值', '說明'],
@@ -81,7 +88,7 @@ export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] }
   | { kind: '科別外'; departments: string[] }
   /** Holds when the drug's own 總量 (every line of its code on its prescription) over the 給藥日份 is more than this many a day. */
   | { kind: '日量'; above: number });
-export interface Caution { id: string; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
+export interface Caution { id: string; category: Category; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
   repeated: Level; byDepartment: boolean }
@@ -184,6 +191,43 @@ export function ingredientBases(text: string): string[] {
   });
 }
 
+/**
+ * How a caution breaks the agreement of its 類別, as the column to blame and why; undefined when it keeps it. 孕哺: a message
+ * starting 懷孕／懷孕停藥／哺乳：, conditions 性別+年齡 女;10-49 and 懷孕 red, the others yellow. 健保: 健保給付： and yellow.
+ * 臨床: neither start, so a caution is never folded or closed as one of the other families by its wording alone.
+ */
+function agreementProblem(caution: Caution): { column: string; why: string } | undefined {
+  const pregnancy = PREGNANCY_PREFIX.exec(caution.message)?.[1], nhi = NHI_PREFIX.test(caution.message);
+  if (caution.category === '臨床') {
+    if (pregnancy) return { column: '類別', why: `提示以「${pregnancy}：」開頭的規則屬於孕哺類。` };
+    if (nhi) return { column: '類別', why: '提示以「健保給付：」開頭的規則屬於健保類。' };
+  } else if (caution.category === '孕哺') {
+    if (!pregnancy) return { column: '提示', why: '孕哺類的提示要以「懷孕：」「懷孕停藥：」或「哺乳：」開頭。' };
+    if (caution.conditions.map(condition => condition.key).sort().join(' ') !== '年齡:10-49 性別:女') return { column: '條件', why: '孕哺類的條件要是 性別+年齡、女;10-49。' };
+    if (caution.level !== PREGNANCY_LEVEL[pregnancy]) return { column: '等級', why: `孕哺類「${pregnancy}：」開頭的規則要是${PREGNANCY_LEVEL[pregnancy]}色。` };
+  } else {
+    if (!nhi) return { column: '提示', why: '健保類的提示要以「健保給付：」開頭。' };
+    if (caution.level !== '黃') return { column: '等級', why: '健保類一律黃色。' };
+  }
+}
+/**
+ * A 臨床 caution's kinds, from its conditions: 診斷 疾病; 同處方 併用, or 重複 when the other drug has the drug's own ATCs (two
+ * NSAIDs); 同類數 重複; an age of 60 or more 老人; 腎功能 腎功能; 未同處方 缺漏. The other families have none.
+ */
+export function cautionKinds(caution: Caution): Kind[] {
+  if (caution.category !== '臨床') return [];
+  const kinds = new Set<Kind>(), own = [...caution.atc].sort().join(' ');
+  for (const condition of caution.conditions) {
+    if (condition.kind === '診斷') kinds.add('疾病');
+    else if (condition.kind === '同處方') kinds.add(condition.partners.map(partner => partner.atc).sort().join(' ') === own ? '重複' : '併用');
+    else if (condition.kind === '同類數') kinds.add('重複');
+    else if (condition.kind === '年齡' && (condition.min ?? 0) >= 60) kinds.add('老人');
+    else if (condition.kind === '腎功能') kinds.add('腎功能');
+    else if (condition.kind === '未同處方') kinds.add('缺漏');
+  }
+  return KINDS.filter(kind => kinds.has(kind));
+}
+
 /** A CSV with a header row as rows keyed by it. */
 export function ruleTable(text: string): Record<string, string>[] {
   const [header = [], ...rows] = csvRows(text.replace(/^﻿/, ''));
@@ -219,7 +263,14 @@ export function compileRules(tables: RuleTables): Rules {
   indications.sort((a, b) => (BASIS_RANK[a.basis] ?? 9) - (BASIS_RANK[b.basis] ?? 9));
   const coDrugs = read('co-drugs', (cell, fail) => ({ atc: list(cell('ATC'), 'ATC', why => fail('ATC', why)),
     partners: list(cell('可由同處方的ATC解釋'), 'ATC', why => fail('可由同處方的ATC解釋', why)), basis: cell('依據'), note: cell('備註') }));
+  const cautionIds = new Set<string>();
   const cautions = read('cautions', (cell, fail): Caution => {
+    const id = cell('編號');
+    if (!id) fail('編號', '不能空白。');
+    if (cautionIds.has(id)) fail('編號', `${id} 重複。`);
+    cautionIds.add(id);
+    const category = cell('類別') as Category;
+    if (!Object.keys(CATEGORIES).includes(category)) fail('類別', `要是${Object.keys(CATEGORIES).join('、')}之一。`);
     const atc = list(cell('ATC'), 'ATC', why => fail('ATC', why), true);
     const keyword = cell('成分關鍵字');
     // Strength and form are part of the NHI ingredient text, so a keyword can name one strength: RIVAROXABAN 2.5 MG.
@@ -278,7 +329,10 @@ export function compileRules(tables: RuleTables): Rules {
       }
       return fail('條件類型', '要是診斷、未診斷、年齡、性別、同處方、未同處方、同類數、腎功能、科別外或日量，多種條件以 + 連接。');
     });
-    return { id: cell('編號'), atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
+    const caution: Caution = { id, category, atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
+    const broken = agreementProblem(caution);
+    if (broken) fail(broken.column, broken.why);
+    return caution;
   });
   const specialty = new Map<string, string[]>();
   read('specialty', (cell, fail) => {
@@ -429,7 +483,7 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
       const unknown = outcomes.find(outcome => outcome.hit === undefined);
       fired.push({ caution, note: unknown ? { level: '灰', text: `${caution.id} ${unknown.why}` }
         : { level: caution.level, text: `${caution.id} ${caution.message}（${outcomes.map(outcome => outcome.detail).join('；')}）`,
-          ...foldLabel(caution.message) ? { fold: foldLabel(caution.message) } : {} } });
+          ...CATEGORIES[caution.category].fold ? { fold: CATEGORIES[caution.category].fold } : {} } });
     }
     const cautions = fired.filter(({ caution }) => !fired.some(other => covers(other.caution, caution))).map(({ note }) => note);
     return { code, frequency, route, part, info, ...verdict(), notes: cautions };

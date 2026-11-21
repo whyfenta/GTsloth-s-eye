@@ -1,184 +1,184 @@
-﻿編號,ATC,成分關鍵字,條件類型,條件,等級,提示,依據
-C01,S01BA,,診斷,B00.5,黃,眼用類固醇＋疱疹性眼疾：上皮型（樹枝狀）角膜炎禁用，基質型通常需併用抗病毒藥,仿單禁忌
-C02,C07AA,,診斷,J45 J44,紅,非選擇性 β 阻斷劑＋氣喘／COPD：可能誘發支氣管痙攣,仿單禁忌
-C03,N07AB,,診斷,N13 K56,黃,Bethanechol＋泌尿道或腸道阻塞：機械性阻塞時禁用，請確認不是阻塞造成,仿單禁忌
-C04,N07AB,,診斷,J45 I20-I25 K25-K27 G40 G20 E05,黃,Bethanechol＋氣喘／冠心病／消化性潰瘍／癲癇／巴金森／甲亢：仿單禁忌疾病,仿單禁忌
-C06,,METFORMIN,診斷,N18.4 N18.5 N18.6,紅,Metformin＋慢性腎病第 4–5 期：eGFR<30 禁用,仿單禁忌
-C07,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,診斷,N18 K25-K28 I50,黃,NSAID＋慢性腎病／消化性潰瘍／心衰竭,仿單警語
-C08,N04BA,,診斷,H40.2,黃,Levodopa＋隅角閉鎖性青光眼,仿單禁忌
-C09,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡,>=65,灰,65 歲以上使用 BZD／Z-drug：跌倒與認知風險（老人用藥提醒，預設收合）,Beers 2023 建議避免
-C10,N05A,,診斷,F01-F03 G30,黃,抗精神病藥＋失智症：死亡率增加,仿單黑框警語
-C11,N03AG,,診斷,O00-O9A Z33 Z34,紅,Valproate＋懷孕：致畸胎,仿單禁忌
-C12,C03DA,,診斷,E87.5 N18.4 N18.5 N18.6,黃,醛固酮拮抗劑＋高血鉀／慢性腎病第 4–5 期,仿單
-C13,G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03B,PIPOXOLAN,診斷,H40.2 R33,黃,抗膽鹼藥＋隅角閉鎖性青光眼／尿滯留,仿單禁忌
-C14,H01BA02,,診斷,E87.1,紅,Desmopressin＋低血鈉,仿單禁忌
-C15,H01BA02,,年齡,>=65,黃,65 歲以上使用 desmopressin 治療夜尿：低血鈉風險，請詢問有無噁心、食慾下降、體重增加、倦怠嗜睡等症狀,Beers 2023 建議避免
-C16,N02A,,同處方,N05BA N05CD N05CF N03AE01,黃,鴉片類＋BZD／Z-drug 同時使用：呼吸抑制,FDA 黑框警語
-C17,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡+同處方,>=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS,黃,65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高,藥師審核意見（C09 升一級）
-C18,G04CB G04CA52,,性別+年齡,女;10-49,紅,懷孕：5α 還原酶抑制劑懷孕禁用（舊制 X），可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌（懷孕分級 X）；藥師審核意見
-C19,N02A,,同處方,N02BF,黃,鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）,FDA 2019 安全通訊；Beers 2023 表 5
-C20,,CLOPIDOGREL,同處方,A02BC01 A02BC05,灰,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等,仿單警語（Plavix）
-C21,J01MA,,同處方,H02AB,灰,Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加,FDA 黑框警語
-C22,J01MA,,年齡+同處方,>=60;H02AB,黃,60 歲以上使用 fluoroquinolone＋全身性類固醇：肌腱斷裂風險更高，請提醒腳跟或肌腱疼痛時停藥回診,FDA 黑框警語（C21 升一級）
-C23,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,同處方兩種以上 NSAID：腸胃道出血與腎毒性增加，療效沒有增加,仿單（naproxen、meloxicam 等）
-C24,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,B01AA B01AE B01AF,黃,NSAID＋口服抗凝血劑：出血風險增加,仿單警語；Beers 2023 表 2
-C25,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,年齡+同處方,>=65;H02AB,黃,65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護,Beers 2023 表 2
-C26,B01AA03,,同處方,C01BD01 J01MA02 J01FA01 J01FA02 J01FA03 J01FA06 J01FA07 J01FA08 J01FA09 J01FA15 J01FA91 J01EE01 N06AB,黃,Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR,Beers 2023 表 5
-C27,R03DA04 R03DA05,,同處方,J01MA02 A02BA01,黃,Theophylline／aminophylline＋ciprofloxacin／cimetidine：theophylline 中毒（噁心、心悸、抽搐）,Beers 2023 表 5
-C28,N03AB02,,同處方,J01EE01,黃,Phenytoin＋TMP-SMX：phenytoin 中毒,Beers 2023 表 5
-C29,N05AN01,,同處方,C09A C09B C09C C09D C03C,黃,Lithium＋ACEI／ARB／ARNI／環利尿劑：lithium 中毒，需監測血中濃度,Beers 2023 表 5
-C30,C09A C09B,,同處方,C09C C09DA C09DB C09XA,黃,ACEI＋ARB／aliskiren 雙重 RAS 阻斷：高血鉀、急性腎損傷、低血壓,EMA 2014；FDA 2012（aliskiren）；Beers 2023 表 5 限慢性腎病 3a 期以上
-C31,C09DX04,,同處方,C09A C09B,紅,Sacubitril/valsartan＋ACEI：禁止併用（血管性水腫），換藥須間隔 36 小時,仿單禁忌
-C32,G04BE,,同處方,C01DA C01DX16,紅,PDE5 抑制劑＋硝酸鹽類／nicorandil：嚴重低血壓,仿單禁忌
-C33,C10AA01 C10AA02 C10BA01 C10BA02,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 C10AB04 L04AD01,紅,Simvastatin／lovastatin＋強效 CYP3A4 抑制劑／gemfibrozil／ciclosporin：肌病變、橫紋肌溶解,仿單禁忌
-C34,M04AC01,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,黃,Colchicine＋P-gp／CYP3A4 抑制劑：colchicine 中毒（腹瀉、肌肉無力、骨髓抑制），需減量,仿單警語
-C35,M04AC01,,診斷+同處方,N18.3 N18.4 N18.5 N18.6 K70-K77;J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,紅,Colchicine＋P-gp／CYP3A4 抑制劑＋腎或肝功能不全：禁止併用，曾有致死案例,仿單禁忌（C34 升一級）
-C36,M03BX02,,同處方,J01MA02 N06AB08,紅,Tizanidine＋ciprofloxacin／fluvoxamine：禁止併用（tizanidine 濃度大增，低血壓、嗜睡）,仿單禁忌
-C37,A03FA03,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,Domperidone＋強效 CYP3A4 抑制劑或會延長 QT 的 macrolide：QT 延長、心律不整,EMA 2014 禁忌
-C38,N02CA,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,麥角生物鹼＋強效 CYP3A4 抑制劑：麥角中毒（血管痙攣、肢體缺血）,仿單禁忌（黑框）
-C39,M04AA03,,同處方,L04AX01 L01BB02,紅,Febuxostat＋azathioprine／mercaptopurine：骨髓抑制,仿單禁忌（國內仿單 2025-08 版；113/8 國內安全警訊）
-C40,M04AA01,,同處方,L04AX01 L01BB02,黃,Allopurinol＋azathioprine／mercaptopurine：骨髓抑制，azathioprine／mercaptopurine 需大幅減量,仿單警語（減量幅度未在網路上核對）
-C41,C02CA G04CA03,,性別+年齡+同處方,女;>=65;C03C,灰,65 歲以上女性 α1 阻斷劑＋環利尿劑：尿失禁,Beers 2023 表 5
-C42,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,診斷,F01-F03 G30 G31.0 G31.1 G31.83 R41.81,黃,BZD／Z-drug＋失智症或認知障礙：可能使認知功能惡化、引發譫妄與跌倒，老人應避免（含 chlordiazepoxide 的胃腸複方也算）,Beers 2023 表 3
-C43,A10BK,GLIFLOZIN,年齡+同處方,>=65;C03 C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54,灰,65 歲以上 SGLT2 抑制劑＋利尿劑（含利尿劑的降血壓複方）：體液不足、姿勢性低血壓、急性腎損傷，請提醒頭暈時告知醫師並注意水分攝取,仿單警語（Jardiance、Forxiga：老人與併用利尿劑者需評估體液）
-C44,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,同處方,N05BA N05CD N05CF N03AE01,灰,同處方兩種以上 BZD／Z-drug：作用重複，鎮靜、跌倒與依賴風險增加（含 chlordiazepoxide 的胃腸複方也算）,起草者判斷；Beers 2023 建議避免合計 3 種以上中樞神經藥
-C45,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,,同處方,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,灰,同處方兩種以上抗精神病藥：作用重複，副作用累加；clozapine 合併治療等情況常見，請確認是刻意合併,起草者判斷
-C46,N03AG,,性別+年齡,女;10-49,紅,懷孕：valproate 致畸胎與神經發育風險（美國仿單黑框；用於偏頭痛時懷孕禁用，舊制 X），請確認未懷孕、有避孕與懷孕計畫的衛教,美國仿單黑框與 4 禁忌；EMA 2018 懷孕預防計畫
-C47,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH01 N05AH03 N05AH05 N05AH06 N05AL N05AX A03FA01 R06AD02,,診斷,G20,黃,巴金森氏症＋抗精神病藥（clozapine、quetiapine 除外）或 metoclopramide、promethazine：可能使巴金森症狀惡化,Beers 2023 表 3
-C48,H01BA02,,同處方,N06AA N06AB N05AA01 N03AF01 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,Desmopressin＋三環抗憂鬱劑／SSRI／chlorpromazine／carbamazepine／NSAID：水分滯留與低血鈉風險增加，請留意症狀或追蹤血鈉,仿單警語（英國 SmPC、美國注射劑仿單；國內仿單未核對）
-C49,N05AH02,,同處方,N04AA N04AC A03AB A03B G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 N06AA,黃,Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況,FDA 2020 安全通訊
-C50,L04AD01,,診斷+同處方,L20-L30 L40;L04AX01 L04AX03,黃,皮膚病使用 ciclosporin＋其他免疫抑制劑：過度免疫抑制與皮膚惡性腫瘤風險，請確認是刻意合併,仿單警語（Neoral 乾癬段落；異位性皮膚炎是類推）
-C51,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,年齡+同處方,>=65;B01AC N02BA01,黃,65 歲以上 NSAID＋抗血小板藥：腸胃道出血與消化性潰瘍風險增加，無替代時需併用胃腸保護,Beers 2023 表 2
-C52,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20,,診斷,F01-F03 G30 G31.0 G31.1 G31.83 R41.81,黃,強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄,Beers 2023 表 3
-C53,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,,診斷+性別+年齡,N40;男;>=65,黃,65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留,Beers 2023 表 3
-C54,G04BD12,,診斷,R33,黃,Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況,仿單警語（國內仿單 2026-04 版）
-C55,G04BD12,,診斷,H40.2,灰,Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認,藥師決定
-C56,C02CA01 C02CA04 G04CA03,,診斷+年齡,R55;>=65,黃,65 歲以上 α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
-C57,M04AB03,,診斷,B15-B19 K70-K77,黃,Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能,仿單警語（台灣仿單待核對）
-C58,C01BC,,診斷,I50 I11.0 I13.0 I13.2,紅,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單警語（國內仿單引用 CAST：結構性心臟病）；禁忌條文待核對；藥師決定升為紅色（115/11/12）
-C59,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌；Beers 2023 表 3
-C60,B01AA B01AE B01AF,,同處方,B01AC04 B01AC06,灰,口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限,指引（ESC／ACC）
-C61,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel,指引（ESC 2023 ACS）
-C62,C08DA C08DB,,同處方,C07,灰,Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯,仿單警語
-C63,R06AA R06AB R06AD R06AE05,,年齡,>=65,灰,65 歲以上使用第一代抗組織胺／meclizine：抗膽鹼作用（意識混亂、便秘、尿滯留），老人應避免,Beers 2023 表 2
-C64,A10BB A10BD02 A10BD04 A10BD06,,年齡,>=65,灰,65 歲以上使用磺醯尿素類：低血糖風險,Beers 2023 表 2
-C65,C09,,診斷,E87.5,灰,ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀,仿單警語
-C66,N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,,年齡+同類數,>=65;>=3 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,黃,65 歲以上同時使用 3 種以上中樞神經藥（抗癲癇、抗憂鬱、抗精神病、BZD／Z-drug、鴉片類、肌肉鬆弛劑）：跌倒與骨折風險增加,Beers 2023 表 5
-C67,A10A,,未同處方,=NAN02A1000ZZ,黃,胰島素沒有同時開注射針頭：處方不尋常，請確認病人是否還有針頭或由其他處方領取,藥師決定（115/11/10）
-C68,B01AE07,,腎功能,<30,黃,Dabigatran＋腎功能 eGFR<30：禁用或避免（出血風險）,仿單禁忌；Beers 2023 表 6；給付規定 2.1.5（排除肌酸酐清除率 <30）
-C69,B01AF01 B01AF02 B01AF03,,腎功能,<30,黃,Xa 因子抑制劑＋腎功能 eGFR<30：需依腎功能調整劑量，<15 不建議,仿單；Beers 2023 表 6
-C70,N02BF01 N02BF02,,腎功能,<60,灰,Gabapentin／pregabalin＋腎功能 eGFR<60：需減量（嗜睡、跌倒）,仿單；Beers 2023 表 6
-C71,A02BA,,腎功能,<50,灰,H2 阻斷劑＋腎功能 eGFR<50：需減量（意識混亂）,仿單；Beers 2023 表 6
-C72,N06AX21,,腎功能,<30,黃,Duloxetine＋腎功能 eGFR<30：避免使用,仿單；Beers 2023 表 6
-C73,N02AX02,TRAMADOL,腎功能,<30,灰,Tramadol＋腎功能 eGFR<30：延長給藥間隔，每日最多 200 mg,仿單；Beers 2023 表 6
-C74,M03BX01,,腎功能,<60,黃,Baclofen＋腎功能 eGFR<60：避免（腦病變），需要時大幅減量,Beers 2023 表 6
-C75,N03AX14,,腎功能,<80,灰,Levetiracetam＋腎功能 eGFR<80：需依腎功能減量,仿單
-C76,J01EE01,,腎功能,<30,灰,TMP-SMX＋腎功能 eGFR<30：需減量，<15 避免（高血鉀、腎功能惡化）,仿單；Beers 2023 表 6
-C77,C03DB,,腎功能,<30,黃,保鉀利尿劑（amiloride、triamterene）＋腎功能 eGFR<30：避免（高血鉀）,Beers 2023 表 6
-C78,C07 C08DA C08DB,,診斷,I44.1 I44.2 I45.5 I49.5,黃,β 阻斷劑／diltiazem／verapamil＋第二、三度房室傳導阻滯或病竇症候群：未裝節律器時禁用，請確認是否已裝節律器,仿單禁忌（國內仿單待核對）
-C79,N06AB,,同處方,N06AX16 N06AX21 N06AX23 N06AA04,黃,SSRI＋SNRI／clomipramine：作用重複，血清素症候群風險,仿單警語（待藥師判斷）
-C80,N02BF01,,未診斷,B02.2 G40 G41 R56,黃,健保給付：gabapentin 限帶狀疱疹後神經痛（其他止痛藥無效）或癲癇輔助治療,給付規定 1.1.6、1.3.2.2
-C81,N02BF02,,未診斷,B02.2 M79.7 E08.4 E09.4 E10.4 E11.4 E13.4 S14.1 S24.1 S34.1 T91.3 G82 G40 G41 R56,黃,健保給付：pregabalin 限帶狀疱疹後神經痛、纖維肌痛、糖尿病周邊神經病變、脊髓損傷神經痛或癲癇輔助治療,給付規定 1.1.7、1.3.2.2
-C82,N02BF02,,診斷+未診斷+科別外,M79.7;B02.2 E08.4 E09.4 E10.4 E11.4 E13.4 S14.1 S24.1 S34.1 T91.3 G82 G40 G41 R56;AE 12 13 14,黃,健保給付：pregabalin 用於纖維肌痛限風濕免疫科、神經科、復健科、疼痛科或精神科醫師處方,給付規定 1.1.7
-C83,N06AX21,,診斷+未診斷+科別外,M79.7;E08.4 E09.4 E10.4 E11.4 E13.4 F30-F48;AE 12 13 14,黃,健保給付：duloxetine 用於纖維肌痛限風濕免疫科、神經科、復健科、疼痛科或精神科醫師處方,給付規定 1.1.8
-C84,N06AX21,,未診斷,F30-F48 E08.4 E09.4 E10.4 E11.4 E13.4 M79.7,黃,健保給付：duloxetine 止痛用途限糖尿病周邊神經病變或纖維肌痛（本次也沒有憂鬱、焦慮等診斷）,給付規定 1.1.8、1.2.1
-C85,N06AX12,,診斷+未診斷,F17 Z72.0 Z87.891;F30-F39,黃,健保給付：bupropion 作為戒菸治療不予給付,給付規定 1.2.1.1
-C86,N05AE04 N05AH02 N05AH03 N05AL05 N05AX08 N05AX12 N05AX13 N05AX16,,診斷,F31.3 F31.4 F31.5,黃,健保給付：第二代抗精神病藥（quetiapine 緩釋劑型與 lurasidone 除外）不得用於雙極性疾患之鬱症發作,給付規定 1.2.2.2
-C87,N05CF,,科別外+日量,12 13;>1,黃,健保給付：非精神科、神經科醫師開立 zolpidem、zopiclone 等，每日不宜超過一顆,給付規定 1.2.3
-C88,N03AX11,,未診斷,G40 G41 R56 G43,黃,健保給付：topiramate 限癲癇（輔助或第二線單一治療）或偏頭痛預防,給付規定 1.3.2.3
-C89,N03AX14,,未診斷,G40 G41 R56,黃,健保給付：levetiracetam 限癲癇,給付規定 1.3.2.4
-C90,N03AX15,,未診斷,G40 G41 R56,黃,健保給付：zonisamide 限癲癇（輔助治療或新診斷成人局部癲癇單一治療），巴金森或顫抖不在給付範圍,給付規定 1.3.2.8
-C91,N06DA N06DX01,,未診斷,G30 G20 G31.83 F02,黃,健保給付：失智症治療藥品限阿茲海默氏症或巴金森氏症之失智症（血管性失智症不建議使用）,給付規定 1.3.3
-C92,N06DA N06DX01,,科別外,12 13,黃,健保給付：失智症治療藥品限神經科或精神科醫師處方,給付規定 1.3.3
-C93,N06DA02 N06DA04 N06DX01,,診斷+未診斷,G20;G30,黃,健保給付：巴金森氏症之失智症限用 rivastigmine 口服製劑,給付規定 1.3.3
-C94,N06BA09,,年齡,<6,黃,健保給付：atomoxetine 限 6 歲以上注意力不全過動症,給付規定 1.3.5
-C95,N06BA09,,未診斷,F90,黃,健保給付：atomoxetine 限注意力不全過動症,給付規定 1.3.5
-C96,N07AX03,,未診斷,M35.0,黃,健保給付：cevimeline 限修格蘭氏症候群之口乾燥症狀,給付規定 1.5.2
-C97,G04BD07 G04BD08 G04BD12,,未診斷,N32.81 R35.0 R35.8 R39.15 N39.41 N39.46 R32 N31.0 N31.1 N31.9 N40.1 N40.3,黃,健保給付：tolterodine、solifenacin、mirabegron 限頻尿、急尿或急迫性尿失禁,給付規定 1.6.3
-C98,G04BD07 G04BD08 G04BD12,,診斷+未診斷,N31.2 N39.3 N39.44;R35.0 R39.15 N39.41 N39.46 N32.81,黃,健保給付：小兒夜尿、單純性應力性尿失禁或膀胱逼尿肌無反射不宜使用本類藥品,給付規定 1.6.3
-C99,G04BD08 G04BD12,,日量,>1,黃,健保給付：solifenacin、mirabegron 每天限使用 1 錠,給付規定 1.6.3
-C100,B01AC04,,同處方+未診斷,B01AC06 N02BA01;I20.0 I21 I22 I24 I25.2 Z95.5 Z95.8 Z98.6,黃,健保給付：clopidogrel 與 aspirin 合併限支架置放後 3～6 個月或急性冠心症住院後最長 9 個月（本次沒有支架或急性冠心症診斷）,給付規定 2.1.1.6
-C101,B01AC24,,未診斷,I20.0 I21 I22 I24 I25.2,黃,健保給付：ticagrelor 限急性冠心症住院後併用 aspirin，最長 9 個月,給付規定 2.1.1.9
-C102,B01AC23,,未診斷,I70.2 I73.9 I63 I69.3 Z86.73,黃,健保給付：cilostazol 限間歇性跛行，或無法耐受 aspirin 之非心因性腦梗塞,給付規定 2.1.1.5
-C103,B01AC23,,同處方+未診斷,B01AC06 N02BA01;I70.2 I73.9,黃,健保給付：cilostazol 用於預防腦梗塞限無法耐受 aspirin 者，本處方同時有 aspirin,給付規定 2.1.1.5
-C104,,RIVAROXABAN 10 MG,未診斷,Z96.64 Z96.65 Z47.1,黃,健保給付：rivaroxaban 10 mg 限人工髖或膝關節置換術後預防靜脈血栓（髖最多 5 週、膝最多 2 週）,給付規定 2.1.4.2
-C105,,RIVAROXABAN 2.5 MG,同處方,B01AC04 B01AC05 B01AC22 B01AC23 B01AC24 B01AA B01AE B01AF02 B01AF03,黃,健保給付：rivaroxaban 2.5 mg 不得合併 P2Y12 抑制劑、cilostazol 或其他抗凝血劑,給付規定 2.1.4.2
-C106,B01AF02 B01AF03 B01AE07,,年齡+未診斷,<65;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65,黃,健保給付：非瓣膜性心房顫動未滿 65 歲，須曾中風或全身性栓塞、有症狀之心衰竭或 LVEF<40%（本次沒有相關診斷，請確認 LVEF）,給付規定 2.1.4.3、2.1.4.4、2.1.5
-C107,B01AF02 B01AF03 B01AE07,,年齡+未診斷,<75;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65 E08-E13 I10-I16 I20-I25,黃,健保給付：非瓣膜性心房顫動未滿 75 歲，須合併糖尿病、高血壓或冠狀動脈疾病，或曾中風、有心衰竭（本次沒有相關診斷）,給付規定 2.1.4.3、2.1.4.4、2.1.5
-C108,B01AF01,,年齡+未診斷,<50;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65,黃,健保給付：rivaroxaban 用於非瓣膜性心房顫動未滿 50 歲，須曾中風或全身性栓塞、有症狀之心衰竭或 LVEF<40%（本次沒有相關診斷，請確認 LVEF）,給付規定 2.1.4.2
-C109,B01AF01,,年齡+未診斷,<75;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65 E08-E13 I10-I16 I20-I25,黃,健保給付：rivaroxaban 用於非瓣膜性心房顫動未滿 75 歲，須合併糖尿病、高血壓或冠狀動脈疾病，或曾中風、有心衰竭（本次沒有相關診斷）,給付規定 2.1.4.2
-C110,B01AF01 B01AF02 B01AF03,,腎功能,<15,黃,健保給付：Xa 因子抑制劑排除肌酸酐清除率 <15 mL/min 的病人,給付規定 2.1.4.2、2.1.4.3、2.1.4.4
-C111,B01AE B01AF,,診斷,I05.0 I05.2 Z95.2 Z95.3 Z95.4,黃,健保給付：新一代口服抗凝血劑排除嚴重心臟瓣膜疾病（人工瓣膜、二尖瓣狹窄）,給付規定 2.1.4.2、2.1.4.3、2.1.4.4、2.1.5
-C112,B01AF03,,日量,>1,黃,健保給付：edoxaban 每日 1 次、每次限 1 顆,給付規定 2.1.4.4
-C113,B01AF02,,日量,>2,黃,健保給付：apixaban 每日 2 次、每次限 1 顆（深部靜脈栓塞治療前 7 日除外）,給付規定 2.1.4.3
-C114,C10BA02 C10BA05 C10BA06 C10BA13,,同處方,C10AB04,黃,健保給付：含 ezetimibe 及 statin 之複方製劑不得與 gemfibrozil 併用,給付規定 2.6.3
-C115,C09DX04,,未診斷,I50 I11.0 I13.0 I13.2 I42 I25.5,黃,健保給付：sacubitril/valsartan 限慢性收縮性心衰竭（LVEF≦35%）,給付規定 2.14
-C116,C09DX04,,同處方,C09C C09DA C09DB C09DX01 C09DX03,黃,健保給付：sacubitril/valsartan 不應與 ARB 合併使用,給付規定 2.14
-C117,C09DX04,,日量,>2,黃,健保給付：sacubitril/valsartan 每日限最多使用 2 粒,給付規定 2.14
-C118,A10BK A10BD15 A10BD19 A10BD21 A10BD24,,日量,>1,黃,健保給付：SGLT-2 抑制劑，以及 dapagliflozin/metformin、empagliflozin/linagliptin、dapagliflozin/saxagliptin、ertugliflozin/sitagliptin 複方，每日最多處方 1 粒,給付規定 2.16、5.1.5、5.1.6、5.1.7、5.1.8
-C119,A10BD20,,日量,>2,黃,健保給付：empagliflozin/metformin 複方每日最多處方 2 粒,給付規定 5.1.5
-C120,A10BJ,,同處方,A10BH A10BK A10BD07 A10BD08 A10BD09 A10BD10 A10BD11 A10BD13 A10BD15 A10BD19 A10BD20 A10BD21 A10BD24,黃,健保給付：GLP-1 受體促效劑不得與 DPP-4 抑制劑、SGLT-2 抑制劑併用,給付規定 5.1.3.2
-C121,A10BF,,未診斷,E11 E13 E08 E09,黃,健保給付：acarbose、miglitol 限非胰島素依賴型糖尿病,給付規定 5.1.1
-C122,B03BA05,,未診斷,E08.4 E09.4 E10.4 E11.4 E13.4 G60-G64,黃,健保給付：mecobalamin 限糖尿病周邊神經病變或慢性多發性神經病變,給付規定 3.2.1
-C123,A11CC03 A11CC04,ALFACALCIDOL,未診斷,E55.0 E83.3 E20 E89.2 N18 N25.81 E83.51 M80 M48.5,黃,健保給付：活性維生素 D3 限維生素 D 依賴型或低磷血佝僂症、副甲狀腺機能低下、慢性腎病之低血鈣（eGFR<45）或停經後脊椎壓迫性、髖骨骨折,給付規定 3.2.2
-C124,,CALCIUM-3-METHYL-2-OXO-VALERATE,未診斷,N18.5,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）限 eGFR≦15 且尚未透析之慢性腎衰竭低蛋白飲食治療,給付規定 3.3.2
-C125,,CALCIUM-3-METHYL-2-OXO-VALERATE,診斷,N18.6 Z99.2 Z94.0,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）不得用於透析及換腎病患,給付規定 3.3.2
-C126,,CALCIUM-3-METHYL-2-OXO-VALERATE,日量,>6,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）每日至多使用六顆,給付規定 3.3.2
-C127,M04AA03,,未診斷,M10 M1A,黃,健保給付：febuxostat 限慢性痛風患者之高尿酸血症（無症狀高尿酸血症不在給付範圍）,給付規定 2.11.1
-C128,M04AA01,,未診斷,M10 M1A N20 C00-D49 E88.3,黃,健保給付：allopurinol 限痛風、痛風性關節炎、尿酸結石、癌症或化療之高尿酸血症，不得使用於非核准之適應症,給付規定 2.11.2
-C129,A02BA A02BB A02BC A02BX02,,未診斷+未同處方,K20-K23 K25-K28 K92.0 K92.1 K92.2 B96.81 E16.4 Z87.11 Z90.3;B01,黃,健保給付：消化性潰瘍用藥限活動性或癒合中之消化性潰瘍、逆流性食道炎（須內視鏡或 X 光報告）、幽門桿菌消除、併用抗血栓藥等情形；本次只有胃炎、消化不良等或沒有相關診斷,給付規定 7.1
-C130,M01AH M01AC06 M01AB08 M01AX01 M01AX17 M01AE52,,同處方+未診斷,A02BA A02BB A02BC A02BX;K20-K23 K25-K28 K92.0 K92.1 K92.2 Z87.11,黃,健保給付：celecoxib、etoricoxib、meloxicam、etodolac、nabumetone、nimesulide 不得預防性併用 H2 阻斷劑、PPI 或其他消化性潰瘍用藥,給付規定 1.1.5
-C131,M01AH M01AC06 M01AB08 M01AX01 M01AX17 M01AE52,,未診斷+未同處方,M15-M19 M05-M08 M45 L40.5 K25-K28 Z87.11 K92.0 K92.1 K92.2 K70.3 K74.6 S00-T14 I60-I64 I21 I22 I24;H02 B01AA B01AE B01AF,黃,健保給付：本類 NSAID 限骨關節炎、類風濕等慢性發炎性關節病變、急性嚴重創傷／中風／心血管事件、曾有消化性潰瘍、併用類固醇或抗凝血劑、肝硬化,給付規定 1.1.5
-C132,R03DC03,,未診斷,J45,黃,健保給付：montelukast 限輕度至中度持續性支氣管哮喘（過敏性鼻炎不在給付範圍）,給付規定 6.2.4、6.2.5
-C133,R03DC03,,日量,>1,黃,健保給付：montelukast 每日限用 1 粒（包）,給付規定 6.2.4、6.2.5
-C134,L04AD02,,未診斷,Z94 T86,黃,健保給付：tacrolimus 口服及注射製劑限肝、腎、心臟移植,給付規定 8.2.2
-C135,L02BG03 L02BG04 L02BG06,,未診斷,C50 D05 Z85.3,黃,健保給付：芳香環轉化酶抑制劑限停經後乳癌,給付規定 9.1.1、9.1.2、9.1.3
-C136,L02BG03 L02BG04 L02BG06,,同處方,L02BA01 L02BG,黃,健保給付：芳香環轉化酶抑制劑不得與 tamoxifen 或其他 aromatase inhibitor 併用,給付規定 9.1.1、9.1.3
-C137,G04CB,,未診斷,N40,黃,健保給付：finasteride、dutasteride 限前列腺增生且有阻塞症狀（前列腺>30 mL 或 Qmax<15 mL/sec）,給付規定 5.2.2
-C138,G02CB03,,未診斷,E22.1 D35.2 D44.3 N64.3,黃,健保給付：cabergoline 限高乳促素血症引起之狀況（產後正常泌乳之抑制不予給付）,給付規定 5.4.7
-C139,A05BA,,未診斷,K70-K77 B15-B19,黃,健保給付：肝庇護劑限肝硬化、肝炎病患（須肝功能報告）,給付規定 3.3.1
-C140,C04AD03 C04AE C04AC N06BX N06DX02,,同類數,>=2 C04AD03 C04AE C04AC N06BX N06DX02,黃,健保給付：腦循環改善劑、腦代謝改善劑及血球流變改善劑最多使用一類,給付規定 2.8.1
-C141,N02CC,,同處方,N02CA,黃,健保給付：triptan 不得同時處方 ergotamine 製劑或其衍生物,給付規定 2.3.1
-C142,N02CC,,診斷,I20-I25,黃,健保給付：triptan 不得使用於曾患心肌梗塞、缺血性心臟病、冠狀血管痙攣者,給付規定 2.3.1
-C143,J05AF10,,日量,>1,黃,健保給付：entecavir 每日限使用 1 粒,給付規定 10.7.3
-C144,S01EE01 S01EE02 S01EE03 S01EE04 S01EE05 S01EE06,,同類數,>=2 S01EE01 S01EE02 S01EE03 S01EE04 S01EE05 S01EE06,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種前列腺素衍生物）,給付規定 14.1
-C145,S01ED01 S01ED02 S01ED03 S01ED04 S01ED05 S01ED51,,同類數,>=2 S01ED01 S01ED02 S01ED03 S01ED04 S01ED05 S01ED51,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種含 β 阻斷劑的眼藥）,給付規定 14.1
-C146,S01EC01 S01EC03 S01EC04 S01EC54,,同類數,>=2 S01EC01 S01EC03 S01EC04 S01EC54,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種碳酸酐酶抑制劑）,給付規定 14.1
-C147,S01E,,科別外,10,黃,健保給付：降眼壓藥限眼科醫師開立慢性病連續處方箋（非眼科醫師限開 1 個月）,給付規定 14.1
-C148,R03AL08 R03AL09 R03AL11 R03AL12,,同處方,R03AK R03AL03 R03AL04 R03AL06 R03AL07 R03AL08 R03AL09 R03AL11 R03AL12 R03AC12 R03AC13 R03AC18 R03AC19 R03BB04 R03BB05 R03BB06 R03BB07 R03BA,黃,健保給付：三合一吸入劑不得與其他含吸入性類固醇、長效 β2 作用劑或長效抗膽鹼劑的吸入劑併用,給付規定 6.1
-C149,,FLUTICASONE FUROATE (MICRONISED) 200 MCG,診斷+未診斷,J44;J45,黃,健保給付：Trelegy 用於慢性阻塞性肺病限 92/55/22 mcg 規格（184/55/22 mcg 限氣喘）,給付規定 6.1
-C150,L01XX35,,未診斷,D47.3,黃,健保給付：anagrelide 限原發性血小板過多症（初次使用需事前審查）,給付規定 4.3.3
-C151,D10BA D05BB D05AX05,,性別+年齡,女;10-49,紅,懷孕：口服維生素 A 衍生物（isotretinoin、acitretin、etretinate）與外用 tazarotene 懷孕禁用（舊制 X），用藥前須確認未懷孕並避孕；停藥後仍需避孕：isotretinoin 1 個月、acitretin 3 年,美國仿單 4 禁忌與黑框；仿單（懷孕分級 X）
-C152,L01 L02,,性別+年齡,女;10-49,紅,懷孕：抗腫瘤藥與腫瘤荷爾蒙治療（含 GnRH 促效劑），美國仿單要求驗孕或避孕（胚胎毒性），請確認未懷孕並有避孕,美國仿單 8.3
-C153,L04AX03 L04AK L04AA06 L04AA40 L04AX02 L04AX04 L04AX06 L04AE L04AH L04AF03 L04AG06 L04AG10 L04AJ03 L04AC11,,性別+年齡,女;10-49,紅,懷孕：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib 等免疫調節藥，美國仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
-C154,C10AA C10BA C10BX,,性別+年齡,女;10-49,紅,懷孕：statin 一般建議停用（FDA 2021 已移除禁忌，FH／ASCVD 高風險者可由醫師評估續用）；哺乳：避免使用,仿單（懷孕分級 X）；美國仿單 8.1、8.2
-C155,N05CD01 N05CD04 N05CD05 N05CD07,,性別+年齡,女;10-49,紅,懷孕：flurazepam、estazolam、triazolam、temazepam 舊制 X（可能傷害胎兒），請確認未懷孕,仿單（懷孕分級 X）
-C156,N02CA G02AB,ERGOTAMINE,性別+年齡,女;10-49,紅,懷孕：麥角鹼類（ergotamine、dihydroergotamine、methylergonovine、ergonovine）懷孕禁用（子宮收縮），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
-C157,A02BB01,MISOPROSTOL,性別+年齡,女;10-49,紅,懷孕：misoprostol 懷孕禁用（流產、早產、先天異常；美國仿單黑框），用藥前須確認未懷孕並避孕,美國仿單 4 禁忌與黑框
-C158,G03A G03B G03C G03E G03F G03H G03XA G03XC G03GB G03DA02 G03DB08 G03DC02 A14A H01CA02,LYNESTRENOL,性別+年齡,女;10-49,紅,懷孕：性荷爾蒙與調節劑（雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、抗雄性素、danazol、SERM、clomiphene、nafarelin）懷孕禁用（舊制 X 或仿單禁忌），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
-C159,C02KX01 C02KX02 C02KX04 C02KX05 C02KX06 C02KX54,,性別+年齡,女;10-49,紅,懷孕：肺動脈高壓用藥（bosentan、ambrisentan、macitentan、riociguat、sotatercept）懷孕禁用或要求驗孕避孕（美國仿單黑框），請確認驗孕與避孕,美國仿單 4 禁忌、黑框與 8.3
-C160,B01AA03,,性別+年齡,女;10-49,紅,懷孕：warfarin 懷孕禁用（機械瓣膜且血栓風險高者除外；胚胎病變），美國仿單要求驗孕並避孕，請確認未懷孕,美國仿單 4 禁忌與 8.3
-C161,J05AB06 J05AB14 D01BA01 J04BA01 J02AC03 J02AC05,,性別+年齡,女;10-49,紅,懷孕：ganciclovir、valganciclovir、griseofulvin、clofazimine、voriconazole、isavuconazonium 懷孕禁用或美國仿單要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
-C162,,RIBAVIRIN,性別+年齡,女;10-49,紅,懷孕：ribavirin 懷孕禁用（舊制 X；男性伴侶用藥也算），治療期間與停藥後 6 個月須避孕並每月驗孕,美國仿單 4 禁忌與黑框
-C163,,EFAVIRENZ,性別+年齡,女;10-49,紅,懷孕：efavirenz 美國仿單要求用藥前驗孕並避孕（停藥後 12 週），請確認未懷孕,美國仿單 8.3
-C164,C01BD07 C01EB24 C01EB17 A05AA01 C10AX02 B03XA06 B02BX05 B02BX06 V03AC02 M09AX10 L03AX16 S01LA05 S01LA09,,性別+年齡,女;10-49,紅,懷孕：dronedarone、mavacamten、ivabradine、chenodiol、probucol、luspatercept、eltrombopag、emicizumab、deferiprone、risdiplam、plerixafor、眼內注射 aflibercept／faricimab，仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌與 8.3；仿單（懷孕分級 X）
-C165,M05BX04 M05BA03 M05BA08,,性別+年齡,女;10-49,紅,懷孕：denosumab 懷孕禁用；zoledronic acid、pamidronate 美國仿單要求用藥前確認未懷孕（可能傷害胎兒），請確認未懷孕,美國仿單 4 禁忌與 8.3
-C166,N03AX11,,性別+年齡,女;10-49,紅,懷孕：topiramate 致先天異常（唇顎裂）與胎兒過小，美國仿單建議未計畫懷孕者有效避孕，請確認未懷孕並有避孕,美國仿單 8.3
-C167,N05BB01,,性別+年齡,女;10-49,紅,懷孕：hydroxyzine（仿單：懷孕初期禁用），請確認是否懷孕,美國仿單 4 禁忌
-C168,P01AB01 J01XD01 G01AF01,,性別+年齡,女;10-49,紅,懷孕：metronidazole（仿單：治療陰道滴蟲時，懷孕前三個月禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
-C169,J02AC02,,性別+年齡,女;10-49,紅,懷孕：itraconazole（仿單：治療甲癬時，孕婦或計畫懷孕者禁用，治療期間與停藥後 2 個月須避孕），請確認是否懷孕與用途,美國仿單 4 禁忌
-C170,L04AX01,,性別+年齡,女;10-49,紅,懷孕：azathioprine（仿單：治療類風濕性關節炎時，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
-C171,J01XE J01RA02,SULFADIAZINE,性別+年齡,女;10-49,紅,懷孕：sulfadiazine、外用 silver sulfadiazine、nitrofurantoin（仿單：接近足月、待產與分娩時禁用，新生兒核黃疸或溶血），請確認是否懷孕,美國仿單 4 禁忌
-C172,M01CC01,,性別+年齡,女;10-49,紅,懷孕：penicillamine（仿單：除 Wilson 病與部分胱胺酸尿症外，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
-C173,G02CB01,,性別+年齡,女;10-49,紅,懷孕：bromocriptine（仿單：治療高泌乳素血症時確診懷孕應停藥，無月經期間每 4 週驗孕），請確認是否懷孕,美國仿單 4 禁忌與 8.3
-C174,,PHENAZOPYRIDINE,性別+年齡,女;10-49,紅,懷孕：phenazopyridine（仿單：孕期腎盂腎炎禁用），請確認是否懷孕,美國仿單 4 禁忌
-C175,M01AB15,,性別+年齡,女;10-49,紅,懷孕：ketorolac（仿單：待產與分娩時禁用，可能影響胎兒循環並抑制子宮收縮），請確認是否懷孕,美國仿單 4 禁忌與黑框
-C176,B05XA05,,性別+年齡,女;10-49,紅,懷孕：靜脈 magnesium sulfate（仿單：妊娠毒血症產婦分娩前 2 小時內不可給），請確認是否懷孕,美國仿單 4 禁忌
-C177,C09,,性別+年齡,女;10-49,黃,懷孕停藥：ACEI、ARB、aliskiren 有胎兒毒性（美國仿單黑框：發現懷孕應盡快停藥），請確認是否懷孕或計畫懷孕,美國仿單黑框
-C178,B01AC24 B01AE07 B01AF02 B01AF03 B01AC11 B02BX04 C03XA01 C07AB12 C07AA07 C10AB05,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C179,A10BK A10BX03,GLIFLOZIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C180,A16AX06 A16AX08 H01CB03 H05AA02 M04AA01 V03AC03 V03AF07,TIOPRONIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C181,J01AA12 J01MA02 P01AB02 J01XD02,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C182,N02BF02 N05BA12 N07XX08,TRAMADOL,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C183,D11AH08 L04AF01 L04AJ02 L04AJ07 L04AJ08 L04AJ09 R05CB05 V03AF01,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
-C184,,CODEINE,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+﻿編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據
+C01,臨床,S01BA,,診斷,B00.5,黃,眼用類固醇＋疱疹性眼疾：上皮型（樹枝狀）角膜炎禁用，基質型通常需併用抗病毒藥,仿單禁忌
+C02,臨床,C07AA,,診斷,J45 J44,紅,非選擇性 β 阻斷劑＋氣喘／COPD：可能誘發支氣管痙攣,仿單禁忌
+C03,臨床,N07AB,,診斷,N13 K56,黃,Bethanechol＋泌尿道或腸道阻塞：機械性阻塞時禁用，請確認不是阻塞造成,仿單禁忌
+C04,臨床,N07AB,,診斷,J45 I20-I25 K25-K27 G40 G20 E05,黃,Bethanechol＋氣喘／冠心病／消化性潰瘍／癲癇／巴金森／甲亢：仿單禁忌疾病,仿單禁忌
+C06,臨床,,METFORMIN,診斷,N18.4 N18.5 N18.6,紅,Metformin＋慢性腎病第 4–5 期：eGFR<30 禁用,仿單禁忌
+C07,臨床,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,診斷,N18 K25-K28 I50,黃,NSAID＋慢性腎病／消化性潰瘍／心衰竭,仿單警語
+C08,臨床,N04BA,,診斷,H40.2,黃,Levodopa＋隅角閉鎖性青光眼,仿單禁忌
+C09,臨床,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡,>=65,灰,65 歲以上使用 BZD／Z-drug：跌倒與認知風險（老人用藥提醒，預設收合）,Beers 2023 建議避免
+C10,臨床,N05A,,診斷,F01-F03 G30,黃,抗精神病藥＋失智症：死亡率增加,仿單黑框警語
+C11,臨床,N03AG,,診斷,O00-O9A Z33 Z34,紅,Valproate＋懷孕：致畸胎,仿單禁忌
+C12,臨床,C03DA,,診斷,E87.5 N18.4 N18.5 N18.6,黃,醛固酮拮抗劑＋高血鉀／慢性腎病第 4–5 期,仿單
+C13,臨床,G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03B,PIPOXOLAN,診斷,H40.2 R33,黃,抗膽鹼藥＋隅角閉鎖性青光眼／尿滯留,仿單禁忌
+C14,臨床,H01BA02,,診斷,E87.1,紅,Desmopressin＋低血鈉,仿單禁忌
+C15,臨床,H01BA02,,年齡,>=65,黃,65 歲以上使用 desmopressin 治療夜尿：低血鈉風險，請詢問有無噁心、食慾下降、體重增加、倦怠嗜睡等症狀,Beers 2023 建議避免
+C16,臨床,N02A,,同處方,N05BA N05CD N05CF N03AE01,黃,鴉片類＋BZD／Z-drug 同時使用：呼吸抑制,FDA 黑框警語
+C17,臨床,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡+同處方,>=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS,黃,65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高,藥師審核意見（C09 升一級）
+C18,孕哺,G04CB G04CA52,,性別+年齡,女;10-49,紅,懷孕：5α 還原酶抑制劑懷孕禁用（舊制 X），可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌（懷孕分級 X）；藥師審核意見
+C19,臨床,N02A,,同處方,N02BF,黃,鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）,FDA 2019 安全通訊；Beers 2023 表 5
+C20,臨床,,CLOPIDOGREL,同處方,A02BC01 A02BC05,灰,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等,仿單警語（Plavix）
+C21,臨床,J01MA,,同處方,H02AB,灰,Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加,FDA 黑框警語
+C22,臨床,J01MA,,年齡+同處方,>=60;H02AB,黃,60 歲以上使用 fluoroquinolone＋全身性類固醇：肌腱斷裂風險更高，請提醒腳跟或肌腱疼痛時停藥回診,FDA 黑框警語（C21 升一級）
+C23,臨床,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,同處方兩種以上 NSAID：腸胃道出血與腎毒性增加，療效沒有增加,仿單（naproxen、meloxicam 等）
+C24,臨床,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,B01AA B01AE B01AF,黃,NSAID＋口服抗凝血劑：出血風險增加,仿單警語；Beers 2023 表 2
+C25,臨床,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,年齡+同處方,>=65;H02AB,黃,65 歲以上 NSAID＋全身性類固醇：消化性潰瘍、腸胃道出血，無替代時需併用胃腸保護,Beers 2023 表 2
+C26,臨床,B01AA03,,同處方,C01BD01 J01MA02 J01FA01 J01FA02 J01FA03 J01FA06 J01FA07 J01FA08 J01FA09 J01FA15 J01FA91 J01EE01 N06AB,黃,Warfarin＋amiodarone／ciprofloxacin／macrolide（azithromycin 除外）／TMP-SMX／SSRI：INR 上升、出血，需密切追蹤 INR,Beers 2023 表 5
+C27,臨床,R03DA04 R03DA05,,同處方,J01MA02 A02BA01,黃,Theophylline／aminophylline＋ciprofloxacin／cimetidine：theophylline 中毒（噁心、心悸、抽搐）,Beers 2023 表 5
+C28,臨床,N03AB02,,同處方,J01EE01,黃,Phenytoin＋TMP-SMX：phenytoin 中毒,Beers 2023 表 5
+C29,臨床,N05AN01,,同處方,C09A C09B C09C C09D C03C,黃,Lithium＋ACEI／ARB／ARNI／環利尿劑：lithium 中毒，需監測血中濃度,Beers 2023 表 5
+C30,臨床,C09A C09B,,同處方,C09C C09DA C09DB C09XA,黃,ACEI＋ARB／aliskiren 雙重 RAS 阻斷：高血鉀、急性腎損傷、低血壓,EMA 2014；FDA 2012（aliskiren）；Beers 2023 表 5 限慢性腎病 3a 期以上
+C31,臨床,C09DX04,,同處方,C09A C09B,紅,Sacubitril/valsartan＋ACEI：禁止併用（血管性水腫），換藥須間隔 36 小時,仿單禁忌
+C32,臨床,G04BE,,同處方,C01DA C01DX16,紅,PDE5 抑制劑＋硝酸鹽類／nicorandil：嚴重低血壓,仿單禁忌
+C33,臨床,C10AA01 C10AA02 C10BA01 C10BA02,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 C10AB04 L04AD01,紅,Simvastatin／lovastatin＋強效 CYP3A4 抑制劑／gemfibrozil／ciclosporin：肌病變、橫紋肌溶解,仿單禁忌
+C34,臨床,M04AC01,,同處方,J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,黃,Colchicine＋P-gp／CYP3A4 抑制劑：colchicine 中毒（腹瀉、肌肉無力、骨髓抑制），需減量,仿單警語
+C35,臨床,M04AC01,,診斷+同處方,N18.3 N18.4 N18.5 N18.6 K70-K77;J01FA01 J01FA09 J02AB02 J02AC02 L04AD01 C08DA01 C08DB01,紅,Colchicine＋P-gp／CYP3A4 抑制劑＋腎或肝功能不全：禁止併用，曾有致死案例,仿單禁忌（C34 升一級）
+C36,臨床,M03BX02,,同處方,J01MA02 N06AB08,紅,Tizanidine＋ciprofloxacin／fluvoxamine：禁止併用（tizanidine 濃度大增，低血壓、嗜睡）,仿單禁忌
+C37,臨床,A03FA03,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,Domperidone＋強效 CYP3A4 抑制劑或會延長 QT 的 macrolide：QT 延長、心律不整,EMA 2014 禁忌
+C38,臨床,N02CA,,同處方,J01FA01 J01FA09 J02AB02 J02AC02,紅,麥角生物鹼＋強效 CYP3A4 抑制劑：麥角中毒（血管痙攣、肢體缺血）,仿單禁忌（黑框）
+C39,臨床,M04AA03,,同處方,L04AX01 L01BB02,紅,Febuxostat＋azathioprine／mercaptopurine：骨髓抑制,仿單禁忌（國內仿單 2025-08 版；113/8 國內安全警訊）
+C40,臨床,M04AA01,,同處方,L04AX01 L01BB02,黃,Allopurinol＋azathioprine／mercaptopurine：骨髓抑制，azathioprine／mercaptopurine 需大幅減量,仿單警語（減量幅度未在網路上核對）
+C41,臨床,C02CA G04CA03,,性別+年齡+同處方,女;>=65;C03C,灰,65 歲以上女性 α1 阻斷劑＋環利尿劑：尿失禁,Beers 2023 表 5
+C42,臨床,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,診斷,F01-F03 G30 G31.0 G31.1 G31.83 R41.81,黃,BZD／Z-drug＋失智症或認知障礙：可能使認知功能惡化、引發譫妄與跌倒，老人應避免（含 chlordiazepoxide 的胃腸複方也算）,Beers 2023 表 3
+C43,臨床,A10BK,GLIFLOZIN,年齡+同處方,>=65;C03 C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54,灰,65 歲以上 SGLT2 抑制劑＋利尿劑（含利尿劑的降血壓複方）：體液不足、姿勢性低血壓、急性腎損傷，請提醒頭暈時告知醫師並注意水分攝取,仿單警語（Jardiance、Forxiga：老人與併用利尿劑者需評估體液）
+C44,臨床,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,同處方,N05BA N05CD N05CF N03AE01,灰,同處方兩種以上 BZD／Z-drug：作用重複，鎮靜、跌倒與依賴風險增加（含 chlordiazepoxide 的胃腸複方也算）,起草者判斷；Beers 2023 建議避免合計 3 種以上中樞神經藥
+C45,臨床,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,,同處方,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX,灰,同處方兩種以上抗精神病藥：作用重複，副作用累加；clozapine 合併治療等情況常見，請確認是刻意合併,起草者判斷
+C46,孕哺,N03AG,,性別+年齡,女;10-49,紅,懷孕：valproate 致畸胎與神經發育風險（美國仿單黑框；用於偏頭痛時懷孕禁用，舊制 X），請確認未懷孕、有避孕與懷孕計畫的衛教,美國仿單黑框與 4 禁忌；EMA 2018 懷孕預防計畫
+C47,臨床,N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH01 N05AH03 N05AH05 N05AH06 N05AL N05AX A03FA01 R06AD02,,診斷,G20,黃,巴金森氏症＋抗精神病藥（clozapine、quetiapine 除外）或 metoclopramide、promethazine：可能使巴金森症狀惡化,Beers 2023 表 3
+C48,臨床,H01BA02,,同處方,N06AA N06AB N05AA01 N03AF01 M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,Desmopressin＋三環抗憂鬱劑／SSRI／chlorpromazine／carbamazepine／NSAID：水分滯留與低血鈉風險增加，請留意症狀或追蹤血鈉,仿單警語（英國 SmPC、美國注射劑仿單；國內仿單未核對）
+C49,臨床,N05AH02,,同處方,N04AA N04AC A03AB A03B G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 N06AA,黃,Clozapine＋抗膽鹼藥：腸胃蠕動變慢，可能進展為嚴重腸阻塞，請詢問排便狀況,FDA 2020 安全通訊
+C50,臨床,L04AD01,,診斷+同處方,L20-L30 L40;L04AX01 L04AX03,黃,皮膚病使用 ciclosporin＋其他免疫抑制劑：過度免疫抑制與皮膚惡性腫瘤風險，請確認是刻意合併,仿單警語（Neoral 乾癬段落；異位性皮膚炎是類推）
+C51,臨床,M01AA M01AB M01AC M01AE M01AG M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,年齡+同處方,>=65;B01AC N02BA01,黃,65 歲以上 NSAID＋抗血小板藥：腸胃道出血與消化性潰瘍風險增加，無替代時需併用胃腸保護,Beers 2023 表 2
+C52,臨床,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20,,診斷,F01-F03 G30 G31.0 G31.1 G31.83 R41.81,黃,強抗膽鹼藥＋失智症或認知障礙：可能使認知功能惡化、引發譫妄,Beers 2023 表 3
+C53,臨床,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,,診斷+性別+年齡,N40;男;>=65,黃,65 歲以上男性攝護腺增生＋強抗膽鹼藥：可能減少尿流、造成尿滯留,Beers 2023 表 3
+C54,臨床,G04BD12,,診斷,R33,黃,Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況,仿單警語（國內仿單 2026-04 版）
+C55,臨床,G04BD12,,診斷,H40.2,灰,Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認,藥師決定
+C56,臨床,C02CA01 C02CA04 G04CA03,,診斷+年齡,R55;>=65,黃,65 歲以上 α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
+C57,臨床,M04AB03,,診斷,B15-B19 K70-K77,黃,Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能,仿單警語（台灣仿單待核對）
+C58,臨床,C01BC,,診斷,I50 I11.0 I13.0 I13.2,紅,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單警語（國內仿單引用 CAST：結構性心臟病）；禁忌條文待核對；藥師決定升為紅色（115/11/12）
+C59,臨床,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌；Beers 2023 表 3
+C60,臨床,B01AA B01AE B01AF,,同處方,B01AC04 B01AC06,灰,口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限,指引（ESC／ACC）
+C61,臨床,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel,指引（ESC 2023 ACS）
+C62,臨床,C08DA C08DB,,同處方,C07,灰,Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯,仿單警語
+C63,臨床,R06AA R06AB R06AD R06AE05,,年齡,>=65,灰,65 歲以上使用第一代抗組織胺／meclizine：抗膽鹼作用（意識混亂、便秘、尿滯留），老人應避免,Beers 2023 表 2
+C64,臨床,A10BB A10BD02 A10BD04 A10BD06,,年齡,>=65,灰,65 歲以上使用磺醯尿素類：低血糖風險,Beers 2023 表 2
+C65,臨床,C09,,診斷,E87.5,灰,ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀,仿單警語
+C66,臨床,N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,,年齡+同類數,>=65;>=3 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,黃,65 歲以上同時使用 3 種以上中樞神經藥（抗癲癇、抗憂鬱、抗精神病、BZD／Z-drug、鴉片類、肌肉鬆弛劑）：跌倒與骨折風險增加,Beers 2023 表 5
+C67,臨床,A10A,,未同處方,=NAN02A1000ZZ,黃,胰島素沒有同時開注射針頭：處方不尋常，請確認病人是否還有針頭或由其他處方領取,藥師決定（115/11/10）
+C68,臨床,B01AE07,,腎功能,<30,黃,Dabigatran＋腎功能 eGFR<30：禁用或避免（出血風險）,仿單禁忌；Beers 2023 表 6；給付規定 2.1.5（排除肌酸酐清除率 <30）
+C69,臨床,B01AF01 B01AF02 B01AF03,,腎功能,<30,黃,Xa 因子抑制劑＋腎功能 eGFR<30：需依腎功能調整劑量，<15 不建議,仿單；Beers 2023 表 6
+C70,臨床,N02BF01 N02BF02,,腎功能,<60,灰,Gabapentin／pregabalin＋腎功能 eGFR<60：需減量（嗜睡、跌倒）,仿單；Beers 2023 表 6
+C71,臨床,A02BA,,腎功能,<50,灰,H2 阻斷劑＋腎功能 eGFR<50：需減量（意識混亂）,仿單；Beers 2023 表 6
+C72,臨床,N06AX21,,腎功能,<30,黃,Duloxetine＋腎功能 eGFR<30：避免使用,仿單；Beers 2023 表 6
+C73,臨床,N02AX02,TRAMADOL,腎功能,<30,灰,Tramadol＋腎功能 eGFR<30：延長給藥間隔，每日最多 200 mg,仿單；Beers 2023 表 6
+C74,臨床,M03BX01,,腎功能,<60,黃,Baclofen＋腎功能 eGFR<60：避免（腦病變），需要時大幅減量,Beers 2023 表 6
+C75,臨床,N03AX14,,腎功能,<80,灰,Levetiracetam＋腎功能 eGFR<80：需依腎功能減量,仿單
+C76,臨床,J01EE01,,腎功能,<30,灰,TMP-SMX＋腎功能 eGFR<30：需減量，<15 避免（高血鉀、腎功能惡化）,仿單；Beers 2023 表 6
+C77,臨床,C03DB,,腎功能,<30,黃,保鉀利尿劑（amiloride、triamterene）＋腎功能 eGFR<30：避免（高血鉀）,Beers 2023 表 6
+C78,臨床,C07 C08DA C08DB,,診斷,I44.1 I44.2 I45.5 I49.5,黃,β 阻斷劑／diltiazem／verapamil＋第二、三度房室傳導阻滯或病竇症候群：未裝節律器時禁用，請確認是否已裝節律器,仿單禁忌（國內仿單待核對）
+C79,臨床,N06AB,,同處方,N06AX16 N06AX21 N06AX23 N06AA04,黃,SSRI＋SNRI／clomipramine：作用重複，血清素症候群風險,仿單警語（待藥師判斷）
+C80,健保,N02BF01,,未診斷,B02.2 G40 G41 R56,黃,健保給付：gabapentin 限帶狀疱疹後神經痛（其他止痛藥無效）或癲癇輔助治療,給付規定 1.1.6、1.3.2.2
+C81,健保,N02BF02,,未診斷,B02.2 M79.7 E08.4 E09.4 E10.4 E11.4 E13.4 S14.1 S24.1 S34.1 T91.3 G82 G40 G41 R56,黃,健保給付：pregabalin 限帶狀疱疹後神經痛、纖維肌痛、糖尿病周邊神經病變、脊髓損傷神經痛或癲癇輔助治療,給付規定 1.1.7、1.3.2.2
+C82,健保,N02BF02,,診斷+未診斷+科別外,M79.7;B02.2 E08.4 E09.4 E10.4 E11.4 E13.4 S14.1 S24.1 S34.1 T91.3 G82 G40 G41 R56;AE 12 13 14,黃,健保給付：pregabalin 用於纖維肌痛限風濕免疫科、神經科、復健科、疼痛科或精神科醫師處方,給付規定 1.1.7
+C83,健保,N06AX21,,診斷+未診斷+科別外,M79.7;E08.4 E09.4 E10.4 E11.4 E13.4 F30-F48;AE 12 13 14,黃,健保給付：duloxetine 用於纖維肌痛限風濕免疫科、神經科、復健科、疼痛科或精神科醫師處方,給付規定 1.1.8
+C84,健保,N06AX21,,未診斷,F30-F48 E08.4 E09.4 E10.4 E11.4 E13.4 M79.7,黃,健保給付：duloxetine 止痛用途限糖尿病周邊神經病變或纖維肌痛（本次也沒有憂鬱、焦慮等診斷）,給付規定 1.1.8、1.2.1
+C85,健保,N06AX12,,診斷+未診斷,F17 Z72.0 Z87.891;F30-F39,黃,健保給付：bupropion 作為戒菸治療不予給付,給付規定 1.2.1.1
+C86,健保,N05AE04 N05AH02 N05AH03 N05AL05 N05AX08 N05AX12 N05AX13 N05AX16,,診斷,F31.3 F31.4 F31.5,黃,健保給付：第二代抗精神病藥（quetiapine 緩釋劑型與 lurasidone 除外）不得用於雙極性疾患之鬱症發作,給付規定 1.2.2.2
+C87,健保,N05CF,,科別外+日量,12 13;>1,黃,健保給付：非精神科、神經科醫師開立 zolpidem、zopiclone 等，每日不宜超過一顆,給付規定 1.2.3
+C88,健保,N03AX11,,未診斷,G40 G41 R56 G43,黃,健保給付：topiramate 限癲癇（輔助或第二線單一治療）或偏頭痛預防,給付規定 1.3.2.3
+C89,健保,N03AX14,,未診斷,G40 G41 R56,黃,健保給付：levetiracetam 限癲癇,給付規定 1.3.2.4
+C90,健保,N03AX15,,未診斷,G40 G41 R56,黃,健保給付：zonisamide 限癲癇（輔助治療或新診斷成人局部癲癇單一治療），巴金森或顫抖不在給付範圍,給付規定 1.3.2.8
+C91,健保,N06DA N06DX01,,未診斷,G30 G20 G31.83 F02,黃,健保給付：失智症治療藥品限阿茲海默氏症或巴金森氏症之失智症（血管性失智症不建議使用）,給付規定 1.3.3
+C92,健保,N06DA N06DX01,,科別外,12 13,黃,健保給付：失智症治療藥品限神經科或精神科醫師處方,給付規定 1.3.3
+C93,健保,N06DA02 N06DA04 N06DX01,,診斷+未診斷,G20;G30,黃,健保給付：巴金森氏症之失智症限用 rivastigmine 口服製劑,給付規定 1.3.3
+C94,健保,N06BA09,,年齡,<6,黃,健保給付：atomoxetine 限 6 歲以上注意力不全過動症,給付規定 1.3.5
+C95,健保,N06BA09,,未診斷,F90,黃,健保給付：atomoxetine 限注意力不全過動症,給付規定 1.3.5
+C96,健保,N07AX03,,未診斷,M35.0,黃,健保給付：cevimeline 限修格蘭氏症候群之口乾燥症狀,給付規定 1.5.2
+C97,健保,G04BD07 G04BD08 G04BD12,,未診斷,N32.81 R35.0 R35.8 R39.15 N39.41 N39.46 R32 N31.0 N31.1 N31.9 N40.1 N40.3,黃,健保給付：tolterodine、solifenacin、mirabegron 限頻尿、急尿或急迫性尿失禁,給付規定 1.6.3
+C98,健保,G04BD07 G04BD08 G04BD12,,診斷+未診斷,N31.2 N39.3 N39.44;R35.0 R39.15 N39.41 N39.46 N32.81,黃,健保給付：小兒夜尿、單純性應力性尿失禁或膀胱逼尿肌無反射不宜使用本類藥品,給付規定 1.6.3
+C99,健保,G04BD08 G04BD12,,日量,>1,黃,健保給付：solifenacin、mirabegron 每天限使用 1 錠,給付規定 1.6.3
+C100,健保,B01AC04,,同處方+未診斷,B01AC06 N02BA01;I20.0 I21 I22 I24 I25.2 Z95.5 Z95.8 Z98.6,黃,健保給付：clopidogrel 與 aspirin 合併限支架置放後 3～6 個月或急性冠心症住院後最長 9 個月（本次沒有支架或急性冠心症診斷）,給付規定 2.1.1.6
+C101,健保,B01AC24,,未診斷,I20.0 I21 I22 I24 I25.2,黃,健保給付：ticagrelor 限急性冠心症住院後併用 aspirin，最長 9 個月,給付規定 2.1.1.9
+C102,健保,B01AC23,,未診斷,I70.2 I73.9 I63 I69.3 Z86.73,黃,健保給付：cilostazol 限間歇性跛行，或無法耐受 aspirin 之非心因性腦梗塞,給付規定 2.1.1.5
+C103,健保,B01AC23,,同處方+未診斷,B01AC06 N02BA01;I70.2 I73.9,黃,健保給付：cilostazol 用於預防腦梗塞限無法耐受 aspirin 者，本處方同時有 aspirin,給付規定 2.1.1.5
+C104,健保,,RIVAROXABAN 10 MG,未診斷,Z96.64 Z96.65 Z47.1,黃,健保給付：rivaroxaban 10 mg 限人工髖或膝關節置換術後預防靜脈血栓（髖最多 5 週、膝最多 2 週）,給付規定 2.1.4.2
+C105,健保,,RIVAROXABAN 2.5 MG,同處方,B01AC04 B01AC05 B01AC22 B01AC23 B01AC24 B01AA B01AE B01AF02 B01AF03,黃,健保給付：rivaroxaban 2.5 mg 不得合併 P2Y12 抑制劑、cilostazol 或其他抗凝血劑,給付規定 2.1.4.2
+C106,健保,B01AF02 B01AF03 B01AE07,,年齡+未診斷,<65;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65,黃,健保給付：非瓣膜性心房顫動未滿 65 歲，須曾中風或全身性栓塞、有症狀之心衰竭或 LVEF<40%（本次沒有相關診斷，請確認 LVEF）,給付規定 2.1.4.3、2.1.4.4、2.1.5
+C107,健保,B01AF02 B01AF03 B01AE07,,年齡+未診斷,<75;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65 E08-E13 I10-I16 I20-I25,黃,健保給付：非瓣膜性心房顫動未滿 75 歲，須合併糖尿病、高血壓或冠狀動脈疾病，或曾中風、有心衰竭（本次沒有相關診斷）,給付規定 2.1.4.3、2.1.4.4、2.1.5
+C108,健保,B01AF01,,年齡+未診斷,<50;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65,黃,健保給付：rivaroxaban 用於非瓣膜性心房顫動未滿 50 歲，須曾中風或全身性栓塞、有症狀之心衰竭或 LVEF<40%（本次沒有相關診斷，請確認 LVEF）,給付規定 2.1.4.2
+C109,健保,B01AF01,,年齡+未診斷,<75;I63 I69.3 Z86.73 G45 I74 I50 I11.0 I13.0 I13.2 I42 I26 I80-I82 Z86.71 Z96.64 Z96.65 E08-E13 I10-I16 I20-I25,黃,健保給付：rivaroxaban 用於非瓣膜性心房顫動未滿 75 歲，須合併糖尿病、高血壓或冠狀動脈疾病，或曾中風、有心衰竭（本次沒有相關診斷）,給付規定 2.1.4.2
+C110,健保,B01AF01 B01AF02 B01AF03,,腎功能,<15,黃,健保給付：Xa 因子抑制劑排除肌酸酐清除率 <15 mL/min 的病人,給付規定 2.1.4.2、2.1.4.3、2.1.4.4
+C111,健保,B01AE B01AF,,診斷,I05.0 I05.2 Z95.2 Z95.3 Z95.4,黃,健保給付：新一代口服抗凝血劑排除嚴重心臟瓣膜疾病（人工瓣膜、二尖瓣狹窄）,給付規定 2.1.4.2、2.1.4.3、2.1.4.4、2.1.5
+C112,健保,B01AF03,,日量,>1,黃,健保給付：edoxaban 每日 1 次、每次限 1 顆,給付規定 2.1.4.4
+C113,健保,B01AF02,,日量,>2,黃,健保給付：apixaban 每日 2 次、每次限 1 顆（深部靜脈栓塞治療前 7 日除外）,給付規定 2.1.4.3
+C114,健保,C10BA02 C10BA05 C10BA06 C10BA13,,同處方,C10AB04,黃,健保給付：含 ezetimibe 及 statin 之複方製劑不得與 gemfibrozil 併用,給付規定 2.6.3
+C115,健保,C09DX04,,未診斷,I50 I11.0 I13.0 I13.2 I42 I25.5,黃,健保給付：sacubitril/valsartan 限慢性收縮性心衰竭（LVEF≦35%）,給付規定 2.14
+C116,健保,C09DX04,,同處方,C09C C09DA C09DB C09DX01 C09DX03,黃,健保給付：sacubitril/valsartan 不應與 ARB 合併使用,給付規定 2.14
+C117,健保,C09DX04,,日量,>2,黃,健保給付：sacubitril/valsartan 每日限最多使用 2 粒,給付規定 2.14
+C118,健保,A10BK A10BD15 A10BD19 A10BD21 A10BD24,,日量,>1,黃,健保給付：SGLT-2 抑制劑，以及 dapagliflozin/metformin、empagliflozin/linagliptin、dapagliflozin/saxagliptin、ertugliflozin/sitagliptin 複方，每日最多處方 1 粒,給付規定 2.16、5.1.5、5.1.6、5.1.7、5.1.8
+C119,健保,A10BD20,,日量,>2,黃,健保給付：empagliflozin/metformin 複方每日最多處方 2 粒,給付規定 5.1.5
+C120,健保,A10BJ,,同處方,A10BH A10BK A10BD07 A10BD08 A10BD09 A10BD10 A10BD11 A10BD13 A10BD15 A10BD19 A10BD20 A10BD21 A10BD24,黃,健保給付：GLP-1 受體促效劑不得與 DPP-4 抑制劑、SGLT-2 抑制劑併用,給付規定 5.1.3.2
+C121,健保,A10BF,,未診斷,E11 E13 E08 E09,黃,健保給付：acarbose、miglitol 限非胰島素依賴型糖尿病,給付規定 5.1.1
+C122,健保,B03BA05,,未診斷,E08.4 E09.4 E10.4 E11.4 E13.4 G60-G64,黃,健保給付：mecobalamin 限糖尿病周邊神經病變或慢性多發性神經病變,給付規定 3.2.1
+C123,健保,A11CC03 A11CC04,ALFACALCIDOL,未診斷,E55.0 E83.3 E20 E89.2 N18 N25.81 E83.51 M80 M48.5,黃,健保給付：活性維生素 D3 限維生素 D 依賴型或低磷血佝僂症、副甲狀腺機能低下、慢性腎病之低血鈣（eGFR<45）或停經後脊椎壓迫性、髖骨骨折,給付規定 3.2.2
+C124,健保,,CALCIUM-3-METHYL-2-OXO-VALERATE,未診斷,N18.5,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）限 eGFR≦15 且尚未透析之慢性腎衰竭低蛋白飲食治療,給付規定 3.3.2
+C125,健保,,CALCIUM-3-METHYL-2-OXO-VALERATE,診斷,N18.6 Z99.2 Z94.0,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）不得用於透析及換腎病患,給付規定 3.3.2
+C126,健保,,CALCIUM-3-METHYL-2-OXO-VALERATE,日量,>6,黃,健保給付：α-keto acid-amino acid 製劑（Ketosteril）每日至多使用六顆,給付規定 3.3.2
+C127,健保,M04AA03,,未診斷,M10 M1A,黃,健保給付：febuxostat 限慢性痛風患者之高尿酸血症（無症狀高尿酸血症不在給付範圍）,給付規定 2.11.1
+C128,健保,M04AA01,,未診斷,M10 M1A N20 C00-D49 E88.3,黃,健保給付：allopurinol 限痛風、痛風性關節炎、尿酸結石、癌症或化療之高尿酸血症，不得使用於非核准之適應症,給付規定 2.11.2
+C129,健保,A02BA A02BB A02BC A02BX02,,未診斷+未同處方,K20-K23 K25-K28 K92.0 K92.1 K92.2 B96.81 E16.4 Z87.11 Z90.3;B01,黃,健保給付：消化性潰瘍用藥限活動性或癒合中之消化性潰瘍、逆流性食道炎（須內視鏡或 X 光報告）、幽門桿菌消除、併用抗血栓藥等情形；本次只有胃炎、消化不良等或沒有相關診斷,給付規定 7.1
+C130,健保,M01AH M01AC06 M01AB08 M01AX01 M01AX17 M01AE52,,同處方+未診斷,A02BA A02BB A02BC A02BX;K20-K23 K25-K28 K92.0 K92.1 K92.2 Z87.11,黃,健保給付：celecoxib、etoricoxib、meloxicam、etodolac、nabumetone、nimesulide 不得預防性併用 H2 阻斷劑、PPI 或其他消化性潰瘍用藥,給付規定 1.1.5
+C131,健保,M01AH M01AC06 M01AB08 M01AX01 M01AX17 M01AE52,,未診斷+未同處方,M15-M19 M05-M08 M45 L40.5 K25-K28 Z87.11 K92.0 K92.1 K92.2 K70.3 K74.6 S00-T14 I60-I64 I21 I22 I24;H02 B01AA B01AE B01AF,黃,健保給付：本類 NSAID 限骨關節炎、類風濕等慢性發炎性關節病變、急性嚴重創傷／中風／心血管事件、曾有消化性潰瘍、併用類固醇或抗凝血劑、肝硬化,給付規定 1.1.5
+C132,健保,R03DC03,,未診斷,J45,黃,健保給付：montelukast 限輕度至中度持續性支氣管哮喘（過敏性鼻炎不在給付範圍）,給付規定 6.2.4、6.2.5
+C133,健保,R03DC03,,日量,>1,黃,健保給付：montelukast 每日限用 1 粒（包）,給付規定 6.2.4、6.2.5
+C134,健保,L04AD02,,未診斷,Z94 T86,黃,健保給付：tacrolimus 口服及注射製劑限肝、腎、心臟移植,給付規定 8.2.2
+C135,健保,L02BG03 L02BG04 L02BG06,,未診斷,C50 D05 Z85.3,黃,健保給付：芳香環轉化酶抑制劑限停經後乳癌,給付規定 9.1.1、9.1.2、9.1.3
+C136,健保,L02BG03 L02BG04 L02BG06,,同處方,L02BA01 L02BG,黃,健保給付：芳香環轉化酶抑制劑不得與 tamoxifen 或其他 aromatase inhibitor 併用,給付規定 9.1.1、9.1.3
+C137,健保,G04CB,,未診斷,N40,黃,健保給付：finasteride、dutasteride 限前列腺增生且有阻塞症狀（前列腺>30 mL 或 Qmax<15 mL/sec）,給付規定 5.2.2
+C138,健保,G02CB03,,未診斷,E22.1 D35.2 D44.3 N64.3,黃,健保給付：cabergoline 限高乳促素血症引起之狀況（產後正常泌乳之抑制不予給付）,給付規定 5.4.7
+C139,健保,A05BA,,未診斷,K70-K77 B15-B19,黃,健保給付：肝庇護劑限肝硬化、肝炎病患（須肝功能報告）,給付規定 3.3.1
+C140,健保,C04AD03 C04AE C04AC N06BX N06DX02,,同類數,>=2 C04AD03 C04AE C04AC N06BX N06DX02,黃,健保給付：腦循環改善劑、腦代謝改善劑及血球流變改善劑最多使用一類,給付規定 2.8.1
+C141,健保,N02CC,,同處方,N02CA,黃,健保給付：triptan 不得同時處方 ergotamine 製劑或其衍生物,給付規定 2.3.1
+C142,健保,N02CC,,診斷,I20-I25,黃,健保給付：triptan 不得使用於曾患心肌梗塞、缺血性心臟病、冠狀血管痙攣者,給付規定 2.3.1
+C143,健保,J05AF10,,日量,>1,黃,健保給付：entecavir 每日限使用 1 粒,給付規定 10.7.3
+C144,健保,S01EE01 S01EE02 S01EE03 S01EE04 S01EE05 S01EE06,,同類數,>=2 S01EE01 S01EE02 S01EE03 S01EE04 S01EE05 S01EE06,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種前列腺素衍生物）,給付規定 14.1
+C145,健保,S01ED01 S01ED02 S01ED03 S01ED04 S01ED05 S01ED51,,同類數,>=2 S01ED01 S01ED02 S01ED03 S01ED04 S01ED05 S01ED51,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種含 β 阻斷劑的眼藥）,給付規定 14.1
+C146,健保,S01EC01 S01EC03 S01EC04 S01EC54,,同類數,>=2 S01EC01 S01EC03 S01EC04 S01EC54,黃,健保給付：降眼壓藥不得併用同類藥品（本處方有兩種碳酸酐酶抑制劑）,給付規定 14.1
+C147,健保,S01E,,科別外,10,黃,健保給付：降眼壓藥限眼科醫師開立慢性病連續處方箋（非眼科醫師限開 1 個月）,給付規定 14.1
+C148,健保,R03AL08 R03AL09 R03AL11 R03AL12,,同處方,R03AK R03AL03 R03AL04 R03AL06 R03AL07 R03AL08 R03AL09 R03AL11 R03AL12 R03AC12 R03AC13 R03AC18 R03AC19 R03BB04 R03BB05 R03BB06 R03BB07 R03BA,黃,健保給付：三合一吸入劑不得與其他含吸入性類固醇、長效 β2 作用劑或長效抗膽鹼劑的吸入劑併用,給付規定 6.1
+C149,健保,,FLUTICASONE FUROATE (MICRONISED) 200 MCG,診斷+未診斷,J44;J45,黃,健保給付：Trelegy 用於慢性阻塞性肺病限 92/55/22 mcg 規格（184/55/22 mcg 限氣喘）,給付規定 6.1
+C150,健保,L01XX35,,未診斷,D47.3,黃,健保給付：anagrelide 限原發性血小板過多症（初次使用需事前審查）,給付規定 4.3.3
+C151,孕哺,D10BA D05BB D05AX05,,性別+年齡,女;10-49,紅,懷孕：口服維生素 A 衍生物（isotretinoin、acitretin、etretinate）與外用 tazarotene 懷孕禁用（舊制 X），用藥前須確認未懷孕並避孕；停藥後仍需避孕：isotretinoin 1 個月、acitretin 3 年,美國仿單 4 禁忌與黑框；仿單（懷孕分級 X）
+C152,孕哺,L01 L02,,性別+年齡,女;10-49,紅,懷孕：抗腫瘤藥與腫瘤荷爾蒙治療（含 GnRH 促效劑），美國仿單要求驗孕或避孕（胚胎毒性），請確認未懷孕並有避孕,美國仿單 8.3
+C153,孕哺,L04AX03 L04AK L04AA06 L04AA40 L04AX02 L04AX04 L04AX06 L04AE L04AH L04AF03 L04AG06 L04AG10 L04AJ03 L04AC11,,性別+年齡,女;10-49,紅,懷孕：methotrexate、leflunomide、teriflunomide、mycophenolate、thalidomide 類、cladribine、S1P 調節劑、sirolimus、everolimus、upadacitinib 等免疫調節藥，美國仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
+C154,孕哺,C10AA C10BA C10BX,,性別+年齡,女;10-49,紅,懷孕：statin 一般建議停用（FDA 2021 已移除禁忌，FH／ASCVD 高風險者可由醫師評估續用）；哺乳：避免使用,仿單（懷孕分級 X）；美國仿單 8.1、8.2
+C155,孕哺,N05CD01 N05CD04 N05CD05 N05CD07,,性別+年齡,女;10-49,紅,懷孕：flurazepam、estazolam、triazolam、temazepam 舊制 X（可能傷害胎兒），請確認未懷孕,仿單（懷孕分級 X）
+C156,孕哺,N02CA G02AB,ERGOTAMINE,性別+年齡,女;10-49,紅,懷孕：麥角鹼類（ergotamine、dihydroergotamine、methylergonovine、ergonovine）懷孕禁用（子宮收縮），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
+C157,孕哺,A02BB01,MISOPROSTOL,性別+年齡,女;10-49,紅,懷孕：misoprostol 懷孕禁用（流產、早產、先天異常；美國仿單黑框），用藥前須確認未懷孕並避孕,美國仿單 4 禁忌與黑框
+C158,孕哺,G03A G03B G03C G03E G03F G03H G03XA G03XC G03GB G03DA02 G03DB08 G03DC02 A14A H01CA02,LYNESTRENOL,性別+年齡,女;10-49,紅,懷孕：性荷爾蒙與調節劑（雌激素、黃體素、避孕藥、雄性素與蛋白同化類固醇、抗雄性素、danazol、SERM、clomiphene、nafarelin）懷孕禁用（舊制 X 或仿單禁忌），請確認未懷孕,美國仿單 4 禁忌；仿單（懷孕分級 X）
+C159,孕哺,C02KX01 C02KX02 C02KX04 C02KX05 C02KX06 C02KX54,,性別+年齡,女;10-49,紅,懷孕：肺動脈高壓用藥（bosentan、ambrisentan、macitentan、riociguat、sotatercept）懷孕禁用或要求驗孕避孕（美國仿單黑框），請確認驗孕與避孕,美國仿單 4 禁忌、黑框與 8.3
+C160,孕哺,B01AA03,,性別+年齡,女;10-49,紅,懷孕：warfarin 懷孕禁用（機械瓣膜且血栓風險高者除外；胚胎病變），美國仿單要求驗孕並避孕，請確認未懷孕,美國仿單 4 禁忌與 8.3
+C161,孕哺,J05AB06 J05AB14 D01BA01 J04BA01 J02AC03 J02AC05,,性別+年齡,女;10-49,紅,懷孕：ganciclovir、valganciclovir、griseofulvin、clofazimine、voriconazole、isavuconazonium 懷孕禁用或美國仿單要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌、黑框與 8.3
+C162,孕哺,,RIBAVIRIN,性別+年齡,女;10-49,紅,懷孕：ribavirin 懷孕禁用（舊制 X；男性伴侶用藥也算），治療期間與停藥後 6 個月須避孕並每月驗孕,美國仿單 4 禁忌與黑框
+C163,孕哺,,EFAVIRENZ,性別+年齡,女;10-49,紅,懷孕：efavirenz 美國仿單要求用藥前驗孕並避孕（停藥後 12 週），請確認未懷孕,美國仿單 8.3
+C164,孕哺,C01BD07 C01EB24 C01EB17 A05AA01 C10AX02 B03XA06 B02BX05 B02BX06 V03AC02 M09AX10 L03AX16 S01LA05 S01LA09,,性別+年齡,女;10-49,紅,懷孕：dronedarone、mavacamten、ivabradine、chenodiol、probucol、luspatercept、eltrombopag、emicizumab、deferiprone、risdiplam、plerixafor、眼內注射 aflibercept／faricimab，仿單懷孕禁用或要求驗孕避孕，請確認未懷孕並有避孕,美國仿單 4 禁忌與 8.3；仿單（懷孕分級 X）
+C165,孕哺,M05BX04 M05BA03 M05BA08,,性別+年齡,女;10-49,紅,懷孕：denosumab 懷孕禁用；zoledronic acid、pamidronate 美國仿單要求用藥前確認未懷孕（可能傷害胎兒），請確認未懷孕,美國仿單 4 禁忌與 8.3
+C166,孕哺,N03AX11,,性別+年齡,女;10-49,紅,懷孕：topiramate 致先天異常（唇顎裂）與胎兒過小，美國仿單建議未計畫懷孕者有效避孕，請確認未懷孕並有避孕,美國仿單 8.3
+C167,孕哺,N05BB01,,性別+年齡,女;10-49,紅,懷孕：hydroxyzine（仿單：懷孕初期禁用），請確認是否懷孕,美國仿單 4 禁忌
+C168,孕哺,P01AB01 J01XD01 G01AF01,,性別+年齡,女;10-49,紅,懷孕：metronidazole（仿單：治療陰道滴蟲時，懷孕前三個月禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C169,孕哺,J02AC02,,性別+年齡,女;10-49,紅,懷孕：itraconazole（仿單：治療甲癬時，孕婦或計畫懷孕者禁用，治療期間與停藥後 2 個月須避孕），請確認是否懷孕與用途,美國仿單 4 禁忌
+C170,孕哺,L04AX01,,性別+年齡,女;10-49,紅,懷孕：azathioprine（仿單：治療類風濕性關節炎時，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C171,孕哺,J01XE J01RA02,SULFADIAZINE,性別+年齡,女;10-49,紅,懷孕：sulfadiazine、外用 silver sulfadiazine、nitrofurantoin（仿單：接近足月、待產與分娩時禁用，新生兒核黃疸或溶血），請確認是否懷孕,美國仿單 4 禁忌
+C172,孕哺,M01CC01,,性別+年齡,女;10-49,紅,懷孕：penicillamine（仿單：除 Wilson 病與部分胱胺酸尿症外，孕婦禁用），請確認是否懷孕與用途,美國仿單 4 禁忌
+C173,孕哺,G02CB01,,性別+年齡,女;10-49,紅,懷孕：bromocriptine（仿單：治療高泌乳素血症時確診懷孕應停藥，無月經期間每 4 週驗孕），請確認是否懷孕,美國仿單 4 禁忌與 8.3
+C174,孕哺,,PHENAZOPYRIDINE,性別+年齡,女;10-49,紅,懷孕：phenazopyridine（仿單：孕期腎盂腎炎禁用），請確認是否懷孕,美國仿單 4 禁忌
+C175,孕哺,M01AB15,,性別+年齡,女;10-49,紅,懷孕：ketorolac（仿單：待產與分娩時禁用，可能影響胎兒循環並抑制子宮收縮），請確認是否懷孕,美國仿單 4 禁忌與黑框
+C176,孕哺,B05XA05,,性別+年齡,女;10-49,紅,懷孕：靜脈 magnesium sulfate（仿單：妊娠毒血症產婦分娩前 2 小時內不可給），請確認是否懷孕,美國仿單 4 禁忌
+C177,孕哺,C09,,性別+年齡,女;10-49,黃,懷孕停藥：ACEI、ARB、aliskiren 有胎兒毒性（美國仿單黑框：發現懷孕應盡快停藥），請確認是否懷孕或計畫懷孕,美國仿單黑框
+C178,孕哺,B01AC24 B01AE07 B01AF02 B01AF03 B01AC11 B02BX04 C03XA01 C07AB12 C07AA07 C10AB05,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C179,孕哺,A10BK A10BX03,GLIFLOZIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C180,孕哺,A16AX06 A16AX08 H01CB03 H05AA02 M04AA01 V03AC03 V03AF07,TIOPRONIN,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C181,孕哺,J01AA12 J01MA02 P01AB02 J01XD02,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C182,孕哺,N02BF02 N05BA12 N07XX08,TRAMADOL,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C183,孕哺,D11AH08 L04AF01 L04AJ02 L04AJ07 L04AJ08 L04AJ09 R05CB05 V03AF01,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C184,孕哺,,CODEINE,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
