@@ -43,7 +43,7 @@ export function proposalProblems(proposal: Partial<Record<keyof Proposal, unknow
   if (!(PROPOSAL_FILES as readonly string[]).includes(text('file'))) problems.push(`檔案只能是 ${PROPOSAL_FILES.filter(Boolean).join('、')} 或空白`);
   const clinical = text('kind') === '臨床併用';
   const ruleChange = ['新增規則', '修改規則', '刪除規則'].includes(text('kind')) || (clinical && !!(text('file') || text('row')));
-  if (ruleChange && (!text('file') || !text('row').trim())) problems.push('規則的審核項目要有檔案與整列內容');
+  if (ruleChange && (!text('file') || !text('row').trim())) problems.push('規則的提案要有檔案與整列內容');
   if (clinical && ruleChange) {
     const [row] = csvRows(text('row'));
     if (text('file') !== 'cautions' || row?.length !== 9 || row[1] !== '臨床' || !row[4].split('+').includes('同處方'))

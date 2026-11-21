@@ -544,8 +544,11 @@ async function load(first = false) {
     mine = merged;
     keep(KEYS.votes, mine);
     if (!me.name && state.reviewers[me.id]) { me.name = state.reviewers[me.id]; keep(KEYS.me, me); $<HTMLInputElement>('name').value = me.name; }
-    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${new Set([...published, ...state.proposals].map(proposal => proposal.id)).size} 項`];
-    if (state.skipped) notes.push(`另有 ${state.skipped} 項提案格式不對，沒有顯示`);
+    const loaded = reviewRows();
+    const clinical = loaded.filter(proposal => proposal.kind === '臨床併用').length;
+    const notes = [`${Object.keys(state.reviewers).length} 位審核者`, `提案 ${loaded.length - clinical} 項`];
+    if (clinical) notes.push(`臨床併用 ${clinical} 項`);
+    if (state.skipped) notes.push(`另有 ${state.skipped} 項審核資料格式不對，沒有顯示`);
     if (state.proposalProblem) notes.push(`最新的提案表讀不到（${state.proposalProblem}），目前顯示隨網站發布的提案；請負責人在 Apps Script 執行 checkProposals`);
     sayStore(`已連上團隊共用儲存：${notes.join('；')}。`, !!state.proposalProblem);
     applyItems();
@@ -557,13 +560,13 @@ async function load(first = false) {
     sayStore('連不上團隊共用儲存，決定暫時只存在這個瀏覽器，連上後會自動送出。', true);
   }
 }
-/** The catalog's rules with the proposals: open ones from the team's sheet, closed ones as the repo records them. */
+const reviewRows = () => [...new Map([...published, ...team?.proposals ?? []].map(proposal => [proposal.id, proposal])).values()];
+/** The catalog's rules with the review entries from the team's sheet and their outcomes from the repo. */
 function applyItems() {
   if (!catalog) return;
   const closedProposals = new Map((catalog.proposals ?? []).map(proposal => [proposal.id, proposal]));
-  const known = new Map([...published, ...team?.proposals ?? []].map(proposal => [proposal.id, proposal]));
   const week = (proposal: Proposal) => proposal.id.slice(1, 9);
-  const open = [...known.values()].sort((a, b) => week(b).localeCompare(week(a)) || a.id.localeCompare(b.id)).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
+  const open = reviewRows().sort((a, b) => week(b).localeCompare(week(a)) || a.id.localeCompare(b.id)).map(proposal => proposalItem(proposal, closedProposals.get(proposal.id)));
   const listed = new Set(open.map(item => item.id));
   const past = [...closedProposals.values()].filter(proposal => !listed.has(proposal.id))
     .map(proposal => proposalItem({ id: proposal.id, kind: '待決定', title: proposal.title, file: '', row: '', evidence: '', basis: '提案', trial: '', note: '' }, proposal));
@@ -631,7 +634,8 @@ function setupBar() {
     clearTimeout(timer);
     timer = setTimeout(() => { view.q = (event.target as HTMLInputElement).value.trim().toLowerCase(); renderList(); }, 150);
   });
-  const label = Object.fromEntries(TABLES);
+  const labels = Object.fromEntries(TABLES);
+  const label = (item: Item) => item.kind === '臨床併用' ? '臨床併用' : labels[item.table];
   const copy = async (lines: string[][], what: string) => {
     const text = lines.map(line => line.map(value => value.replace(/\s+/g, ' ')).join('\t')).join('\n');
     try { await navigator.clipboard.writeText(text); say(`已複製 ${lines.length - 1} 項${what}`); }
@@ -643,7 +647,7 @@ function setupBar() {
   };
   $('copy-mine').addEventListener('click', () => {
     const lines = [['編號', '規則表', '規則', '決定', '意見', '狀態', '證據連結']];
-    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label[item.table], summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審', linksLine(vote.l)]); }
+    for (const item of items) { const vote = mine[item.id]; if (vote) lines.push([item.id, label(item), summary(item), vote.d, vote.c, done(item, vote) ? '已審' : stale(item, vote) ? '內容已改' : '待審', linksLine(vote.l)]); }
     void copy(lines, '審核結果');
   });
   $('copy-team').addEventListener('click', () => {
@@ -653,7 +657,7 @@ function setupBar() {
       const counted = tally(item, votesOn(item.id));
       const pre = preShownOn(item);
       if (!counted.同意.length && !counted.不同意.length && !counted.其他意見.length && !counted.comments.length && !pre.length) continue;
-      lines.push([item.id, label[item.table], summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
+      lines.push([item.id, label(item), summary(item), statusOf(item), counted.同意.map(nameOf).join('、'), counted.不同意.map(nameOf).join('、'), counted.其他意見.map(nameOf).join('、'),
         counted.comments.filter(opinion => opinion.c).map(opinion => `${nameOf(opinion.who)}：${opinion.c}`).join(' ／ '),
         pre.map(([who, vote]) => `${nameOf(who)}${vote.d ? `（${vote.d}）` : ''}：${vote.c.trim()}`).join(' ／ '),
         [...counted.comments.map(opinion => [opinion.who, opinion.l] as const), ...pre.map(([who, vote]) => [who, vote.l] as const)]
