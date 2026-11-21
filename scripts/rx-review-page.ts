@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { atcHit, BASIS_RANK, cautionKinds, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion } from '../src/rx-data';
+import { asWrittenIn } from '../src/rx-ids';
 import { isFailure } from '../src/rx-sample';
 import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
 
@@ -33,18 +34,23 @@ const batch = batchFlag ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ta
 const csvBytes = Object.fromEntries(RULE_FILES.map(file => [file, readFileSync(path.join(root, 'docs', 'reference', 'rx-rules', `${file}.csv`))]));
 const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(csvBytes[file].toString('utf8'))])) as RuleTables;
 const previous: Ledger = JSON.parse(readFileSync(LEDGER, 'utf8'));
-const applied = Object.fromEntries(Object.entries(notes.rules ?? {}).filter(([, note]) => note.applied).map(([id, note]) => [id, note.applied!]));
+// --notes may name a rule by its number before 115/11/21 (C17 for C-017, src/rx-ids.ts), as the team's sheet and older notes do:
+// each name becomes the number the ledger or the tables use.
+const asWritten = asWrittenIn([...previous.rules, ...previous.retired, ...previous.questions].map(rule => rule.id).concat(tables.cautions.map(row => row['編號'])));
+const ruleNotes = Object.fromEntries(Object.entries(notes.rules ?? {}).map(([id, note]) => [asWritten(id), note]));
+const applied = Object.fromEntries(Object.entries(ruleNotes).filter(([, note]) => note.applied).map(([id, note]) => [id, note.applied!]));
 const result = reconcile(tables, previous, { batch, now, applied });
 const ledger: Ledger = { ...result.ledger, atcZh: { ...result.ledger.atcZh, ...notes.atcZh } };
 
 // Notes for a rule, and questions: a question is new, or an update to the one with its id.
 for (const row of result.rows) {
-  const { applied: _done, ...note } = notes.rules?.[row.rule.id] ?? {};
+  const { applied: _done, ...note } = ruleNotes[row.rule.id] ?? {};
   Object.assign(row.rule, note);
 }
 ledger.rules = result.rows.map(row => row.rule);
 const questions: LedgerQuestion[] = [...ledger.questions];
-for (const { id, ...rest } of notes.questions ?? []) {
+for (const { id: named, ...rest } of notes.questions ?? []) {
+  const id = asWritten(named);
   const at = questions.findIndex(question => question.id === id);
   if (at >= 0) questions[at] = { ...questions[at], ...rest };
   else if (rest.title && rest.desc) questions.push({ id, ...rest, title: rest.title, desc: rest.desc, batch, changed: now });
@@ -53,7 +59,7 @@ for (const { id, ...rest } of notes.questions ?? []) {
 ledger.questions = questions;
 // What became of the weekly review's proposals: a later note for the same id replaces the earlier one.
 const closedProposals = new Map((ledger.proposals ?? []).map(item => [item.id, item]));
-for (const item of notes.proposals ?? []) closedProposals.set(item.id, item);
+for (const item of notes.proposals ?? []) closedProposals.set(item.id, item.rules ? { ...item, rules: item.rules.map(asWritten) } : item);
 if (closedProposals.size) ledger.proposals = [...closedProposals.values()].sort((a, b) => a.id.localeCompare(b.id));
 const batches = [...ledger.batches];
 const usedBatches = new Set([...ledger.rules.map(rule => rule.batch), ...questions.map(question => question.batch)]);

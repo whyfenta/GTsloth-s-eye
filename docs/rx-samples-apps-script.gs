@@ -82,7 +82,22 @@ function unmappedOf(value, f) {
   return value.filter((code, i) => typeof code === 'string' && codes[code] === true && value.indexOf(code) === i);
 }
 /** What checking the same patient's prescriptions together added: caution numbers with their level, or 同成分重複, nothing else. */
-const mergedOf = value => Array.isArray(value) ? value.filter((key, i) => typeof key === 'string' && /^(?:[0-9A-Za-z]{1,8}|同成分重複)[紅黃灰]$/.test(key) && value.indexOf(key) === i) : [];
+const mergedOf = value => Array.isArray(value) ? value.filter((key, i) => typeof key === 'string' && /^(?:[0-9A-Za-z-]{1,8}|同成分重複)[紅黃灰]$/.test(key) && value.indexOf(key) === i) : [];
+/**
+ * A rule number as written from 115/11/21 (docs/reference/rx-rules.md「編號」): C17 → C-017, SAB → S-AB, Q1 → Q-01; a new number,
+ * a proposal (P20261109-01) or anything else unchanged. The same as ruleId in src/rx-ids.ts, which the tests compare it with.
+ */
+function ruleId(id) {
+  let match = /^([CIDK])(\d+)$/.exec(id);
+  if (match) return match[1] + '-' + match[2].padStart(3, '0');
+  match = /^S([0-9A-Z]{2})$/.exec(id);
+  if (match) return 'S-' + match[1];
+  match = /^([XQ])(\d+)$/.exec(id);
+  if (match) return match[1] + '-' + match[2].padStart(2, '0');
+  return id;
+}
+/** A caution as the weekly summary counts it, number and level (C17黃 → C-017黃): rows from before 115/11/21 count with the later ones. */
+const cautionKey = key => { const match = /^([CIDK]\d+)([紅黃灰])$/.exec(key); return match ? ruleId(match[1]) + match[2] : key; };
 /** A failure line names a reason and a field count, nothing scanned. */
 const failureProblem = text => typeof text === 'string' && /^失敗：[^;\r\n\u2028\u2029]{1,160}，欄位數 \d{1,5}$/.test(text) ? '' : '失敗行格式不符';
 
@@ -197,13 +212,13 @@ function report(input) {
     if (row.qrs > 1) count(multi, row.institution);
     if (!row.checked) unchecked++; else levels[row.top in levels ? row.top : '']++;
     count(rules, row.rules || UNCHECKED);
-    row.cautions.forEach(id => count(cautions, id));
+    row.cautions.forEach(id => count(cautions, cautionKey(id)));
     row.unknownDrugs.forEach(code => count(unknownDrugs, code));
     row.unknownDx.forEach(code => count(unknownDx, code));
     // A code the NHI drug list does not know either cannot be mapped by its 健保碼: a hospital's own code, a 特材, or an old list.
     row.unmapped.forEach(code => count(row.unknownDrugs.indexOf(code) >= 0 ? unmappedOther : unmapped, code));
     if (row.merged.length) combined++;
-    row.merged.forEach(key => count(merged, key));
+    row.merged.forEach(key => count(merged, cautionKey(key)));
     const dept = row.dept.trim().toUpperCase();
     if (dept && !(dept.length === 2 || (dept.length === 4 && dept.endsWith('00')))) count(depts, `${dept}（院所 ${row.institution}）`);
     const dx3 = {};

@@ -3,8 +3,9 @@ import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-conf
 import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATEGORIES, KINDS } from './rx-check';
+import { legacyId } from './rx-ids';
 import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
-  agreedWithComment, teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
+  agreedWithComment, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
 // npm run rx-review-page); the team's votes and the weekly proposals come from the team's sheet (docs/rx-review-apps-script.gs),
@@ -164,7 +165,7 @@ function searchText(item: Item): string {
   const conds = item.conds ?? [];
   const drugs = drugText([item.atc, item.partners, ...conds.map(cond => cond.atc ?? '')].join(' '));
   const dx = [...item.icd ?? [], ...conds.flatMap(cond => cond.dx ?? [])];
-  return [item.id, summary(item), item.note, item.ref, item.desc, item.why, item.evidence, item.cat, ...item.kinds ?? [], dx.map(chip => chip.zh).join(' '), drugs].join(' ').toLowerCase();
+  return [item.id, legacyId(item.id), summary(item), item.note, item.ref, item.desc, item.why, item.evidence, item.cat, ...item.kinds ?? [], dx.map(chip => chip.zh).join(' '), drugs].join(' ').toLowerCase();
 }
 const conditionWords = (cond: NonNullable<Item['conds']>[number]): string | Node => {
   const text = cond.text ?? '';
@@ -185,7 +186,9 @@ function buildCard(item: Item) {
   const card = el('article', 'card');
   card.id = `card-${item.id}`;
   const head = el('div', 'head');
-  head.append(el('span', 'rid', item.id), el('span', 'state'));
+  const rid = el('span', 'rid', item.id);
+  if (legacyId(item.id) !== item.id) rid.title = `115/11/21 以前寫作 ${legacyId(item.id)}`;
+  head.append(rid, el('span', 'state'));
   if (item.table === 'cautions') head.append(el('span', `lv lv-${item.level}`, item.level));
   // 孕哺 and 健保 by their family; a 臨床 caution by what its conditions are about (併用・老人).
   if (item.cat && item.cat !== '臨床') head.append(el('span', 'badge b-cat', item.cat));
@@ -524,8 +527,9 @@ async function load(first = false) {
     const response = await fetch(`${REVIEW_ENDPOINT}?code=${encodeURIComponent(code)}&at=${Date.now()}`);
     const state = teamState(await response.json());
     if ('error' in state) { sayStore(`${state.error}：請用負責人分享的完整連結重新開啟。決定暫時只存在這個瀏覽器。`, true); return; }
-    team = state;
-    const remote = Object.fromEntries(Object.entries(state.votes).flatMap(([id, byReviewer]) => byReviewer[me.id] ? [[id, byReviewer[me.id]]] : []));
+    // A vote the sheet keeps under a rule's old number counts on the rule as the catalog numbers it (src/rx-ids.ts).
+    team = { ...state, votes: teamVotesFor(state.votes, catalog?.items.map(item => item.id) ?? []) };
+    const remote = Object.fromEntries(Object.entries(team.votes).flatMap(([id, byReviewer]) => byReviewer[me.id] ? [[id, byReviewer[me.id]]] : []));
     const merged = mergeVotes(mine, remote);
     for (const [id, vote] of Object.entries(mine)) if (!remote[id] || remote[id].t < vote.t) pending.add(id);
     mine = merged;
@@ -722,6 +726,9 @@ async function start() {
   // The published proposals are an extra: the page works without them.
   try { published = publishedProposals(await (await fetch(`${import.meta.env.BASE_URL}${REVIEW_PROPOSALS}`, { cache: 'no-cache' })).json()); } catch { published = []; }
   batchOrder = Object.fromEntries(catalog.batches.map((batch, n) => [batch.id, n]));
+  // This browser's votes kept under a rule's old number move to the number the catalog uses.
+  const rekeyed = votesFor(mine, catalog.items.map(item => item.id));
+  if (JSON.stringify(rekeyed) !== JSON.stringify(mine)) { mine = rekeyed; keep(KEYS.votes, mine); }
   applyItems();
   renderBatches();
   renderFacets();
