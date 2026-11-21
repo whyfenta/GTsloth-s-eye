@@ -25,6 +25,9 @@ const ageOf = (batch: string) => Date.now() - new Date(`${batch}T00:00:00`).getT
 /** Whether an item is in a batch filter: 新／舊, or one batch by id (the 最新一批 box). Proposals belong to no batch. */
 const inBatch = (item: Item, batch: string) => item.table !== 'proposals' && (batch === 'new' || batch === 'old' ? ageOf(item.batch) === batch : item.batch === batch);
 /** Whether an item is under a tab: a rule table, or the cautions of one warning level. */
+/** 規則提案 sits with the 類別 of the cautions on the bar: the proposals, rather than cautions of one category. */
+const PROPOSALS_CAT = '規則提案';
+const inCat = (item: Item, cat: string) => cat === PROPOSALS_CAT ? item.table === 'proposals' : item.cat === cat;
 const inTab = (item: Item, tab: string) => tab === 'all' || (tab in LEVEL_TABS ? item.table === 'cautions' && item.level === LEVEL_TABS[tab] : item.table === tab);
 /** Red cautions before yellow before the rest, so the heavier warnings come up first in a batch. */
 const severity = (item: Item) => item.table !== 'cautions' ? 0 : item.level === '紅' ? 2 : item.level === '黃' ? 1 : 0;
@@ -327,7 +330,7 @@ function updateCard(item: Item) {
 function visible(item: Item): boolean {
   if (!inTab(item, view.table)) return false;
   if (view.batch && !inBatch(item, view.batch)) return false;
-  if (view.cat && item.cat !== view.cat) return false;
+  if (view.cat && !inCat(item, view.cat)) return false;
   if (view.kind && !(item.kinds ?? []).includes(view.kind)) return false;
   const status = statusOf(item);
   if (view.filter === 'todo' && done(item, mine[item.id])) return false;
@@ -387,7 +390,7 @@ function renderCounts() {
     button.textContent = `${button.dataset.label} ${open} 待審`;
   }
   for (const button of $('facets').querySelectorAll<HTMLButtonElement>('.chipbtn')) {
-    const set = items.filter(item => button.dataset.cat ? item.cat === button.dataset.cat : (item.kinds ?? []).includes(button.dataset.kind!));
+    const set = items.filter(item => button.dataset.cat ? inCat(item, button.dataset.cat) : (item.kinds ?? []).includes(button.dataset.kind!));
     button.textContent = `${button.dataset.label} ${set.filter(item => !done(item, mine[item.id])).length}／${set.length}`;
   }
   renderLatest();
@@ -686,7 +689,7 @@ function renderBatches() {
     box.append(chip);
   }
 }
-/** 注意事項 by 類別, and the 臨床 ones by kind: one chip of each row at a time, a second click clears it. */
+/** 注意事項 by 類別 (plus the 規則提案), and the 臨床 ones by kind: one chip of each row at a time, a second click clears it. */
 function renderFacets() {
   const box = $('facets');
   const row = (label: string, values: string[], key: 'cat' | 'kind') => {
@@ -705,7 +708,7 @@ function renderFacets() {
   };
   box.replaceChildren();
   const cautions = items.filter(item => item.table === 'cautions');
-  row('類別', Object.keys(CATEGORIES).filter(cat => cautions.some(item => item.cat === cat)), 'cat');
+  row('類別', [...Object.keys(CATEGORIES).filter(cat => cautions.some(item => item.cat === cat)), PROPOSALS_CAT], 'cat');
   row('型態', KINDS.filter(kind => cautions.some(item => item.kinds?.includes(kind))), 'kind');
 }
 function renderFoot() {
