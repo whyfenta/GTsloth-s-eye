@@ -4,7 +4,8 @@ import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATEGORIES, KINDS } from './rx-check';
 import { legacyId } from './rx-ids';
-import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSALS_CAT, inReviewCategory as inCat, reviewChoiceLabel, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
+import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSALS_CAT, FRESH_DAYS, REVIEW_LEVEL_TABS as LEVEL_TABS, inReviewCategory as inCat, inReviewBatch as inBatch, inReviewTab as inTab,
+  reviewBatchAge, reviewBatches, reviewChoiceLabel, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
   agreedWithComment, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
@@ -15,19 +16,11 @@ import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSALS_CAT, inReviewCategory as 
 const TABLES: [string, string][] = [['all', '全部'], ['red', '紅色警示'], ['yellow', '黃色警示'], ['proposals', '提案'], ['indications', '適應症'], ['co', '同處方'], ['cautions', '注意事項'],
   ['specialty', '科別常用'], ['classes', '藥品分類'], ['settings', '設定'], ['questions', '待決定']];
 const FILTERS: [string, string][] = [['todo', '我的待審'], ['all', '全部'], ['split', '有分歧'], ['agreed', '達門檻'], ['attention', '需特別注意'], ['closed', '已結案'], ['retired', '已刪除']];
-const LEVEL_TABS: Record<string, string> = { red: '紅', yellow: '黃' };
 /** The tabs on the bar: everything, or the cautions of one warning level. The other tables keep their names for the copied results. */
 const TABS = TABLES.filter(([table]) => table === 'all' || table in LEVEL_TABS);
-/** Batches added in the last two weeks are 新, earlier ones 舊; the bar filters by these two instead of naming every batch. */
-const FRESH_DAYS = 14;
-const BATCH_AGES: [string, string][] = [['new', '新批次'], ['old', '舊批次']];
-const ageOf = (batch: string) => Date.now() - new Date(`${batch}T00:00:00`).getTime() > FRESH_DAYS * 86_400_000 ? 'old' : 'new';
-/** Whether an item is in a batch filter: 新／舊, or one batch by id (the 最新一批 box). Proposals belong to no batch. */
-const inBatch = (item: Item, batch: string) => item.table !== 'proposals' && (batch === 'new' || batch === 'old' ? ageOf(item.batch) === batch : item.batch === batch);
-/** Whether an item is under a tab: a rule table, or the cautions of one warning level. */
-const inTab = (item: Item, tab: string) => tab === 'all' || (tab in LEVEL_TABS ? item.table === 'cautions' && item.level === LEVEL_TABS[tab] : item.table === tab);
+const BATCH_AGES = [['new', '新批次'], ['old', '舊批次']] as const;
 /** Red cautions before yellow before the rest, so the heavier warnings come up first in a batch. */
-const severity = (item: Item) => item.table !== 'cautions' ? 0 : item.level === '紅' ? 2 : item.level === '黃' ? 1 : 0;
+const severity = (item: Item) => inTab(item, 'red') ? 2 : inTab(item, 'yellow') ? 1 : 0;
 const KEYS = { me: 'gtsloth-review-me', code: 'gtsloth-review-code', votes: 'gtsloth-review-votes', mode: 'gtsloth-review-mode' };
 const POLL = 60_000;
 
@@ -44,6 +37,7 @@ const keep = (key: string, value: unknown): boolean => { try { localStorage.setI
 let catalog: Catalog | undefined;
 let items: Item[] = [];
 let haystack: Record<string, string> = {};
+let batches: Catalog['batches'] = [];
 let batchOrder: Record<string, number> = {};
 let team: TeamState | undefined;
 /** The open proposals that came with the site; the team's sheet may know newer ones. */
@@ -197,7 +191,8 @@ function buildCard(item: Item) {
   const rid = el('span', 'rid', item.id);
   if (legacyId(item.id) !== item.id) rid.title = `115/11/21 以前寫作 ${legacyId(item.id)}`;
   head.append(rid, el('span', 'state'));
-  if (item.table === 'cautions') head.append(el('span', `lv lv-${item.level}`, item.level));
+  if (item.level && (item.table === 'cautions' || item.kind === '臨床併用'))
+    head.append(el('span', `lv lv-${item.level}`, item.table === 'cautions' ? item.level : `建議${item.level}`));
   // 孕哺 and 健保 by their family; a 臨床 caution by what its conditions are about (併用・老人).
   if (item.cat && item.cat !== '臨床') head.append(el('span', 'badge b-cat', item.cat));
   else if (item.kinds?.length) head.append(el('span', 'badge b-kind', item.kinds.join('・')));
@@ -384,7 +379,10 @@ function renderCounts() {
     button.textContent = open ? `${button.dataset.label} ${open} 待審` : `${button.dataset.label} ${set.length}`;
   }
   for (const button of $('batches').querySelectorAll<HTMLButtonElement>('.chipbtn')) {
-    const open = items.filter(item => inBatch(item, button.dataset.b!) && !done(item, mine[item.id])).length;
+    const age = button.dataset.b;
+    const open = items.filter(item => inBatch(item, age!) && !done(item, mine[item.id])).length;
+    const dates = batches.filter(batch => reviewBatchAge(batch.id) === age);
+    button.title = `${age === 'new' ? `${FRESH_DAYS} 天內加入` : `加入超過 ${FRESH_DAYS} 天`}：${dates.map(batch => `${batch.title}（${rocDate(batch.id)}）`).join('、') || '無'}`;
     button.textContent = `${button.dataset.label} ${open} 待審`;
   }
   for (const button of $('facets').querySelectorAll<HTMLButtonElement>('.chipbtn')) {
@@ -397,9 +395,9 @@ function renderCounts() {
 }
 function renderLatest() {
   const box = $('latest');
-  const batch = catalog?.batches.at(-1);
+  const batch = batches.at(-1);
   if (!batch) { box.hidden = true; return; }
-  const set = items.filter(item => item.batch === batch.id && item.table !== 'proposals');
+  const set = items.filter(item => inBatch(item, batch.id));
   const text = el('div');
   text.append(el('p', '', `最新一批：${batch.title}（${rocDate(batch.id)}）${set.length} 條，${set.filter(item => !done(item, mine[item.id])).length} 條等你審`));
   if (batch.note) text.append(el('p', 'sub', batch.note));
@@ -571,6 +569,7 @@ function applyItems() {
   const past = [...closedProposals.values()].filter(proposal => !listed.has(proposal.id))
     .map(proposal => proposalItem({ id: proposal.id, kind: '待決定', title: proposal.title, file: '', row: '', evidence: '', basis: '提案', trial: '', note: '' }, proposal));
   items = [...open, ...past, ...catalog.items];
+  batches = reviewBatches(catalog.batches, items);
   haystack = Object.fromEntries(items.map(item => [item.id, searchText(item)]));
 }
 
@@ -684,8 +683,6 @@ function renderBatches() {
   for (const [age, label] of BATCH_AGES) {
     const chip = el('button', 'chipbtn', label);
     chip.type = 'button'; chip.dataset.b = age; chip.dataset.label = label;
-    const batches = (catalog?.batches ?? []).filter(batch => ageOf(batch.id) === age);
-    chip.title = `${age === 'new' ? `${FRESH_DAYS} 天內加入` : `加入超過 ${FRESH_DAYS} 天`}：${batches.map(batch => `${batch.title}（${rocDate(batch.id)}）`).join('、') || '無'}`;
     chip.setAttribute('aria-pressed', String(view.batch === age));
     chip.addEventListener('click', () => setBatch(view.batch === age ? '' : age));
     box.append(chip);

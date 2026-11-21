@@ -2,6 +2,8 @@
  * The pharmacists' review page (review/): what a reviewer still has to look at, what the team has agreed on, and what the
  * requests to the team's sheet (docs/rx-review-apps-script.gs) look like. Pure functions: no DOM, no network, no storage.
  */
+import { csvRows } from './csv';
+import { daysBetween, parseDay, today } from './report-date';
 import { asWrittenIn } from './rx-ids';
 import { proposalsOfRows, type Proposal } from './rx-proposals';
 
@@ -14,6 +16,19 @@ export const PROPOSAL_LABEL: Record<Choice, string> = { 同意: '採用', 不同
 export const PROPOSALS_CAT = '規則提案';
 export const inReviewCategory = (item: Item, cat: string) => cat === PROPOSALS_CAT ? item.table === 'proposals' && !item.cat : item.cat === cat;
 export const reviewChoiceLabel = (item: Item, value: Choice) => inReviewCategory(item, PROPOSALS_CAT) ? PROPOSAL_LABEL[value] : value;
+export const REVIEW_LEVEL_TABS: Record<string, string> = { red: '紅', yellow: '黃' };
+export const inReviewTab = (item: Item, tab: string) => tab === 'all' || (Object.hasOwn(REVIEW_LEVEL_TABS, tab)
+  ? (item.table === 'cautions' || item.kind === '臨床併用') && item.level === REVIEW_LEVEL_TABS[tab] : item.table === tab);
+export const FRESH_DAYS = 14;
+export function reviewBatchAge(batch: string, now = new Date()): 'new' | 'old' | null {
+  const day = parseDay(batch);
+  return day && (daysBetween(day, today(now)) > FRESH_DAYS ? 'old' : 'new');
+}
+export function inReviewBatch(item: Item, batch: string, now?: Date): boolean {
+  if (inReviewCategory(item, PROPOSALS_CAT)) return false;
+  return batch === 'new' || batch === 'old' ? reviewBatchAge(item.batch, now) === batch : item.batch === batch;
+}
+
 /** A link a reviewer gives as evidence: what it is ('' when not said) and an https address. */
 export interface Link { t: string; u: string }
 /**
@@ -41,6 +56,16 @@ export interface Catalog {
   samples: { rx: number; drugs: number; files: number } | null; items: Item[];
   retired: { id: string; text: string; outcome?: string }[]; atc: Record<string, { zh: string; ex: string[]; n: number; seen?: number }>;
   proposals?: { id: string; title: string; status: string; decided: string; note?: string; rules?: string[] }[];
+}
+
+/** Items awaiting clinical approval can start a batch before any rule in it enters the catalog. */
+export function reviewBatches(catalogBatches: Catalog['batches'], items: readonly Item[]): Catalog['batches'] {
+  const batches = new Map(catalogBatches.map(batch => [batch.id, batch]));
+  for (const item of items) {
+    if (item.kind === '臨床併用' && !batches.has(item.batch) && parseDay(item.batch))
+      batches.set(item.batch, { id: item.batch, title: '臨床併用' });
+  }
+  return [...batches.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** The review of this item is over: an opinion was carried out, or the team agreed and it was closed as it stands. */
@@ -96,9 +121,14 @@ export const agreedWithComment = (item: Item, votes: Record<string, Vote> | unde
 
 /** A proposal from the weekly review as an item; its content never changes, so every vote on it counts. */
 export function proposalItem(proposal: Proposal, done?: { status: string; decided: string; note?: string }): Item {
-  return { id: proposal.id, table: 'proposals', batch: proposal.id.slice(1, 9), changed: '', basis: proposal.basis, flags: [], hits: null,
+  const clinical = proposal.kind === '臨床併用';
+  const date = proposal.id.slice(1, 9);
+  const batch = clinical ? date.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3') : date;
+  const proposedLevel = clinical ? csvRows(proposal.row)[0]?.[6]?.trim() : undefined;
+  const level = proposedLevel && /^[紅黃灰]$/.test(proposedLevel) ? proposedLevel : undefined;
+  return { id: proposal.id, table: 'proposals', batch, changed: '', basis: proposal.basis, flags: [], hits: null,
     title: proposal.title, kind: proposal.kind, file: proposal.file, row: proposal.row, evidence: proposal.evidence, trial: proposal.trial, note: proposal.note,
-    ...(proposal.kind === '臨床併用' ? { cat: '臨床', kinds: ['併用'] } : {}),
+    ...(clinical ? { cat: '臨床', kinds: ['併用'], level } : {}),
     ...(done ? { outcome: `${done.status}（${done.decided}）${done.note ? `：${done.note}` : ''}` } : {}) };
 }
 
