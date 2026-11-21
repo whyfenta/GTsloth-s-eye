@@ -3,8 +3,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
-import { atcHit, BASIS_RANK, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
+import { atcHit, BASIS_RANK, cautionKinds, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion } from '../src/rx-data';
+import { asWrittenIn, ruleId } from '../src/rx-ids';
 import { isFailure } from '../src/rx-sample';
 import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
 
@@ -14,7 +15,7 @@ import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQue
 // used it (counts only, no sample content), and whether its review is closed. The page reads that file, so a rule change reaches
 // the reviewers when it is published; npm test fails while the file is behind. Without samples the counts of the last run are
 // kept for the rules that did not change, and a new or changed rule shows none.
-// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {C42: {why, ref, links, flags, outcome,
+// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {'C-042': {why, ref, links, flags, outcome,
 // applied, approved: {at, n}}}, questions: [{id, title, desc, why, links, outcome}], proposals: [{id, title, status, decided, note,
 // rules}], atcZh: {N05AX: "…"} }. `applied` marks an edit as the pharmacists' own decision; `approved` closes a review the team
 // agreed on (the day and how many agreed); `proposals` records what became of a weekly-review proposal.
@@ -33,18 +34,23 @@ const batch = batchFlag ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ta
 const csvBytes = Object.fromEntries(RULE_FILES.map(file => [file, readFileSync(path.join(root, 'docs', 'reference', 'rx-rules', `${file}.csv`))]));
 const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(csvBytes[file].toString('utf8'))])) as RuleTables;
 const previous: Ledger = JSON.parse(readFileSync(LEDGER, 'utf8'));
-const applied = Object.fromEntries(Object.entries(notes.rules ?? {}).filter(([, note]) => note.applied).map(([id, note]) => [id, note.applied!]));
+// --notes may name a rule by its number before 115/11/21 (C17 for C-017, src/rx-ids.ts), as the team's sheet and older notes do:
+// each name becomes the number the ledger or the tables use.
+const asWritten = asWrittenIn([...previous.rules, ...previous.retired, ...previous.questions].map(rule => rule.id).concat(tables.cautions.map(row => row['編號'])));
+const ruleNotes = Object.fromEntries(Object.entries(notes.rules ?? {}).map(([id, note]) => [asWritten(id), note]));
+const applied = Object.fromEntries(Object.entries(ruleNotes).filter(([, note]) => note.applied).map(([id, note]) => [id, note.applied!]));
 const result = reconcile(tables, previous, { batch, now, applied });
 const ledger: Ledger = { ...result.ledger, atcZh: { ...result.ledger.atcZh, ...notes.atcZh } };
 
 // Notes for a rule, and questions: a question is new, or an update to the one with its id.
 for (const row of result.rows) {
-  const { applied: _done, ...note } = notes.rules?.[row.rule.id] ?? {};
+  const { applied: _done, ...note } = ruleNotes[row.rule.id] ?? {};
   Object.assign(row.rule, note);
 }
 ledger.rules = result.rows.map(row => row.rule);
 const questions: LedgerQuestion[] = [...ledger.questions];
-for (const { id, ...rest } of notes.questions ?? []) {
+for (const { id: named, ...rest } of notes.questions ?? []) {
+  const id = asWritten(named);
   const at = questions.findIndex(question => question.id === id);
   if (at >= 0) questions[at] = { ...questions[at], ...rest };
   else if (rest.title && rest.desc) questions.push({ id, ...rest, title: rest.title, desc: rest.desc, batch, changed: now });
@@ -53,7 +59,7 @@ for (const { id, ...rest } of notes.questions ?? []) {
 ledger.questions = questions;
 // What became of the weekly review's proposals: a later note for the same id replaces the earlier one.
 const closedProposals = new Map((ledger.proposals ?? []).map(item => [item.id, item]));
-for (const item of notes.proposals ?? []) closedProposals.set(item.id, item);
+for (const item of notes.proposals ?? []) closedProposals.set(item.id, item.rules ? { ...item, rules: item.rules.map(asWritten) } : item);
 if (closedProposals.size) ledger.proposals = [...closedProposals.values()].sort((a, b) => a.id.localeCompare(b.id));
 const batches = [...ledger.batches];
 const usedBatches = new Set([...ledger.rules.map(rule => rule.batch), ...questions.map(question => question.batch)]);
@@ -102,9 +108,10 @@ for (const file of sampleFiles) {
 // Without samples: the counts the last catalog had, for the rules that have not changed since.
 interface Earlier { samples: unknown; items: { id: string; changed: string; hits: number | null }[]; atc?: Record<string, { zh: string; ex: string[]; n: number; seen: number }> }
 const earlier: Earlier | undefined = !sampleFiles.length && existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : undefined;
-const earlierHits = new Map((earlier?.items ?? []).map(item => [item.id, item]));
+// The last catalog may still have a rule under its number before 115/11/21 (C17 for C-017).
+const earlierHits = new Map((earlier?.items ?? []).map(item => [ruleId(item.id), item]));
 const hitCount = (id: string, changed: string) => sampleFiles.length ? hits.get(id) ?? 0
-  : earlierHits.get(id)?.changed === changed ? earlierHits.get(id)!.hits : null;
+  : earlierHits.get(ruleId(id))?.changed === changed ? earlierHits.get(ruleId(id))!.hits : null;
 
 // Chinese names for diagnoses: a code or a range, as the rules write them.
 const icd: { codes: Record<string, string>; deleted: Record<string, string> } = json('icd10cm');
@@ -141,6 +148,7 @@ function atcInfo(prefix: string) {
   return { zh: ledger.atcZh[prefix] ?? '', ex: ordered.slice(0, 6).map(([label, group]) => group.brand ? `${label}（${group.brand}）` : label), n: groups.size, seen: ordered.filter(([, group]) => group.seen).length };
 }
 
+const compiledCautions = new Map(rules.cautions.map(caution => [caution.id, caution]));
 const common = ({ rule }: LedgerRow) => ({ id: rule.id, batch: rule.batch, changed: rule.changed, flags: rule.flags ?? [], ...(rule.why ? { why: rule.why } : {}), ...(rule.ref ? { ref: rule.ref } : {}),
   ...(rule.links?.length ? { links: rule.links } : {}), ...(rule.outcome ? { outcome: rule.outcome } : {}), ...(rule.approved ? { approved: rule.approved } : {}),
   ...(rule.prev ? { prev: rule.prev } : {}), hits: hitCount(rule.id, rule.changed) });
@@ -150,7 +158,8 @@ const items = [
   ...rowsOf('cautions').map(entry => {
     const parts = entry.row['條件'].split(';').map(part => part.trim());
     const conds = entry.row['條件類型'].split('+').map((kind, i) => ['診斷', '未診斷'].includes(kind.trim()) ? { kind: kind.trim(), dx: chips(parts[i]) } : kind.trim() === '同處方' ? { kind: '同處方', atc: parts[i] } : { kind: kind.trim(), text: parts[i] });
-    return { ...common(entry), table: 'cautions', atc: entry.row['ATC'], keyword: entry.row['成分關鍵字'], conds, level: entry.row['等級'], msg: entry.row['提示'], basis: entry.row['依據'] };
+    return { ...common(entry), table: 'cautions', cat: entry.row['類別'], kinds: cautionKinds(compiledCautions.get(entry.row['編號'])!), atc: entry.row['ATC'], keyword: entry.row['成分關鍵字'],
+      conds, level: entry.row['等級'], msg: entry.row['提示'], basis: entry.row['依據'] };
   }),
   ...rowsOf('specialty').map(entry => ({ ...common(entry), table: 'specialty', dept: entry.row['科別代碼'], name: entry.row['科別'], atc: entry.row['該科常開的ATC'], basis: '起草者判斷' })),
   ...rowsOf('drug-classes').map(entry => ({ ...common(entry), table: 'classes', atc: entry.row['ATC'], kind: entry.row['類型'], desc: entry.row['說明'], basis: entry.row['類型'] === '低風險' ? '起草者判斷' : 'ISMP 高警訊藥品概念' })),

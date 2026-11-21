@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { agreedWithComment, cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, voteRequest, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { agreedWithComment, cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { ruleId } from '../src/rx-ids';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
 // The review page's model, the weekly proposals, and docs/rx-review-apps-script.gs run against small fakes of the Google services.
@@ -177,6 +178,13 @@ function load() {
   const addProposals = (name: string, values: Row[]) => { const sheet = new FakeSheet(name); sheet.rows = values; proposalSheets.push({ id: `P${proposalSheets.length}`, name, sheet }); delete cache.state; };
   return { call, sheets, properties, logs, asked, drive, cache, addProposals, sheet: (name: string) => sheets.find(s => s.name === name)! };
 }
+// The page counts a vote kept under a rule's old number on the rule as the catalog numbers it (src/rx-ids.ts), and back.
+assert.deepEqual(votesFor({ C17: vote('同意', '2026-11-11T01:00:00.000Z'), 'C-017': vote('不同意', '2026-11-11T02:00:00.000Z'), P1: vote('同意') }, ['C-017', 'P1']),
+  { 'C-017': vote('不同意', '2026-11-11T02:00:00.000Z'), P1: vote('同意') });
+assert.deepEqual(votesFor({ 'C-017': vote('同意') }, ['C17']), { C17: vote('同意') }, 'a catalog still on the old numbers');
+assert.deepEqual(votesFor({ C99: vote('同意') }, ['C-017']), { C99: vote('同意') }, 'a vote for no rule in the catalog stays as it was');
+assert.deepEqual(teamVotesFor({ C17: { a: vote('同意', '2026-11-11T01:00:00.000Z'), b: vote('同意') }, 'C-017': { a: vote('不同意', '2026-11-11T02:00:00.000Z') } }, ['C-017']),
+  { 'C-017': { a: vote('不同意', '2026-11-11T02:00:00.000Z'), b: vote('同意') } });
 const gs = load();
 const get = (code?: string) => JSON.parse(gs.call<string>('doGet', { parameter: code === undefined ? {} : { code } }));
 const post = (record: unknown) => JSON.parse(gs.call<string>('doPost', { postData: { contents: typeof record === 'string' ? record : JSON.stringify(record) } }));
@@ -196,70 +204,70 @@ assert.ok(gs.logs.some(line => line === '提案表：讀得到 0 份'));
 
 // The page's own request is what the script accepts.
 const wang = { id: 'aaaaaaaaaaaaaaaa', name: '王藥師' }, lee = { id: 'bbbbbbbbbbbbbbbb', name: '李藥師' };
-const request = voteRequest(code, wang, { C56: vote('同意'), C57: vote('不同意', '2026-11-11T01:05:00.000Z', '=不同意：國內仿單沒有這條') });
+const request = voteRequest(code, wang, { 'C-056': vote('同意'), 'C-057': vote('不同意', '2026-11-11T01:05:00.000Z', '=不同意：國內仿單沒有這條') });
 assert.equal(request.format, REVIEW_FORMAT);
 assert.deepEqual(post(request), { ok: true, saved: 2 });
-assert.deepEqual(post(voteRequest(code, lee, { C56: vote('同意', '2026-11-11T02:00:00.000Z'), P1: vote('其他意見', '2026-11-11T02:00:00.000Z', '需要更多樣本') })), { ok: true, saved: 2 });
+assert.deepEqual(post(voteRequest(code, lee, { 'C-056': vote('同意', '2026-11-11T02:00:00.000Z'), P1: vote('其他意見', '2026-11-11T02:00:00.000Z', '需要更多樣本') })), { ok: true, saved: 2 });
 let state = get(code);
 assert.deepEqual(state.reviewers, { [wang.id]: '王藥師', [lee.id]: '李藥師' });
-assert.deepEqual(state.votes.C56, { [wang.id]: vote('同意'), [lee.id]: vote('同意', '2026-11-11T02:00:00.000Z') });
-assert.equal(state.votes.C57[wang.id].c, '=不同意：國內仿單沒有這條', 'a comment that looks like a formula comes back as written');
+assert.deepEqual(state.votes['C-056'], { [wang.id]: vote('同意'), [lee.id]: vote('同意', '2026-11-11T02:00:00.000Z') });
+assert.equal(state.votes['C-057'][wang.id].c, '=不同意：國內仿單沒有這條', 'a comment that looks like a formula comes back as written');
 assert.equal(gs.sheet('票').rows[2][5], "'=不同意：國內仿單沒有這條", 'and is stored so the sheet does not run it');
 const read = teamState(state);
 assert.ok(!('error' in read));
-assert.equal(teamStatus(item(), read.votes.C56, read.quorum), '達門檻');
-assert.equal(teamStatus(item({ id: 'C57' }), read.votes.C57, read.quorum), '有分歧');
+assert.equal(teamStatus(item(), read.votes['C-056'], read.quorum), '達門檻');
+assert.equal(teamStatus(item({ id: 'C-057' }), read.votes['C-057'], read.quorum), '有分歧');
 
 // A later vote replaces the earlier one in place; an older copy does not undo it; a cleared vote disappears; a new name follows.
-assert.deepEqual(post(voteRequest(code, { ...wang, name: '王大明藥師' }, { C56: vote('其他意見', '2026-11-11T03:00:00.000Z', '改灰色') })), { ok: true, saved: 1 });
-assert.deepEqual(post(voteRequest(code, wang, { C56: vote('同意') })), { ok: true, saved: 0 });
+assert.deepEqual(post(voteRequest(code, { ...wang, name: '王大明藥師' }, { 'C-056': vote('其他意見', '2026-11-11T03:00:00.000Z', '改灰色') })), { ok: true, saved: 1 });
+assert.deepEqual(post(voteRequest(code, wang, { 'C-056': vote('同意') })), { ok: true, saved: 0 });
 assert.deepEqual(post(voteRequest(code, lee, { P1: vote('', '2026-11-11T04:00:00.000Z') })), { ok: true, saved: 1 });
 state = get(code);
 assert.equal(gs.sheet('票').rows.length, 5, 'one row per reviewer and item');
-assert.deepEqual(state.votes.C56[wang.id], vote('其他意見', '2026-11-11T03:00:00.000Z', '改灰色'));
+assert.deepEqual(state.votes['C-056'][wang.id], vote('其他意見', '2026-11-11T03:00:00.000Z', '改灰色'));
 assert.equal(state.votes.P1, undefined);
 assert.equal(state.reviewers[wang.id], '王藥師', 'the older copy came last, so its name stands');
 // 統計: one row per item with a decision or a comment.
 assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row => row.slice(0, 6)),
-  [['C56', '1', '0', '1', '王藥師：其他意見、李藥師：同意', '王藥師：改灰色'], ['C57', '0', '1', '0', '王藥師：不同意', '王藥師：=不同意：國內仿單沒有這條']]);
+  [['C-056', '1', '0', '1', '王藥師：其他意見、李藥師：同意', '王藥師：改灰色'], ['C-057', '0', '1', '0', '王藥師：不同意', '王藥師：=不同意：國內仿單沒有這條']]);
 // An AI pre-review gets its own column on 統計 and changes none of the counts.
 const codex = { id: 'cccccccccccccccc', name: 'Codex-Sol預審' };
-assert.deepEqual(post(voteRequest(code, codex, { C57: vote('其他意見', '2026-11-11T05:00:00.000Z', 'AI 預審：需補國內仿單'), C58: vote('同意', '2026-11-11T05:00:00.000Z') })), { ok: true, saved: 2 });
+assert.deepEqual(post(voteRequest(code, codex, { 'C-057': vote('其他意見', '2026-11-11T05:00:00.000Z', 'AI 預審：需補國內仿單'), 'C-058': vote('同意', '2026-11-11T05:00:00.000Z') })), { ok: true, saved: 2 });
 assert.deepEqual(gs.sheet('統計').rows[0], ['項目', '同意', '不同意', '其他意見', '審核者與決定', '意見', '最近一次', 'AI 預審（不計票）', '證據連結']);
 assert.deepEqual(gs.sheet('統計').rows.slice(1).filter(row => row[0]).map(row => [row[0], row[1], row[2], row[3], row[4], row[7]]),
-  [['C56', '1', '0', '1', '王藥師：其他意見、李藥師：同意', ''], ['C57', '0', '1', '0', '王藥師：不同意', 'Codex-Sol預審（其他意見）：AI 預審：需補國內仿單'], ['C58', '0', '0', '0', '', 'Codex-Sol預審（同意）：']]);
+  [['C-056', '1', '0', '1', '王藥師：其他意見、李藥師：同意', ''], ['C-057', '0', '1', '0', '王藥師：不同意', 'Codex-Sol預審（其他意見）：AI 預審：需補國內仿單'], ['C-058', '0', '0', '0', '', 'Codex-Sol預審（同意）：']]);
 const preRead = teamState(get(code));
 assert.ok(!('error' in preRead));
-assert.equal(teamStatus(item({ id: 'C58' }), splitVotes(preRead.votes.C58, who => preReviewer(preRead.reviewers[who])).team, preRead.quorum), '未審');
+assert.equal(teamStatus(item({ id: 'C-058' }), splitVotes(preRead.votes['C-058'], who => preReviewer(preRead.reviewers[who])).team, preRead.quorum), '未審');
 // Evidence links: their own column on 票, read back as sent, gathered with names on 統計; a pre-review's conclusion stays short.
 assert.equal(get(code).links, true, 'the answer says this script keeps links');
 assert.deepEqual(gs.sheet('票').rows[0], ['收到時間', '審核者編號', '審核者', '項目', '決定', '意見', '決定時間', '連結']);
 const evidence = [{ t: '=仿單', u: 'https://mcp.fda.gov.tw/im_detail/A123' }, { t: '', u: 'https://www.nice.org.uk/guidance/ng28' }];
-assert.deepEqual(post(voteRequest(code, codex, { C59: { d: '其他意見', c: '國內仿單未列此禁忌', t: '2026-11-11T05:30:00.000Z', l: evidence } })), { ok: true, saved: 1 });
-assert.deepEqual(post(voteRequest(code, lee, { C59: { d: '', c: '', t: '2026-11-11T05:40:00.000Z', l: [{ t: 'Beers 表 3', u: 'https://example.org/beers.pdf' }] } })), { ok: true, saved: 1 });
-const withEvidence = get(code).votes.C59;
+assert.deepEqual(post(voteRequest(code, codex, { 'C-059': { d: '其他意見', c: '國內仿單未列此禁忌', t: '2026-11-11T05:30:00.000Z', l: evidence } })), { ok: true, saved: 1 });
+assert.deepEqual(post(voteRequest(code, lee, { 'C-059': { d: '', c: '', t: '2026-11-11T05:40:00.000Z', l: [{ t: 'Beers 表 3', u: 'https://example.org/beers.pdf' }] } })), { ok: true, saved: 1 });
+const withEvidence = get(code).votes['C-059'];
 assert.deepEqual(withEvidence[codex.id], { d: '其他意見', c: '國內仿單未列此禁忌', t: '2026-11-11T05:30:00.000Z', l: evidence });
 assert.deepEqual(withEvidence[lee.id], { d: '', c: '', t: '2026-11-11T05:40:00.000Z', l: [{ t: 'Beers 表 3', u: 'https://example.org/beers.pdf' }] }, 'links alone are kept');
-assert.equal(gs.sheet('票').rows.find(row => row[1] === codex.id && row[3] === 'C59')![7], "'=仿單 https://mcp.fda.gov.tw/im_detail/A123\nhttps://www.nice.org.uk/guidance/ng28");
-assert.deepEqual(gs.sheet('統計').rows.find(row => row[0] === 'C59')!.slice(1),
+assert.equal(gs.sheet('票').rows.find(row => row[1] === codex.id && row[3] === 'C-059')![7], "'=仿單 https://mcp.fda.gov.tw/im_detail/A123\nhttps://www.nice.org.uk/guidance/ng28");
+assert.deepEqual(gs.sheet('統計').rows.find(row => row[0] === 'C-059')!.slice(1),
   ['0', '0', '0', '', '', '2026-11-11T05:40:00.000Z', 'Codex-Sol預審（其他意見）：國內仿單未列此禁忌',
     'Codex-Sol預審：=仿單 https://mcp.fda.gov.tw/im_detail/A123\nCodex-Sol預審：https://www.nice.org.uk/guidance/ng28\n李藥師：Beers 表 3 https://example.org/beers.pdf']);
 for (const [links, why] of [['https://a.example/', 'not a list'], [[{ t: '', u: 'http://a.example/' }], 'http'], [[{ t: '', u: 'javascript:alert(1)' }], 'script'],
   [[{ t: 'a\nb', u: 'https://a.example/' }], 'two-line label'], [[{ t: 'x'.repeat(41), u: 'https://a.example/' }], 'long label'], [[{ t: '', u: `https://a.example/${'x'.repeat(500)}` }], 'long address'],
   [Array(11).fill({ t: '', u: 'https://a.example/' }), 'eleven']] as [unknown, string][])
-  assert.deepEqual(post({ ...voteRequest(code, lee, { C59: vote('同意', '2026-11-11T05:50:00.000Z') }), votes: [{ id: 'C59', d: '同意', c: '', t: '2026-11-11T05:50:00.000Z', l: links }] }), { ok: false, error: 'links' }, why);
-assert.deepEqual(post(voteRequest(code, codex, { C59: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
-assert.deepEqual(post(voteRequest(code, lee, { C59: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
-assert.equal(get(code).votes.C59, undefined, 'a vote cleared of its links is gone');
+  assert.deepEqual(post({ ...voteRequest(code, lee, { 'C-059': vote('同意', '2026-11-11T05:50:00.000Z') }), votes: [{ id: 'C-059', d: '同意', c: '', t: '2026-11-11T05:50:00.000Z', l: links }] }), { ok: false, error: 'links' }, why);
+assert.deepEqual(post(voteRequest(code, codex, { 'C-059': vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
+assert.deepEqual(post(voteRequest(code, lee, { 'C-059': vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 1 });
+assert.equal(get(code).votes['C-059'], undefined, 'a vote cleared of its links is gone');
 // Take the pre-review out again, so the rest of this test sees the sheet as before.
-assert.deepEqual(post(voteRequest(code, codex, { C57: vote('', '2026-11-11T06:00:00.000Z'), C58: vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 2 });
+assert.deepEqual(post(voteRequest(code, codex, { 'C-057': vote('', '2026-11-11T06:00:00.000Z'), 'C-058': vote('', '2026-11-11T06:00:00.000Z') })), { ok: true, saved: 2 });
 
 // Anything else is turned down, and nothing is written.
 const written = gs.sheet('票').rows.length;
 for (const [record, reason] of [
   [{ ...request, code: 'wrongwrongwrong1' }, 'code'], [{ ...request, version: 2 }, 'format'], [{ ...request, format: 'gtsloth-rx-samples' }, 'format'],
   [{ ...request, reviewer: { id: 'short', name: '王' } }, 'reviewer'], [{ ...request, reviewer: { id: wang.id, name: ' ' } }, 'name'], [{ ...request, reviewer: { id: wang.id, name: 'x'.repeat(31) } }, 'name'],
-  [{ ...request, votes: [] }, 'votes'], [{ ...request, votes: Array(201).fill(request.votes[0]) }, 'votes'], [{ ...request, votes: [{ ...request.votes[0], id: 'C56;DROP' }] }, 'item'],
+  [{ ...request, votes: [] }, 'votes'], [{ ...request, votes: Array(201).fill(request.votes[0]) }, 'votes'], [{ ...request, votes: [{ ...request.votes[0], id: 'C-056;DROP' }] }, 'item'],
   [{ ...request, votes: [{ ...request.votes[0], d: '批准' }] }, 'decision'], [{ ...request, votes: [{ ...request.votes[0], c: 'x'.repeat(1001) }] }, 'comment'],
   [{ ...request, votes: [{ ...request.votes[0], t: '昨天' }] }, 'time'], ['{', 'error'], ['x'.repeat(200001), 'size'],
 ] as [unknown, string][]) assert.deepEqual(post(record), { ok: false, error: reason });
@@ -290,6 +298,33 @@ assert.equal(get(code).proposalProblem, '');
 gs.call('selfTest');
 assert.equal(gs.sheet('票').rows.length, written);
 assert.ok(!gs.sheet('審核者').rows.some(row => row[0] === 'selftest00000000'));
+
+// A rule's number before 115/11/21 (C60) and now (C-060) are one item (docs/reference/rx-rules.md「編號」): the sheet stores the
+// current number, and 統計 and the answer count each reviewer once, the later vote standing. The script's ruleId is src/rx-ids.ts's.
+for (const id of ['C17', 'C05', 'C184', 'C1000', 'I24', 'D01', 'K05', 'S02', 'SAB', 'X1', 'Q9', 'Q10', 'C-017', 'S-AB', 'P20261109-01', 'SELFTEST', 'C17黃', 'c17', ''])
+  assert.equal(gs.call<string>('ruleId', id), ruleId(id), id);
+{
+  const zhang = { id: 'dddddddddddddddd', name: '張藥師' }, chen = { id: 'eeeeeeeeeeeeeeee', name: '陳藥師' };
+  // A row kept from before, under the old number; the same reviewer votes again under the current one: replaced, not doubled.
+  gs.sheet('票').rows.push(['2026-11-11 09:00:00', zhang.id, '張藥師', 'C60', '不同意', '舊的意見', '2026-11-11T07:00:00.000Z', '']);
+  assert.deepEqual(post(voteRequest(code, zhang, { 'C-060': vote('同意', '2026-11-11T08:00:00.000Z') })), { ok: true, saved: 1 });
+  assert.deepEqual(gs.sheet('票').rows.filter(row => row[1] === zhang.id).map(row => [row[3], row[4]]), [['C-060', '同意']]);
+  // A page still on the old numbers lands on the same row, stored under the current number.
+  assert.deepEqual(post(voteRequest(code, zhang, { C60: vote('其他意見', '2026-11-11T09:00:00.000Z', '改灰色') })), { ok: true, saved: 1 });
+  assert.deepEqual(gs.sheet('票').rows.filter(row => row[1] === zhang.id).map(row => [row[3], row[4]]), [['C-060', '其他意見']]);
+  // Two rows for one reviewer and item (an old script took the new number as another item): the later one counts, once.
+  gs.sheet('票').rows.push(['2026-11-11 09:00:00', chen.id, '陳藥師', 'C61', '同意', '', '2026-11-11T07:00:00.000Z', ''],
+    ['2026-11-11 10:00:00', chen.id, '陳藥師', 'C-061', '不同意', '縮小範圍', '2026-11-11T08:00:00.000Z', '']);
+  assert.deepEqual(post(voteRequest(code, zhang, { 'C-062': vote('同意', '2026-11-11T09:30:00.000Z') })), { ok: true, saved: 1 });
+  const stats = gs.sheet('統計').rows;
+  assert.deepEqual(stats.find(row => row[0] === 'C-060')!.slice(0, 6), ['C-060', '0', '0', '1', '張藥師：其他意見', '張藥師：改灰色']);
+  assert.deepEqual(stats.find(row => row[0] === 'C-061')!.slice(0, 6), ['C-061', '0', '1', '0', '陳藥師：不同意', '陳藥師：縮小範圍']);
+  assert.ok(!stats.some(row => row[0] === 'C60' || row[0] === 'C61'), '統計 lists the current numbers only');
+  delete gs.cache.state;
+  const answer = get(code);
+  assert.deepEqual([answer.votes.C61, answer.votes['C-061'][chen.id].d, answer.votes['C-060'][zhang.id].d], [undefined, '不同意', '其他意見']);
+  for (const row of gs.sheet('票').rows.filter(row => row[1] === zhang.id || row[1] === chen.id)) row[4] = row[5] = '';
+}
 gs.call('resetCode');
 assert.deepEqual(get(code), { ok: false, error: 'code' });
 assert.equal(get(gs.properties.TEAM_CODE).ok, true);

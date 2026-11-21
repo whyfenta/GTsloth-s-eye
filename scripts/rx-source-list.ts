@@ -22,7 +22,7 @@ export function readSources(rows: Record<string, string>[]): { sources: Source[]
   rows.forEach((row, i) => {
     const at = `第 ${i + 2} 列（${row['編號'] || '沒有編號'}）`;
     const get = (name: string) => (row[name] ?? '').trim();
-    if (!/^S\d{2}$/.test(get('編號'))) problems.push(`${at}：編號要寫成 S＋兩位數`);
+    if (!/^R-\d{2}$/.test(get('編號'))) problems.push(`${at}：編號要寫成 R-＋兩位數（115/11/21 以前是 S＋兩位數）`);
     if (ids.has(get('編號'))) problems.push(`${at}：編號重複`);
     ids.add(get('編號'));
     if (!get('名稱') || !get('發布單位') || !get('用途')) problems.push(`${at}：名稱、發布單位、用途不可空白`);

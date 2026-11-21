@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RULE_FILES, ruleTable, type RuleTables } from '../src/rx-check';
-import { reconcile, unsynced, type Ledger } from '../scripts/rx-review-ledger';
+import { idProblems, oldNumbers, reconcile, unsynced, type Ledger } from '../scripts/rx-review-ledger';
 import { rulesVersion } from '../src/rx-data';
 
 const row = (atc: string, icd: string, basis = '仿單') => ({ ATC: atc, 藥理類別: atc, '可解釋的ICD-10': icd, 依據: basis, 備註: '' });
@@ -14,45 +14,45 @@ const start = (tables: RuleTables) => reconcile(tables, blank(), { batch: 'b1', 
 const at = (time: string, batch = 'b2') => ({ batch, now: time });
 
 test('new rows get the next id, also after a retired one', () => {
-  const ledger = start(tablesOf([row('A10', 'E11'), row('C10', 'E78')], [caution('C01')]));
-  assert.deepEqual(ledger.rules.map(rule => rule.id), ['I01', 'I02', 'C01']);
-  const without = reconcile(tablesOf([row('A10', 'E11')], [caution('C01')]), ledger, at('t2')).ledger;
-  assert.deepEqual(without.retired.map(rule => rule.id), ['I02']);
-  const next = reconcile(tablesOf([row('A10', 'E11'), row('R01A', 'J30')], [caution('C01')]), without, at('t3'));
-  assert.deepEqual(next.added, ['I03']);
+  const ledger = start(tablesOf([row('A10', 'E11'), row('C10', 'E78')], [caution('C-001')]));
+  assert.deepEqual(ledger.rules.map(rule => rule.id), ['I-001', 'I-002', 'C-001']);
+  const without = reconcile(tablesOf([row('A10', 'E11')], [caution('C-001')]), ledger, at('t2')).ledger;
+  assert.deepEqual(without.retired.map(rule => rule.id), ['I-002']);
+  const next = reconcile(tablesOf([row('A10', 'E11'), row('R01A', 'J30')], [caution('C-001')]), without, at('t3'));
+  assert.deepEqual(next.added, ['I-003']);
   assert.equal(next.rows[1].rule.batch, 'b2');
   assert.equal(next.rows[1].rule.changed, 't3');
 });
 test('moving a row keeps its id and its review', () => {
   const ledger = start(tablesOf([row('A10', 'E11'), row('C10', 'E78')]));
   const moved = reconcile(tablesOf([row('C10', 'E78'), row('A10', 'E11')]), ledger, at('t2'));
-  assert.deepEqual(moved.rows.map(entry => [entry.rule.id, entry.rule.changed]), [['I02', 't1'], ['I01', 't1']]);
+  assert.deepEqual(moved.rows.map(entry => [entry.rule.id, entry.rule.changed]), [['I-002', 't1'], ['I-001', 't1']]);
   assert.deepEqual(moved.added, []);
   assert.deepEqual(moved.changed, []);
 });
 test('two rows for one ATC stay apart; editing one brings only that one back', () => {
   const ledger = start(tablesOf([row('C10', 'E78'), row('C10', 'N18', '指引')]));
   const edited = reconcile(tablesOf([row('C10', 'E78'), row('C10', 'N18 E11', '指引')]), ledger, at('t2'));
-  assert.deepEqual(edited.changed, ['I02']);
+  assert.deepEqual(edited.changed, ['I-002']);
   assert.equal(edited.rows[0].rule.changed, 't1');
   assert.equal(edited.rows[1].rule.changed, 't2');
   assert.match(edited.rows[1].rule.prev ?? '', /N18（指引）/);
 });
 test('a changed rule loses its outcome and comes back, unless the change is the pharmacist\'s own', () => {
-  const ledger = start(tablesOf([], [caution('C15', '灰')]));
+  const ledger = start(tablesOf([], [caution('C-015', '灰')]));
   ledger.rules[0].outcome = '同意';
-  const again = reconcile(tablesOf([], [caution('C15', '黃')]), ledger, at('t2'));
+  const again = reconcile(tablesOf([], [caution('C-015', '黃')]), ledger, at('t2'));
   assert.equal(again.rows[0].rule.outcome, undefined);
   assert.equal(again.rows[0].rule.changed, 't2');
-  const own = reconcile(tablesOf([], [caution('C15', '黃')]), ledger, { ...at('t2'), applied: { C15: '依意見改成黃色' } });
+  const own = reconcile(tablesOf([], [caution('C-015', '黃')]), ledger, { ...at('t2'), applied: { 'C-015': '依意見改成黃色' } });
   assert.equal(own.rows[0].rule.outcome, '依意見改成黃色');
   assert.equal(own.rows[0].rule.changed, 't1');
 });
 test('a review the team closed opens again when the rule changes', () => {
-  const ledger = start(tablesOf([], [caution('C15', '灰')]));
+  const ledger = start(tablesOf([], [caution('C-015', '灰')]));
   ledger.rules[0].approved = { at: '2026-11-12', n: 2 };
-  assert.deepEqual(reconcile(tablesOf([], [caution('C15', '灰')]), ledger, at('t2')).rows[0].rule.approved, { at: '2026-11-12', n: 2 });
-  const again = reconcile(tablesOf([], [caution('C15', '黃')]), ledger, at('t2'));
+  assert.deepEqual(reconcile(tablesOf([], [caution('C-015', '灰')]), ledger, at('t2')).rows[0].rule.approved, { at: '2026-11-12', n: 2 });
+  const again = reconcile(tablesOf([], [caution('C-015', '黃')]), ledger, at('t2'));
   assert.equal(again.rows[0].rule.approved, undefined);
   assert.equal(again.rows[0].rule.changed, 't2');
 });
@@ -62,10 +62,29 @@ test('a wording change in 備註 does not come back for review', () => {
   assert.deepEqual(reworded.changed, []);
 });
 
+// A caution's 編號: the format, once only, and never a number the ledger has retired (old samples and votes point at it).
+test('a caution number is well formed, unique and never a retired one', () => {
+  const retired = { retired: [{ id: 'C-005', table: 'cautions' as const, text: '', batch: 'b1', retired: 't1' }, { id: 'C-007', table: 'specialty' as const, text: '', batch: 'b1', retired: 't1' }] };
+  assert.deepEqual(idProblems([caution('C-001'), caution('C-185'), caution('C-007'), caution('C-1000')], retired), [], 'a number retired from another table does not count');
+  const problems = idProblems([caution('C-001'), caution('新1'), caution('C17'), caution('C-001'), caution('C-005')], retired);
+  assert.equal(problems.length, 4);
+  assert.match(problems[0], /第 3 列「編號」：「新1」要寫成 C、連字號加三位以上數字/);
+  assert.match(problems[1], /第 4 列「編號」：「C17」/, 'the form before 115/11/21');
+  assert.match(problems[2], /第 5 列「編號」：C-001 重複/);
+  assert.match(problems[3], /第 6 列「編號」：C-005 已經刪除過/);
+  assert.deepEqual(oldNumbers({ rules: [{ id: 'C-001' }, { id: 'I24' }], retired: [{ id: 'S03' }], questions: [{ id: 'Q-01' }] } as unknown as Ledger), ['I24', 'S03']);
+});
+
 // The ledger matches docs/reference/rx-rules/: a rule added or edited there has to reach the pharmacist's review page.
 const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(readFileSync(`docs/reference/rx-rules/${file}.csv`, 'utf8'))])) as RuleTables;
 const ledgerText = readFileSync('docs/reference/rx-rules-review.json', 'utf8');
 const ledger: Ledger = JSON.parse(ledgerText);
+test('every caution in the tables has its own number, and so does every rule in the ledger', () => {
+  assert.deepEqual(idProblems(tables.cautions, ledger), []);
+  const ids = [...ledger.rules, ...ledger.retired].map(rule => rule.id);
+  assert.equal(new Set(ids).size, ids.length, '審核紀錄裡有重複的編號');
+  assert.deepEqual(oldNumbers(ledger), [], '審核紀錄裡還有 115/11/21 以前寫法的編號（C17 要寫成 C-017，見 docs/reference/rx-rules.md「編號」）');
+});
 test('the review ledger knows every rule in the tables', () => {
   assert.deepEqual(unsynced(tables, ledger), [], '規則表改過了：請執行 npm run rx-review-page（docs/reference/rx-rules.md「審核頁」），把審核紀錄與審核頁清單一起 commit');
 });

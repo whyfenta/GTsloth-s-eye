@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileRules, icdDisplay, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
+import { idProblems, type Ledger } from './rx-review-ledger';
 
 // Builds the 處方警示 assets from docs/reference and records them in manifest.json (rerun after scripts/assets.mjs).
 // Usage: npm run rx-assets
@@ -25,6 +26,10 @@ await mkdir(path.join(assets, 'rx'), { recursive: true });
 
 const ruleBytes = Object.fromEntries(await Promise.all(RULE_FILES.map(async file => [file, await readFile(path.join(reference, 'rx-rules', `${file}.csv`))] as const)));
 const tables = Object.fromEntries(RULE_FILES.map(file => [file, ruleTable(ruleBytes[file].toString('utf8'))])) as RuleTables;
+// A 編號 in the wrong form, written twice or retired stops here, before anything is published.
+const ledger: Ledger = JSON.parse(await readFile(path.join(reference, 'rx-rules-review.json'), 'utf8'));
+const idErrors = idProblems(tables.cautions, ledger);
+if (idErrors.length) throw new Error(idErrors.join('\n'));
 const rules = compileRules(tables);
 await writeFile(path.join(assets, 'rx', 'rules.json'), JSON.stringify({
   source: 'docs/reference/rx-rules/', status: '草稿，待藥師審核；「依據」欄是起草者的判斷，不是查證過的結果',

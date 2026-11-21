@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { deidentify, failureLine } from '../src/prescription-sample';
 import { sampleOf, sampleRecords, SAMPLE_FORMAT } from '../src/rx-sample';
+import { ruleId } from '../src/rx-ids';
 
 // docs/rx-samples-apps-script.gs runs here against small fakes of the Google services it uses. Synthetic lines only.
 type Row = string[];
@@ -150,6 +151,11 @@ assert.deepEqual([at(samples[2], '最高等級'), at(samples[2], '警示'), at(s
 assert.deepEqual([at(samples[1], '對照檔查無'), at(samples[1], '合併多出'), at(samples[2], '對照檔查無'), at(samples[2], '合併多出')], ['TESTCODE01', 'T01紅 | 同成分重複黃', 'TESTALPR01', '']);
 assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', ['C56黃', 'C56黃', '同成分重複灰', 'C56', '黃', 42])), ['C56黃', '同成分重複灰']);
 assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', 'C56黃')), []);
+assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', ['C-056黃', 'C-1000灰'])), ['C-056黃', 'C-1000灰'], 'rule numbers as written from 115/11/21');
+// The weekly summary counts a caution under its current number (docs/reference/rx-rules.md「編號」): C17黃 from before 115/11/21
+// with C-017黃 after; the script's ruleId is src/rx-ids.ts's.
+assert.deepEqual(['C17黃', 'C-017黃', 'C05灰', '同成分重複黃', 'T01紅'].map(key => gs.call<string>('cautionKey', key)), ['C-017黃', 'C-017黃', 'C-005灰', '同成分重複黃', 'T01紅']);
+for (const id of ['C17', 'C184', 'I24', 'SAB', 'X1', 'Q10', 'C-017', 'P20261109-01', '']) assert.equal(gs.call<string>('ruleId', id), ruleId(id), id);
 assert.deepEqual(gs.sheet('失敗').rows.slice(1).map(row => row[3]), ['伺服器拒收：第 4 欄（姓名）不是空白', '失敗：測試原因，欄位數 3']);
 assert.ok(!gs.sheets.some(s => s.rows.some(row => row.some(value => value.includes(';測試;')))), 'the rejected line, name and all, never reaches a sheet');
 for (const secret of ['A223456789', '0650101', 'TESTNOTE01', '0099']) assert.ok(!JSON.stringify(gs.sheets.map(s => s.rows)).includes(secret), secret);

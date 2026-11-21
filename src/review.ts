@@ -2,8 +2,10 @@ import './review.css';
 import { REVIEW_CATALOG, REVIEW_ENDPOINT, REVIEW_PROPOSALS } from './review-config';
 import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
+import { CATEGORIES, KINDS } from './rx-check';
+import { legacyId } from './rx-ids';
 import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
-  agreedWithComment, teamState, teamStatus, voteRequest, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
+  agreedWithComment, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
 // npm run rx-review-page); the team's votes and the weekly proposals come from the team's sheet (docs/rx-review-apps-script.gs),
@@ -46,7 +48,7 @@ if (!/^[0-9a-z]{16}$/.test(me.id)) { me = { id: reviewerId(), name: cleanName(me
 type Mode = 'deck' | 'list';
 const savedMode = read<Mode>(KEYS.mode);
 /** Phones open in card mode (one card at a time, a small stack a day); the reviewer's own choice is remembered. */
-const view = { table: 'all', filter: 'todo', batch: '', q: '',
+const view = { table: 'all', filter: 'todo', batch: '', cat: '', kind: '', q: '',
   mode: (savedMode === 'deck' || savedMode === 'list' ? savedMode : matchMedia('(max-width: 640px), (pointer: coarse)').matches ? 'deck' : 'list') as Mode };
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let saving = false, renderLater = false, stored = true;
@@ -163,7 +165,7 @@ function searchText(item: Item): string {
   const conds = item.conds ?? [];
   const drugs = drugText([item.atc, item.partners, ...conds.map(cond => cond.atc ?? '')].join(' '));
   const dx = [...item.icd ?? [], ...conds.flatMap(cond => cond.dx ?? [])];
-  return [item.id, summary(item), item.note, item.ref, item.desc, item.why, item.evidence, dx.map(chip => chip.zh).join(' '), drugs].join(' ').toLowerCase();
+  return [item.id, legacyId(item.id), summary(item), item.note, item.ref, item.desc, item.why, item.evidence, item.cat, ...item.kinds ?? [], dx.map(chip => chip.zh).join(' '), drugs].join(' ').toLowerCase();
 }
 const conditionWords = (cond: NonNullable<Item['conds']>[number]): string | Node => {
   const text = cond.text ?? '';
@@ -184,8 +186,13 @@ function buildCard(item: Item) {
   const card = el('article', 'card');
   card.id = `card-${item.id}`;
   const head = el('div', 'head');
-  head.append(el('span', 'rid', item.id), el('span', 'state'));
+  const rid = el('span', 'rid', item.id);
+  if (legacyId(item.id) !== item.id) rid.title = `115/11/21 以前寫作 ${legacyId(item.id)}`;
+  head.append(rid, el('span', 'state'));
   if (item.table === 'cautions') head.append(el('span', `lv lv-${item.level}`, item.level));
+  // 孕哺 and 健保 by their family; a 臨床 caution by what its conditions are about (併用・老人).
+  if (item.cat && item.cat !== '臨床') head.append(el('span', 'badge b-cat', item.cat));
+  else if (item.kinds?.length) head.append(el('span', 'badge b-kind', item.kinds.join('・')));
   if (item.table === 'specialty') head.append(el('span', 'atc', item.dept));
   if (item.table === 'proposals') head.append(el('span', 'badge', `提案・${item.kind}`));
   head.append(el('span', 'title', headline(item)), basisBadge(item.basis));
@@ -312,6 +319,8 @@ function updateCard(item: Item) {
 function visible(item: Item): boolean {
   if (!inTab(item, view.table)) return false;
   if (view.batch && item.batch !== view.batch) return false;
+  if (view.cat && item.cat !== view.cat) return false;
+  if (view.kind && !(item.kinds ?? []).includes(view.kind)) return false;
   const status = statusOf(item);
   if (view.filter === 'todo' && done(item, mine[item.id])) return false;
   if (view.filter === 'split' && status !== '有分歧') return false;
@@ -367,6 +376,10 @@ function renderCounts() {
   }
   for (const button of $('batches').querySelectorAll<HTMLButtonElement>('.chipbtn')) {
     const set = items.filter(item => item.batch === button.dataset.b && item.table !== 'proposals');
+    button.textContent = `${button.dataset.label} ${set.filter(item => !done(item, mine[item.id])).length}／${set.length}`;
+  }
+  for (const button of $('facets').querySelectorAll<HTMLButtonElement>('.chipbtn')) {
+    const set = items.filter(item => button.dataset.cat ? item.cat === button.dataset.cat : (item.kinds ?? []).includes(button.dataset.kind!));
     button.textContent = `${button.dataset.label} ${set.filter(item => !done(item, mine[item.id])).length}／${set.length}`;
   }
   renderLatest();
@@ -514,8 +527,9 @@ async function load(first = false) {
     const response = await fetch(`${REVIEW_ENDPOINT}?code=${encodeURIComponent(code)}&at=${Date.now()}`);
     const state = teamState(await response.json());
     if ('error' in state) { sayStore(`${state.error}：請用負責人分享的完整連結重新開啟。決定暫時只存在這個瀏覽器。`, true); return; }
-    team = state;
-    const remote = Object.fromEntries(Object.entries(state.votes).flatMap(([id, byReviewer]) => byReviewer[me.id] ? [[id, byReviewer[me.id]]] : []));
+    // A vote the sheet keeps under a rule's old number counts on the rule as the catalog numbers it (src/rx-ids.ts).
+    team = { ...state, votes: teamVotesFor(state.votes, catalog?.items.map(item => item.id) ?? []) };
+    const remote = Object.fromEntries(Object.entries(team.votes).flatMap(([id, byReviewer]) => byReviewer[me.id] ? [[id, byReviewer[me.id]]] : []));
     const merged = mergeVotes(mine, remote);
     for (const [id, vote] of Object.entries(mine)) if (!remote[id] || remote[id].t < vote.t) pending.add(id);
     mine = merged;
@@ -663,6 +677,28 @@ function renderBatches() {
     box.append(chip);
   }
 }
+/** 注意事項 by 類別, and the 臨床 ones by kind: one chip of each row at a time, a second click clears it. */
+function renderFacets() {
+  const box = $('facets');
+  const row = (label: string, values: string[], key: 'cat' | 'kind') => {
+    box.append(el('span', 'grouplabel', label));
+    for (const value of values) {
+      const chip = el('button', 'chipbtn', value);
+      chip.type = 'button'; chip.dataset[key] = value; chip.dataset.label = value;
+      chip.setAttribute('aria-pressed', String(view[key] === value));
+      chip.addEventListener('click', () => {
+        view[key] = view[key] === value ? '' : value;
+        for (const other of box.querySelectorAll<HTMLButtonElement>(`[data-${key}]`)) other.setAttribute('aria-pressed', String(other.dataset[key] === view[key]));
+        renderList();
+      });
+      box.append(chip);
+    }
+  };
+  box.replaceChildren();
+  const cautions = items.filter(item => item.table === 'cautions');
+  row('類別', Object.keys(CATEGORIES).filter(cat => cautions.some(item => item.cat === cat)), 'cat');
+  row('型態', KINDS.filter(kind => cautions.some(item => item.kinds?.includes(kind))), 'kind');
+}
 function renderFoot() {
   if (!catalog) return;
   const samples = catalog.samples;
@@ -690,8 +726,12 @@ async function start() {
   // The published proposals are an extra: the page works without them.
   try { published = publishedProposals(await (await fetch(`${import.meta.env.BASE_URL}${REVIEW_PROPOSALS}`, { cache: 'no-cache' })).json()); } catch { published = []; }
   batchOrder = Object.fromEntries(catalog.batches.map((batch, n) => [batch.id, n]));
+  // This browser's votes kept under a rule's old number move to the number the catalog uses.
+  const rekeyed = votesFor(mine, catalog.items.map(item => item.id));
+  if (JSON.stringify(rekeyed) !== JSON.stringify(mine)) { mine = rekeyed; keep(KEYS.votes, mine); }
   applyItems();
   renderBatches();
+  renderFacets();
   renderFoot();
   renderList();
   renderCounts();

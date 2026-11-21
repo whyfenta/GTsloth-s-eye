@@ -2,6 +2,7 @@
  * The pharmacists' review page (review/): what a reviewer still has to look at, what the team has agreed on, and what the
  * requests to the team's sheet (docs/rx-review-apps-script.gs) look like. Pure functions: no DOM, no network, no storage.
  */
+import { asWrittenIn } from './rx-ids';
 import { proposalsOfRows, type Proposal } from './rx-proposals';
 
 export const REVIEW_FORMAT = 'gtsloth-rx-review';
@@ -27,6 +28,8 @@ export interface Item {
   id: string; table: string; batch: string; changed: string; basis: string; flags: string[]; hits: number | null;
   why?: string; ref?: string; links?: { t: string; u: string }[]; outcome?: string; prev?: string; approved?: { at: string; n: number };
   atc?: string; cls?: string; icd?: Chip[]; note?: string; partners?: string; keyword?: string; conds?: Condition[]; level?: string; msg?: string;
+  /** A caution's 類別 (臨床, 孕哺, 健保) and, for 臨床, its kinds read from the conditions (疾病, 併用 …). */
+  cat?: string; kinds?: string[];
   dept?: string; name?: string; kind?: string; desc?: string; value?: string; options?: string; title?: string;
   file?: string; row?: string; evidence?: string; trial?: string;
 }
@@ -170,6 +173,31 @@ export function teamState(answer: unknown): TeamState | { error: string } {
   const unique = [...new Map(proposals.map(proposal => [proposal.id, proposal])).values()];
   return { quorum: Number.isInteger(data.quorum) && (data.quorum as number) > 0 ? data.quorum as number : 2, reviewers, votes, proposals: unique, skipped,
     proposalProblem: typeof data.proposalProblem === 'string' ? data.proposalProblem.slice(0, 200) : '', linksSaved: data.links === true };
+}
+
+/**
+ * Votes keyed as the catalog keys its items: a vote kept under a rule's old number (C17, in this browser or the team's sheet)
+ * counts on the rule numbered C-017 now (src/rx-ids.ts), and the other way round while the catalog still has the old numbers.
+ * Two votes that land on one item: the later stands.
+ */
+export function votesFor(votes: Votes, itemIds: Iterable<string>): Votes {
+  const own = asWrittenIn(itemIds);
+  const keyed: Votes = {};
+  for (const [id, vote] of Object.entries(votes)) {
+    const key = own(id);
+    if (!keyed[key] || vote.t >= keyed[key].t) keyed[key] = vote;
+  }
+  return keyed;
+}
+/** Everyone's votes keyed as the catalog keys its items (votesFor): each reviewer's later vote stands. */
+export function teamVotesFor(votes: TeamVotes, itemIds: Iterable<string>): TeamVotes {
+  const own = asWrittenIn(itemIds);
+  const keyed: TeamVotes = {};
+  for (const [id, byReviewer] of Object.entries(votes)) {
+    const key = own(id);
+    for (const [who, vote] of Object.entries(byReviewer)) if (!keyed[key]?.[who] || vote.t >= keyed[key][who].t) (keyed[key] ??= {})[who] = vote;
+  }
+  return keyed;
 }
 
 /** This reviewer's votes with what the sheet holds: for each item the later one stands, so two devices do not undo each other. */

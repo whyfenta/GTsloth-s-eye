@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { RULE_FILES, type RuleFile, type RuleTables } from '../src/rx-check';
+import { RULE_ID } from '../src/rx-ids';
 
 // docs/reference/rx-rules-review.json remembers, for the pharmacists' review page (review/), which rule has which id, when its
 // content last changed, why it was proposed and how its review ended. A decision made before a rule's `changed` no longer counts,
@@ -31,10 +32,11 @@ const DESCRIBE: Record<RuleFile, (r: Row) => { key: string; content: string[]; t
   settings: r => ({ key: r['設定'], content: [r['值']], text: `${r['設定']}＝${r['值']}（可選：${r['可選的值']}）` }),
 };
 const fingerprint = (content: string[]) => createHash('sha256').update(JSON.stringify(content.map(cell => cell.split(/\s+/).filter(Boolean).join(' ')))).digest('hex').slice(0, 12);
-const PREFIX: Partial<Record<RuleFile, [string, number]>> = { indications: ['I', 2], 'co-drugs': ['D', 2], 'drug-classes': ['K', 2], settings: ['X', 1] };
+/** A new rule's number (src/rx-ids.ts): the table's letter, a hyphen and the next number, I-109; 科別常用 by its department, S-AB. */
+const PREFIX: Partial<Record<RuleFile, [string, number]>> = { indications: ['I-', 3], 'co-drugs': ['D-', 3], 'drug-classes': ['K-', 3], settings: ['X-', 2] };
 function newId(table: RuleFile, key: string, used: Set<string>): string {
   if (table === 'cautions') return key;
-  if (table === 'specialty') return `S${key}`;
+  if (table === 'specialty') return `S-${key}`;
   const [prefix, width] = PREFIX[table]!;
   let n = 1;
   for (const id of used) if (id.startsWith(prefix) && /^\d+$/.test(id.slice(prefix.length))) n = Math.max(n, Number(id.slice(prefix.length)) + 1);
@@ -82,6 +84,26 @@ export function reconcile(tables: RuleTables, ledger: Ledger, options: { batch: 
   const retired = [...ledger.retired, ...retiring.map(({ id, table, text, batch: from, outcome }): RetiredRule => ({ id, table, text, batch: from, retired: now, ...(outcome ? { outcome } : {}) }))];
   return { ledger: { ...ledger, rules: rows.map(row => row.rule), retired }, rows, added, changed, retired: retiring.map(rule => rule.id) };
 }
+/** A caution's 編號 as written now (docs/reference/rx-rules.md「編號」): C, a hyphen and three or more digits. */
+export const CAUTION_ID = /^C-\d{3,}$/;
+/**
+ * What is wrong with the cautions' 編號, for `npm run rx-assets` and `npm test`: the format, a number written twice, or one the
+ * ledger has retired. A retired number is never given to another rule: old samples, votes and notes still point at it.
+ */
+export function idProblems(rows: Record<string, string>[], ledger: Pick<Ledger, 'retired'>): string[] {
+  const problems: string[] = [], seen = new Set<string>();
+  const retired = new Set(ledger.retired.filter(rule => rule.table === 'cautions').map(rule => rule.id));
+  rows.forEach((row, i) => {
+    const id = row['編號'] ?? '', at = `cautions.csv 第 ${i + 2} 列「編號」`;
+    if (!CAUTION_ID.test(id)) problems.push(`${at}：「${id}」要寫成 C、連字號加三位以上數字，例如 C-185（提案暫用的「新1」要換成目前最大編號的下一號）。`);
+    if (seen.has(id)) problems.push(`${at}：${id} 重複。`);
+    if (retired.has(id)) problems.push(`${at}：${id} 已經刪除過（審核紀錄的 retired），新規則要用新的編號。`);
+    seen.add(id);
+  });
+  return problems;
+}
+/** Every number the ledger gives out or remembers is in the current form (src/rx-ids.ts): the ones that are not. */
+export const oldNumbers = (ledger: Pick<Ledger, 'rules' | 'retired' | 'questions'>) => [...ledger.rules, ...ledger.retired, ...ledger.questions].map(rule => rule.id).filter(id => !RULE_ID.test(id));
 /** What `npm test` asks: does the ledger already know the tables as they are? */
 export function unsynced(tables: RuleTables, ledger: Ledger): string[] {
   const result = reconcile(tables, ledger, { batch: '', now: '' });

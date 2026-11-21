@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { csvRows } from '../src/csv';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { checkPrescription, dxLabel, RULE_FILES } from '../src/rx-check';
 import { readRxData } from '../src/rx-data';
@@ -43,7 +44,14 @@ test('every drug of the local samples gets the prototype check_rules.py verdict,
     const nhi = path.resolve('docs/reference/nhi-drug-codes.csv');
     assert.match(source, /^NHI = Path\(.*\)$/m, 'check_rules.py 找不到 NHI = Path(…) 這一行，比對程式要跟著改。');
     writeFileSync(path.join(dir, 'check_rules.py'), source.replace(/^NHI = Path\(.*\)$/m, `NHI = Path(${JSON.stringify(nhi)})`));
-    for (const file of RULE_FILES.filter(file => file !== 'settings')) copyFileSync(`docs/reference/rx-rules/${file}.csv`, path.join(dir, `${file}.csv`));
+    // The prototype knows the tables as they were before 類別: its copy of the cautions has no such column.
+    for (const file of RULE_FILES.filter(file => file !== 'settings')) {
+      if (file !== 'cautions') { copyFileSync(`docs/reference/rx-rules/${file}.csv`, path.join(dir, `${file}.csv`)); continue; }
+      const [header, ...rows] = csvRows(readFileSync(`docs/reference/rx-rules/${file}.csv`, 'utf8').replace(/^\uFEFF/, ''));
+      const keep = header.flatMap((name, i) => name === '類別' ? [] : [i]);
+      const cell = (value: string) => /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+      writeFileSync(path.join(dir, `${file}.csv`), `\uFEFF${[header, ...rows].map(row => keep.map(i => cell(row[i] ?? '')).join(',')).join('\n')}\n`);
+    }
     python = spawnSync('python', ['-I', '-c', DRIVER, path.join(dir, 'check_rules.py'), ...samples], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
   } finally { rmSync(dir, { recursive: true, force: true }); }
   assert.equal(python.status, 0, `check_rules.py 執行失敗：${python.stderr?.split('\n').slice(-3).join(' ')}`);

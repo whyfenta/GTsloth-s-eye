@@ -92,6 +92,19 @@ function linksOf(text) {
 }
 
 /** One row per reviewer and item: a later vote replaces the earlier one in place. Returns how many votes were written. */
+/**
+ * A rule number as written from 115/11/21 (docs/reference/rx-rules.md「編號」): C17 → C-017, SAB → S-AB, Q1 → Q-01; a new number,
+ * a proposal (P20261109-01) or anything else unchanged. The same as ruleId in src/rx-ids.ts, which the tests compare it with.
+ */
+function ruleId(id) {
+  let match = /^([CIDK])(\d+)$/.exec(id);
+  if (match) return match[1] + '-' + match[2].padStart(3, '0');
+  match = /^S([0-9A-Z]{2})$/.exec(id);
+  if (match) return 'S-' + match[1];
+  match = /^([XQ])(\d+)$/.exec(id);
+  if (match) return match[1] + '-' + match[2].padStart(2, '0');
+  return id;
+}
 function write(record) {
   const book = SpreadsheetApp.getActiveSpreadsheet();
   const votes = sheet(book, '票', VOTES); const reviewers = sheet(book, '審核者', REVIEWERS);
@@ -101,13 +114,15 @@ function write(record) {
   const who = record.reviewer; const name = cell(who.name.trim(), 30);
   const rows = votes.getDataRange().getValues().slice(1).map(row => row.map(String));
   const at = {};
-  rows.forEach((row, i) => { at[row[1] + '|' + row[3]] = i; });
+  // A vote under a rule's old number (C17) and one under its current number (C-017) are the same item; it is stored as the current one.
+  rows.forEach((row, i) => { at[row[1] + '|' + ruleId(row[3])] = i; });
   const added = [];
   let saved = 0;
   for (const vote of record.votes) {
-    const row = [now, who.id, name, vote.id, vote.d, cell(vote.c, 1000), vote.t, cell(linksCell(vote.l), 6000)];
-    const index = at[who.id + '|' + vote.id];
-    if (index === undefined) { at[who.id + '|' + vote.id] = rows.length + added.length; added.push(row); saved++; continue; }
+    const item = ruleId(vote.id);
+    const row = [now, who.id, name, item, vote.d, cell(vote.c, 1000), vote.t, cell(linksCell(vote.l), 6000)];
+    const index = at[who.id + '|' + item];
+    if (index === undefined) { at[who.id + '|' + item] = rows.length + added.length; added.push(row); saved++; continue; }
     const target = index < rows.length ? rows[index] : added[index - rows.length];
     // An older copy of a vote (a second device catching up) does not undo a newer one.
     if (target[6] && target[6] > vote.t) continue;
@@ -132,9 +147,13 @@ function names(reviewers) {
 }
 /** 「統計」: one row per item, for the owner and for Claude to read. Rewritten whole on every save. */
 function rebuildStats(book, rows, who) {
+  // Each reviewer's latest vote on an item, an old number (C17) and the current one (C-017) being the same item.
+  const latest = {};
+  for (const row of rows) { const key = row[1] + '|' + ruleId(row[3]); if (!latest[key] || row[6] >= latest[key][6]) latest[key] = row; }
   const items = {};
-  for (const row of rows) {
-    const item = items[row[3]] || (items[row[3]] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], pre: [], links: [], last: '' });
+  for (const key of Object.keys(latest)) {
+    const row = latest[key], id = ruleId(row[3]);
+    const item = items[id] || (items[id] = { 同意: 0, 不同意: 0, 其他意見: 0, who: [], comments: [], pre: [], links: [], last: '' });
     const name = who[row[1]] || row[2];
     for (const link of linksOf(row[7])) item.links.push(name + '：' + (link.t ? link.t + ' ' : '') + link.u);
     if (preReviewer(name)) { if (row[4] || row[5]) item.pre.push(name + (row[4] ? '（' + row[4] + '）' : '') + '：' + row[5].replace(/^'/, '')); continue; }
@@ -164,7 +183,9 @@ function state() {
     if (!row[4] && !row[5] && !links.length) continue;
     const vote = { d: row[4], c: row[5].replace(/^'/, ''), t: row[6] };
     if (links.length) vote.l = links;
-    (votes[row[3]] || (votes[row[3]] = {}))[row[1]] = vote;
+    // Under the rule's current number; a reviewer's later vote stands when an old row and a new one name the same item.
+    const byReviewer = votes[ruleId(row[3])] || (votes[ruleId(row[3])] = {});
+    if (!byReviewer[row[1]] || byReviewer[row[1]].t <= vote.t) byReviewer[row[1]] = vote;
   }
   const read = proposals();
   // links: this script keeps evidence links, so the page offers the box.
