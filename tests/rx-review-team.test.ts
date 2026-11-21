@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { agreedWithComment, cleanLinks, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
+import { agreedWithComment, cleanLinks, closed, done, inReviewCategory, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewChoiceLabel, reviewerId, splitVotes, stale, tally, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, REVIEW_FORMAT, type Item, type Vote } from '../src/review-model';
 import { ruleId } from '../src/rx-ids';
 import { proposalProblems, proposalsCsv, proposalsOfRows, publishedProposals, PROPOSAL_COLUMNS, PROPOSALS_FORMAT, type Proposal } from '../src/rx-proposals';
 
@@ -110,6 +110,24 @@ assert.deepEqual(proposalsOfRows('x'), { proposals: [], skipped: 0 });
 const asItem = proposalItem(back.proposals[0]);
 assert.deepEqual([asItem.table, asItem.batch, closed(asItem), done(asItem, vote('同意', '2020-01-01T00:00:00.000Z'))], ['proposals', '20261116', false, true]);
 assert.equal(proposalItem(back.proposals[0], { status: '已採用', decided: '2026-11-18', note: '加成 I97' }).outcome, '已採用（2026-11-18）：加成 I97');
+
+// Clinical interactions can use either a complete caution row or a description of work needed before activation.
+const clinical = proposal({ id: 'P20261116-03', kind: '臨床併用', file: 'cautions',
+  row: '新1,臨床,C03DA01,,同處方,C09CA03,黃,確認併用期間的血鉀監測,仿單警語' });
+assert.deepEqual(proposalProblems(clinical), []);
+assert.match(problemOf({ ...clinical, file: 'settings' }), /臨床併用要填/);
+assert.match(problemOf({ ...clinical, row: clinical.row.replace('同處方', '診斷') }), /臨床併用要填/);
+const clinicalCheck = proposal({ id: 'P20261116-04', kind: '臨床併用', file: '', row: '', trial: '' });
+assert.deepEqual(proposalProblems(clinicalCheck), []);
+const clinicalItem = proposalItem(clinical);
+assert.equal(inReviewCategory(clinicalItem, '臨床'), true);
+assert.deepEqual(clinicalItem.kinds, ['併用']);
+assert.equal(inReviewCategory(clinicalItem, '規則提案'), false);
+assert.equal(inReviewCategory(asItem, '規則提案'), true);
+assert.equal(reviewChoiceLabel(clinicalItem, '同意'), '同意');
+assert.equal(reviewChoiceLabel(asItem, '同意'), '採用');
+assert.equal(done(clinicalItem, vote('同意')), true);
+assert.equal(inReviewCategory(proposalItem(clinicalCheck), '臨床'), true);
 
 // The proposals published with the site: every one could be published again, none twice, none already closed without the ledger saying so.
 const publishedFile = JSON.parse(readFileSync('public/assets/rx/proposals.json', 'utf8'));

@@ -4,7 +4,7 @@ import { createDeck } from './review-deck';
 import { publishedProposals, type Proposal } from './rx-proposals';
 import { CATEGORIES, KINDS } from './rx-check';
 import { legacyId } from './rx-ids';
-import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSAL_LABEL, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
+import { CATALOG_FORMAT, CHOICES, MAX_LINKS, PROPOSALS_CAT, inReviewCategory as inCat, reviewChoiceLabel, cleanName, closed, done, linkLabel, linksText, mergeVotes, parseLinks, preReviewer, proposalItem, reviewerId, splitVotes, stale, tally,
   agreedWithComment, teamState, teamStatus, teamVotesFor, voteRequest, votesFor, withLinks, type Catalog, type Chip, type Choice, type Item, type Link, type Reviewer, type TeamState, type TeamStatus, type Vote, type Votes } from './review-model';
 
 // The pharmacists' review page. The rule catalog comes with the site (public/assets/rx/review.json, written by
@@ -25,9 +25,6 @@ const ageOf = (batch: string) => Date.now() - new Date(`${batch}T00:00:00`).getT
 /** Whether an item is in a batch filter: 新／舊, or one batch by id (the 最新一批 box). Proposals belong to no batch. */
 const inBatch = (item: Item, batch: string) => item.table !== 'proposals' && (batch === 'new' || batch === 'old' ? ageOf(item.batch) === batch : item.batch === batch);
 /** Whether an item is under a tab: a rule table, or the cautions of one warning level. */
-/** 規則提案 sits with the 類別 of the cautions on the bar: the proposals, rather than cautions of one category. */
-const PROPOSALS_CAT = '規則提案';
-const inCat = (item: Item, cat: string) => cat === PROPOSALS_CAT ? item.table === 'proposals' : item.cat === cat;
 const inTab = (item: Item, tab: string) => tab === 'all' || (tab in LEVEL_TABS ? item.table === 'cautions' && item.level === LEVEL_TABS[tab] : item.table === tab);
 /** Red cautions before yellow before the rest, so the heavier warnings come up first in a batch. */
 const severity = (item: Item) => item.table !== 'cautions' ? 0 : item.level === '紅' ? 2 : item.level === '黃' ? 1 : 0;
@@ -205,7 +202,8 @@ function buildCard(item: Item) {
   if (item.cat && item.cat !== '臨床') head.append(el('span', 'badge b-cat', item.cat));
   else if (item.kinds?.length) head.append(el('span', 'badge b-kind', item.kinds.join('・')));
   if (item.table === 'specialty') head.append(el('span', 'atc', item.dept));
-  if (item.table === 'proposals') head.append(el('span', 'badge', `提案・${item.kind}`));
+  if (inCat(item, PROPOSALS_CAT)) head.append(el('span', 'badge', `提案・${item.kind}`));
+  if (item.kind === '臨床併用' && !closed(item)) head.append(el('span', 'badge', '待啟用'));
   head.append(el('span', 'title', headline(item)), basisBadge(item.basis));
   const hits = hitsText(item);
   if (hits) head.append(el('span', `hits${item.hits ? '' : ' zero'}`, hits));
@@ -246,7 +244,7 @@ function buildCard(item: Item) {
   if (!closed(item)) {
     const choices = el('div', 'choices');
     for (const value of CHOICES) {
-      const button = el('button', 'choice', item.table === 'proposals' ? PROPOSAL_LABEL[value] : value);
+      const button = el('button', 'choice', reviewChoiceLabel(item, value));
       button.type = 'button'; button.dataset.v = value; button.setAttribute('aria-pressed', 'false');
       button.addEventListener('click', () => choose(item, mine[item.id]?.d === value ? '' : value));
       choices.append(button);
@@ -295,7 +293,7 @@ function updateCard(item: Item) {
   }
 
   const counted = tally(item, votesOn(item.id));
-  const label = (value: Choice) => item.table === 'proposals' ? PROPOSAL_LABEL[value] : value;
+  const label = (value: Choice) => reviewChoiceLabel(item, value);
   const votes = card.querySelector('.votes')!;
   votes.replaceChildren();
   const status = statusOf(item);
@@ -707,9 +705,8 @@ function renderFacets() {
     }
   };
   box.replaceChildren();
-  const cautions = items.filter(item => item.table === 'cautions');
-  row('類別', [...Object.keys(CATEGORIES).filter(cat => cautions.some(item => item.cat === cat)), PROPOSALS_CAT], 'cat');
-  row('型態', KINDS.filter(kind => cautions.some(item => item.kinds?.includes(kind))), 'kind');
+  row('類別', [...Object.keys(CATEGORIES).filter(cat => items.some(item => inCat(item, cat))), PROPOSALS_CAT], 'cat');
+  row('型態', KINDS.filter(kind => items.some(item => item.kinds?.includes(kind))), 'kind');
 }
 function renderFoot() {
   if (!catalog) return;
