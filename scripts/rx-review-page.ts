@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { markedSex, rxFacts, splitFields } from '../src/prescription-qr';
 import { atcHit, BASIS_RANK, cautionKinds, checkPrescription, compileRules, icdHits, ingredientBases, normCode, ruleTable, RULE_FILES, type RuleTables } from '../src/rx-check';
 import { readRxData, rulesVersion } from '../src/rx-data';
-import { asWrittenIn } from '../src/rx-ids';
+import { asWrittenIn, ruleId } from '../src/rx-ids';
 import { isFailure } from '../src/rx-sample';
 import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQuestion, type LedgerRow, type ReviewNotes } from './rx-review-ledger';
 
@@ -15,7 +15,7 @@ import { reconcile, type Batch, type ClosedProposal, type Ledger, type LedgerQue
 // used it (counts only, no sample content), and whether its review is closed. The page reads that file, so a rule change reaches
 // the reviewers when it is published; npm test fails while the file is behind. Without samples the counts of the last run are
 // kept for the rules that did not change, and a new or changed rule shows none.
-// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {C42: {why, ref, links, flags, outcome,
+// --notes adds what the tables cannot say, keyed by rule id: { batch: {title, note}, rules: {'C-042': {why, ref, links, flags, outcome,
 // applied, approved: {at, n}}}, questions: [{id, title, desc, why, links, outcome}], proposals: [{id, title, status, decided, note,
 // rules}], atcZh: {N05AX: "…"} }. `applied` marks an edit as the pharmacists' own decision; `approved` closes a review the team
 // agreed on (the day and how many agreed); `proposals` records what became of a weekly-review proposal.
@@ -108,9 +108,10 @@ for (const file of sampleFiles) {
 // Without samples: the counts the last catalog had, for the rules that have not changed since.
 interface Earlier { samples: unknown; items: { id: string; changed: string; hits: number | null }[]; atc?: Record<string, { zh: string; ex: string[]; n: number; seen: number }> }
 const earlier: Earlier | undefined = !sampleFiles.length && existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : undefined;
-const earlierHits = new Map((earlier?.items ?? []).map(item => [item.id, item]));
+// The last catalog may still have a rule under its number before 115/11/21 (C17 for C-017).
+const earlierHits = new Map((earlier?.items ?? []).map(item => [ruleId(item.id), item]));
 const hitCount = (id: string, changed: string) => sampleFiles.length ? hits.get(id) ?? 0
-  : earlierHits.get(id)?.changed === changed ? earlierHits.get(id)!.hits : null;
+  : earlierHits.get(ruleId(id))?.changed === changed ? earlierHits.get(ruleId(id))!.hits : null;
 
 // Chinese names for diagnoses: a code or a range, as the rules write them.
 const icd: { codes: Record<string, string>; deleted: Record<string, string> } = json('icd10cm');

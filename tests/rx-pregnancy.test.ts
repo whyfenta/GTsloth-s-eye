@@ -62,6 +62,6 @@ const statinFor = (sex: RxFacts['sex'], age: string) => checkPrescription({ dx: 
 const [statin] = statinFor('F', 'AGE20-29');
 assert.equal(statin.level, '紅');
 assert.equal(statin.fold, PREGNANCY_FOLD);
-assert.match(statin.text, /^C154 懷孕：statin 一般建議停用（FDA 2021 已移除禁忌/, 'the folded text is the caution itself, unchanged');
+assert.match(statin.text, /^C-154 懷孕：statin 一般建議停用（FDA 2021 已移除禁忌/, 'the folded text is the caution itself, unchanged');
 assert.deepEqual(statinFor('M', 'AGE20-29'), [], 'a man');
 assert.equal(statinFor('', 'AGE20-29')[0].fold, undefined, 'a grey note that cannot be judged is not folded');

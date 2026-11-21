@@ -359,7 +359,7 @@ export function compileRules(tables: RuleTables): Rules {
 }
 
 const PLAIN: Labels = { dx: code => code, atc: atc => atc, join: ' ' };
-/** A caution with all of another's conditions and more, for the same drugs (C17 is C09 plus another drug), replaces it. */
+/** A caution with all of another's conditions and more, for the same drugs (C-017 is C-009 plus another drug), replaces it. */
 const covers = (wide: Caution, narrow: Caution) => wide.conditions.length > narrow.conditions.length && wide.keyword === narrow.keyword
   && wide.atc.join(' ') === narrow.atc.join(' ') && narrow.conditions.every(c => wide.conditions.some(d => d.key === c.key));
 /**
