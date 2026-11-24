@@ -44,8 +44,7 @@
         "type": "object",
         "properties": {
           "t": {
-            "type": "string",
-            "maxLength": 40
+            "type": "string"
           },
           "u": {
             "type": "string"

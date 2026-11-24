@@ -164,32 +164,31 @@ export function itemAtcs(item: Item): string[] {
   return [...new Set(raw)];
 }
 
+/** The ingredient names of an NHI item, without strengths ("Empagliflozin 25 MG+LINAGLIPTIN 5 MG" → EMPAGLIFLOZIN／LINAGLIPTIN). */
+const ingredientNames = (text: string): string => [...new Set(text.split('+').map(part => part.replace(/\(.*?\)/g, ' ').trim().split(/\s+/)
+  .filter(word => /^[A-Za-z][A-Za-z-]*$/.test(word) && !/^(MG|MCG|G|GM|ML|IU|U|UNIT|UNITS|MEQ|MMOL|IN|AS|EQ|EQUIVALENT)$/i.test(word)).join(' ').toUpperCase())
+  .filter(Boolean))].join('／');
+
 /**
- * Concise NHI drug-code summary for the given ATC prefixes, so a pre-reviewer can verify dosage forms, combinations and strengths
- * without copying the full 11 MB CSV into the agent workspace. Prioritizes active items and distinct (ATC, ingredient, form) rows.
+ * What the rule's ATC codes cover in the NHI drug list, one line per code the rule names: each full ATC code under it with its
+ * ingredients, dosage forms and how many items are currently paid for. Every code the rule names gets its line, so the drug under
+ * review is never crowded out, and an ingredient a prefix pulls in by accident (alprostadil under G04BE) is in plain sight.
  */
-export function nhiSummary(atcs: readonly string[], drugs: readonly NhiDrug[], maxLines = 12): string {
-  if (!atcs.length || !drugs.length) return '';
-  const matched = drugs.filter(d => atcs.some(prefix => d.atc.startsWith(prefix)));
-  if (!matched.length) return '';
-  const activeCount = matched.filter(d => d.active).length;
-  const forms = [...new Set(matched.map(d => d.form).filter(Boolean))].sort();
-  const ordered = [...matched].sort((a, b) => Number(b.active) - Number(a.active) || a.atc.localeCompare(b.atc) || a.code.localeCompare(b.code));
-  const picked: NhiDrug[] = [];
-  const seenKey = new Set<string>();
-  for (const d of ordered) {
-    if (picked.length >= maxLines) break;
-    const key = `${d.atc}|${d.ingredient}|${d.form}`;
-    if (!seenKey.has(key)) { seenKey.add(key); picked.push(d); }
+export function nhiSummary(atcs: readonly string[], drugs: readonly NhiDrug[], maxCodesPerLine = 8): string {
+  if (!drugs.length) return '';
+  const lines: string[] = [];
+  for (const prefix of atcs) {
+    const matched = drugs.filter(d => d.atc.startsWith(prefix));
+    if (!matched.length) { lines.push(`- ${prefix}：健保檔查無品項`); continue; }
+    const byCode = new Map<string, NhiDrug[]>();
+    for (const d of matched) byCode.set(d.atc, [...(byCode.get(d.atc) ?? []), d]);
+    const codes = [...byCode.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([code, list]) => {
+      const names = [...new Set(list.map(d => ingredientNames(d.ingredient)).filter(Boolean))].slice(0, 2).join('、') || list[0].name;
+      const forms = [...new Set(list.map(d => d.form).filter(Boolean))].slice(0, 3).join('、');
+      return `${code} ${names}（${forms ? `${forms}；` : ''}現行 ${list.filter(d => d.active).length}／共 ${list.length}）`;
+    });
+    const shown = codes.slice(0, maxCodesPerLine);
+    lines.push(`- ${prefix}：${shown.join('；')}${codes.length > shown.length ? `；另 ${codes.length - shown.length} 個 ATC 碼` : ''}`);
   }
-  for (const d of ordered) {
-    if (picked.length >= maxLines) break;
-    if (!picked.includes(d)) picked.push(d);
-  }
-  const lines = [
-    `健保品項摘要（依 ${atcs.join(' ')} 自 nhi-drug-codes.csv 篩出，共 ${matched.length} 筆，有效給付 ${activeCount} 筆${forms.length ? `；劑型：${forms.join('、')}` : ''}）：`,
-    ...picked.map(d => `- ${d.code}｜${d.atc}｜${d.zh || d.name}｜${d.ingredient}｜${d.form || '（未標劑型）'}${d.active ? '' : '（無現行給付價）'}`),
-  ];
-  if (matched.length > picked.length) lines.push(`- …其餘 ${matched.length - picked.length} 筆省略（已優先列出不同成分與劑型代表）。`);
-  return lines.join('\n');
+  return lines.length ? `健保品項摘要（依規則列出的 ATC，自 nhi-drug-codes.csv 展開；「現行」為有支付價的品項）：\n${lines.join('\n')}` : '';
 }
