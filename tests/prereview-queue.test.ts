@@ -1,6 +1,6 @@
 // Offline tests of what the AI pre-review may take up (tools/prereview/queue.ts) and the rule as the model reads it.
 import assert from 'node:assert/strict';
-import { pickQueue, ruleData } from '../tools/prereview/queue';
+import { itemAtcs, nhiDrugsOfCsv, nhiSummary, pickQueue, proposalAtcs, ruleData } from '../tools/prereview/queue';
 import type { Item, Vote } from '../src/review-model';
 import type { Proposal } from '../src/rx-proposals';
 
@@ -42,4 +42,26 @@ const text = ruleData(rule('I07', '2026-10-31', { flags: ['依審核意見改寫
 for (const part of ['編號：I07', '類別：適應症（indications）', '藥品 ATC：C10（調血脂藥）', 'ICD-10：E11 第二型糖尿病', '條件：同處方 H02AB（全身性皮質類固醇）', '備註：一級預防', '命中：樣本中解釋 3 個藥', '頁面註記：依審核意見改寫備註'])
   assert.ok(text.includes(part), part);
 assert.ok(!/藥師甲|同意/.test(text));
+
+// NHI drug summary: extract ATCs from proposals and rules, prioritize active and distinct forms, cap output length.
+assert.deepEqual(
+  proposalAtcs({ ...proposal('P20261123-01'), file: 'cautions', row: '新1,臨床,C01BD07,,年齡+同處方,>=65;C08@HS C09CA03,黃,提示,仿單' }),
+  ['C01BD07', 'C08', 'C09CA03'],
+);
+assert.deepEqual(
+  itemAtcs(rule('C-017', '2026-10-31', { table: 'cautions', atc: 'N05BA', conds: [{ kind: '同處方', atc: 'G04CA C08@HS' }] })),
+  ['N05BA', 'G04CA', 'C08'],
+);
+const csv = '\uFEFF藥品代號,藥品英文名稱,藥品中文名稱,成分,規格量,規格單位,支付價,有效起日,有效迄日,藥商,製造廠名稱,劑型,ATC代碼,最後給付價,最後給付迄日\n'
+  + 'BC25224100,Multaq 400mg,脈泰克膜衣錠400毫克,DRONEDARONE 400 MG,,,45,1130401,9991231,S,S,膜衣錠,C01BD07,45,9991231\n'
+  + 'B025224100,Multaq 400mg,脈泰克膜衣錠400毫克,DRONEDARONE 400 MG,,,0,1040301,9991231,S,S,膜衣錠,C01BD07,61,1040228\n'
+  + 'X000000001,Other,他藥,DRONEDARONE 200 MG,,,10,1130401,9991231,S,S,膠囊劑,C01BD07,10,9991231\n';
+const drugs = nhiDrugsOfCsv(csv);
+assert.equal(drugs.length, 3);
+const summary = nhiSummary(['C01BD07'], drugs, 2);
+assert.ok(summary.includes('共 3 筆，有效給付 2 筆；劑型：膜衣錠、膠囊劑'));
+assert.ok(summary.includes('BC25224100｜C01BD07｜脈泰克膜衣錠400毫克'));
+assert.ok(summary.includes('X000000001｜C01BD07｜他藥'));
+assert.ok(summary.includes('其餘 1 筆省略'));
+assert.equal(nhiSummary(['Z99'], drugs), '');
 console.log('prereview queue checks passed');

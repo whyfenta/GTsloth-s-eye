@@ -3,6 +3,7 @@
  * Two kinds of item: the weekly proposals (P…) and the rules on the review page (review.json items: I, C, D, K, S…). Questions
  * (待決定, multiple choice) and settings are left out.
  */
+import { csvRows } from '../../src/csv';
 import { closed, preReviewer, proposalItem, splitVotes, teamStatus, type Catalog, type Item, type TeamVotes, type Vote } from '../../src/review-model';
 import type { Proposal } from '../../src/rx-proposals';
 
@@ -115,4 +116,80 @@ export function ruleData(item: Item, names: Catalog['atc']): string {
     ['頁面註記', item.flags.length ? item.flags.join('；') : undefined],
   ];
   return lines.filter(([, value]) => value).map(([label, value]) => `${label}：${value}`).join('\n');
+}
+
+/** One row from docs/reference/nhi-drug-codes.csv, trimmed to what a pre-review checks (ingredient, form, ATC, active status). */
+export interface NhiDrug { code: string; name: string; zh: string; ingredient: string; form: string; atc: string; active: boolean }
+const ATC_TOKEN = /^[A-Z]\d\d(?:[A-Z](?:[A-Z](?:\d\d)?)?)?$/;
+const atcTokens = (text: string | undefined): string[] =>
+  (text ?? '').split(/\s+/).map(t => t.replace(/@HS$/i, '').trim().toUpperCase()).filter(t => ATC_TOKEN.test(t));
+
+/** Parse docs/reference/nhi-drug-codes.csv text into compact records. */
+export function nhiDrugsOfCsv(text: string): NhiDrug[] {
+  const [header = [], ...rows] = csvRows(text.replace(/^\uFEFF/, ''));
+  const col = (name: string) => header.indexOf(name);
+  const iCode = col('藥品代號'), iName = col('藥品英文名稱'), iZh = col('藥品中文名稱'), iIng = col('成分'), iForm = col('劑型'), iAtc = col('ATC代碼'), iPrice = col('支付價');
+  if (iCode < 0 || iAtc < 0) return [];
+  return rows.filter(r => r[iCode]?.trim() && r[iAtc]?.trim()).map(r => ({
+    code: r[iCode].trim(), name: (r[iName] ?? '').trim(), zh: (r[iZh] ?? '').trim(),
+    ingredient: (r[iIng] ?? '').trim(), form: (r[iForm] ?? '').trim(), atc: r[iAtc].trim().toUpperCase(),
+    active: Number(r[iPrice] ?? 0) > 0,
+  }));
+}
+
+/** Extract ATC prefixes referenced by a proposal's CSV row (own ATC and any co-drug/same-class condition ATCs). */
+export function proposalAtcs(p: Proposal): string[] {
+  const [row] = csvRows(p.row ?? '');
+  if (!row) return [];
+  const raw: string[] = [];
+  if (p.file === 'cautions') {
+    raw.push(...atcTokens(row[2]));
+    const kinds = (row[4] ?? '').split('+').map(s => s.trim());
+    const segs = (row[5] ?? '').split(';');
+    kinds.forEach((k, i) => { if (['同處方', '未同處方', '同類數'].includes(k)) raw.push(...atcTokens(segs[i])); });
+  } else if (p.file === 'co-drugs') {
+    raw.push(...atcTokens(row[0]), ...atcTokens(row[1]));
+  } else if (p.file === 'indications' || p.file === 'drug-classes') {
+    raw.push(...atcTokens(row[0]));
+  } else if (p.file === 'specialty') {
+    raw.push(...atcTokens(row[2]));
+  }
+  return [...new Set(raw)];
+}
+
+/** Extract ATC prefixes referenced by a rule catalog item. */
+export function itemAtcs(item: Item): string[] {
+  const raw = [...atcTokens(item.atc), ...atcTokens(item.partners)];
+  for (const cond of item.conds ?? []) if (['同處方', '未同處方', '同類數'].includes(cond.kind)) raw.push(...atcTokens(cond.atc ?? cond.text));
+  return [...new Set(raw)];
+}
+
+/**
+ * Concise NHI drug-code summary for the given ATC prefixes, so a pre-reviewer can verify dosage forms, combinations and strengths
+ * without copying the full 11 MB CSV into the agent workspace. Prioritizes active items and distinct (ATC, ingredient, form) rows.
+ */
+export function nhiSummary(atcs: readonly string[], drugs: readonly NhiDrug[], maxLines = 12): string {
+  if (!atcs.length || !drugs.length) return '';
+  const matched = drugs.filter(d => atcs.some(prefix => d.atc.startsWith(prefix)));
+  if (!matched.length) return '';
+  const activeCount = matched.filter(d => d.active).length;
+  const forms = [...new Set(matched.map(d => d.form).filter(Boolean))].sort();
+  const ordered = [...matched].sort((a, b) => Number(b.active) - Number(a.active) || a.atc.localeCompare(b.atc) || a.code.localeCompare(b.code));
+  const picked: NhiDrug[] = [];
+  const seenKey = new Set<string>();
+  for (const d of ordered) {
+    if (picked.length >= maxLines) break;
+    const key = `${d.atc}|${d.ingredient}|${d.form}`;
+    if (!seenKey.has(key)) { seenKey.add(key); picked.push(d); }
+  }
+  for (const d of ordered) {
+    if (picked.length >= maxLines) break;
+    if (!picked.includes(d)) picked.push(d);
+  }
+  const lines = [
+    `健保品項摘要（依 ${atcs.join(' ')} 自 nhi-drug-codes.csv 篩出，共 ${matched.length} 筆，有效給付 ${activeCount} 筆${forms.length ? `；劑型：${forms.join('、')}` : ''}）：`,
+    ...picked.map(d => `- ${d.code}｜${d.atc}｜${d.zh || d.name}｜${d.ingredient}｜${d.form || '（未標劑型）'}${d.active ? '' : '（無現行給付價）'}`),
+  ];
+  if (matched.length > picked.length) lines.push(`- …其餘 ${matched.length - picked.length} 筆省略（已優先列出不同成分與劑型代表）。`);
+  return lines.join('\n');
 }
