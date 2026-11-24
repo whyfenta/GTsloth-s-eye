@@ -58,10 +58,16 @@ const csv = '\uFEFF藥品代號,藥品英文名稱,藥品中文名稱,成分,規
   + 'X000000001,Other,他藥,DRONEDARONE 200 MG,,,10,1130401,9991231,S,S,膠囊劑,C01BD07,10,9991231\n';
 const drugs = nhiDrugsOfCsv(csv);
 assert.equal(drugs.length, 3);
-const summary = nhiSummary(['C01BD07'], drugs, 2);
-assert.ok(summary.includes('共 3 筆，有效給付 2 筆；劑型：膜衣錠、膠囊劑'));
-assert.ok(summary.includes('BC25224100｜C01BD07｜脈泰克膜衣錠400毫克'));
-assert.ok(summary.includes('X000000001｜C01BD07｜他藥'));
-assert.ok(summary.includes('其餘 1 筆省略'));
-assert.equal(nhiSummary(['Z99'], drugs), '');
+const summary = nhiSummary(['C01BD07', 'G04BE'], drugs);
+assert.ok(summary.includes('- C01BD07：C01BD07 DRONEDARONE（膜衣錠、膠囊劑；現行 2／共 3）'), summary);
+// A code the rule names that the NHI list does not have is said so, not dropped.
+assert.ok(summary.includes('- G04BE：健保檔查無品項'), summary);
+// Every code the rule names gets its own line, and a prefix lists the full codes (and ingredients) it pulls in.
+const many = nhiDrugsOfCsv(csv + 'A1,Caverject,卡維傑,ALPROSTADIL 20 MCG,,,500,1130401,9991231,P,P,凍晶注射劑,G04BE01,500,9991231\n'
+  + 'A2,Revatio,瑞肺得,SILDENAFIL (AS CITRATE) 20 MG,,,80,1130401,9991231,P,P,膜衣錠,G04BE03,80,9991231\n'
+  + 'A3,Duo,複方,Empagliflozin 25 MG+LINAGLIPTIN 5 MG,,,30,1130401,9991231,B,B,膜衣錠,A10BD19,30,9991231\n');
+const pde5 = nhiSummary(['G04BE', 'A10BD19'], many);
+assert.ok(pde5.includes('- G04BE：G04BE01 ALPROSTADIL（凍晶注射劑；現行 1／共 1）；G04BE03 SILDENAFIL（膜衣錠；現行 1／共 1）'), pde5);
+assert.ok(pde5.includes('A10BD19 EMPAGLIFLOZIN／LINAGLIPTIN'), pde5);
+assert.equal(nhiSummary(['C01BD07'], []), '');
 console.log('prereview queue checks passed');
