@@ -95,6 +95,12 @@ slipFields[5] = '067**17';
 assert.equal(parsePrescriptionSlip(slipFields.join(';') + ';').birth, '1978-**-17');
 slipFields[5] = '067/02/**';
 assert.equal(parsePrescriptionSlip(slipFields.join(';') + ';').birth, '1978-02-**');
+// A ROC birth date without its leading 0 (6 digits) and a Western one (8 digits) print as Western dates on the store copy.
+for (const [written, birth, band] of [['670117', '1978-01-17', 'AGE40-49'], ['19780117', '1978-01-17', 'AGE40-49'], ['01120315', '', 'AGE?99999999']]) {
+  slipFields[5] = written;
+  const read = parsePrescriptionSlip(slipFields.join(';') + ';');
+  assert.deepEqual([read.birth, read.rx.age], [birth, band], written);
+}
 for (const odd of ['***/01/17', '067/13/**', '067/**/32', '067/1*/17']) {
   slipFields[5] = odd;
   assert.equal(parsePrescriptionSlip(slipFields.join(';') + ';').birth, '', odd);

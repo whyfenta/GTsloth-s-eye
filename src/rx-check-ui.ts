@@ -29,11 +29,29 @@ function list(lines: Line[]): HTMLUListElement {
 }
 
 /**
+ * An age the QR does not give (no birth date, or one the page cannot read, AGE?…), typed in years on the card: it changes this
+ * card's check only, in page memory like the name. The sample sent at print keeps what the QR gives. years: as typed, if any.
+ */
+export interface TypedAge { years?: number; set: (years: number | undefined) => void }
+function ageInput(rx: RxFacts, typed: TypedAge): HTMLElement {
+  const box = make('span', 'slip-age');
+  const input = make('input');
+  input.type = 'number'; input.min = '0'; input.max = '130'; input.step = '1'; input.inputMode = 'numeric';
+  input.value = typed.years === undefined ? '' : String(typed.years);
+  input.setAttribute('aria-label', '年齡（歲），QR 讀不到時手動輸入');
+  input.addEventListener('change', () => {
+    const years = Number(input.value);
+    typed.set(input.value.trim() && Number.isInteger(years) && years >= 0 && years <= 130 ? years : undefined);
+  });
+  box.append(typed.years === undefined ? 'QR 讀不到年齡，可輸入' : `${rx.age}（手動輸入）`, input, '歲');
+  return box;
+}
+/**
  * What the check reads about the patient, under the card's name: 就醫科別, age band, then the diagnoses, each a code and its Chinese
  * name; the stylesheet sets them side by side in columns that keep codes and names aligned. The names wait for the data; the sex
- * goes beside the name itself.
+ * goes beside the name itself. typed: given when the QR's age cannot be read, for an age typed in instead.
  */
-export function renderPatient(box: HTMLDListElement, rx: RxFacts, data?: RxData) {
+export function renderPatient(box: HTMLDListElement, rx: RxFacts, data?: RxData, typed?: TypedAge) {
   const entry = (term: string, value: string | HTMLElement) => {
     const dd = make('dd');
     dd.append(value);
@@ -46,7 +64,7 @@ export function renderPatient(box: HTMLDListElement, rx: RxFacts, data?: RxData)
   }
   box.replaceChildren();
   entry('科別', rx.dept ? `${rx.dept} ${DEPARTMENTS[rx.dept] ?? ''}`.trim() : '科別未知');
-  entry('年齡層', rx.age || '年齡不明');
+  entry('年齡層', typed ? ageInput(rx, typed) : rx.age || '年齡不明');
   entry('診斷', rx.dx.length ? dx : '沒有診斷碼');
 }
 

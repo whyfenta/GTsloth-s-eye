@@ -1,4 +1,4 @@
-import { rocDate } from './arithmetic-model';
+import { dayNumber, rocDate } from './arithmetic-model';
 import { normCode, type RxFacts, type Sex } from './rx-check';
 
 export interface PrescriptionQR { date: string; days: number; drugCount: number; encoding: string }
@@ -89,9 +89,9 @@ export function parsePrescription(scanned: string, scannedAs = '文字輸入'): 
   return { date, days: Number(fields[9]), drugCount: (fields.length - 14) / 5, encoding };
 }
 /**
- * Fields 1, 4, 5 and 6 hold the institution code, name, ID number and ROC birth date (checked against a real QR). Some hospitals
- * mask part of the ID number and birth date with * (A128***212; 067**17, written with slashes); those are kept as masked, the birth
- * date as 1978-**-17.
+ * Fields 1, 4, 5 and 6 hold the institution code, name, ID number and ROC birth date (checked against a real QR; the other forms
+ * birthDate reads too). Some hospitals mask part of the ID number and birth date with * (A128***212; 067**17, written with
+ * slashes); those are kept as masked, the birth date as 1978-**-17.
  * A malformed ID or birth date is left blank.
  */
 export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入'): SlipQR {
@@ -99,7 +99,7 @@ export function parsePrescriptionSlip(scanned: string, scannedAs = '文字輸入
   const { fields, date } = prescriptionFields(text);
   const idNumber = fields[4].trim().toUpperCase();
   let birth = '';
-  try { birth = rocDate(fields[5].trim()); } catch { birth = maskedBirth(fields[5])?.date ?? ''; /* Blank: the store copy prints the ID number alone. */ }
+  try { birth = birthDate(fields[5]); } catch { birth = maskedBirth(fields[5])?.date ?? ''; /* Blank: the store copy prints the ID number alone. */ }
   const drugs = [];
   for (let i = 14; i < fields.length; i += 5) drugs.push({ code: fields[i].trim(), total: fields[i + 4].trim() });
   return { date, days: Number(fields[9]), drugCount: drugs.length, encoding, institution: fields[0], name: fields[3].trim(),
@@ -143,6 +143,23 @@ export function parsePrescriptionDrugs(scanned: string, scannedAs = '文字輸�
   }
   return { drugs, rx, encoding };
 }
+/**
+ * A birth date as a Western date (1978-01-17), or an error. Field 6 is a ROC date of 7 digits (0670117). Hospitals also write
+ * two other forms:
+ * - 6 digits (670117): the ROC date kept as a number, which drops the leading 0 of a year before ROC 100. Samples bear this out:
+ *   the hospital whose adults all have 6 digits gives its children born in ROC 100 or later 7 digits, as a number would.
+ * - 8 digits from 19 or 20 (19780117): a Western date, which the reviewers have seen on prescriptions.
+ * A ROC date padded to 8 digits with a 0 (01120315) is not a Western year 0112, so it is never read as one: it stays unread.
+ */
+export function birthDate(value: string): string {
+  const text = value.trim();
+  if (/^(?:19|20)\d{6}$/.test(text)) {
+    const date = `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6)}`;
+    dayNumber(date);
+    return date;
+  }
+  return rocDate(/^\d{6}$/.test(text) ? `0${text}` : text);
+}
 /** A birth date that cannot be read is described by its shape, never its value: digits become 9, letters A, any other character outside printable ASCII X, symbols stay; past 12 characters only the length. */
 export function birthShape(value: string): string {
   const chars = [...value];
@@ -166,7 +183,8 @@ export function maskedBirth(value: string): { date: string; dates: string[] } | 
   }
   return dates.length ? { date: `${Number(year) + 1911}-${month}-${day}`, dates } : undefined;
 }
-function band(age: number): string {
+/** An age in completed years as its band: AGE0-9 … AGE80-89, AGE90+, with 60–69 split at 65 (an age typed on the 憑單 too). */
+export function bandOfAge(age: number): string {
   if (age >= 90) return 'AGE90+';
   if (age >= 60 && age < 70) return age < 65 ? 'AGE60-64' : 'AGE65-69';
   const low = age - age % 10;
@@ -174,20 +192,21 @@ function band(age: number): string {
 }
 /**
  * Completed years on the visit date in 10-year bands (AGE0-9 … AGE80-89, AGE90+), with 60–69 split at 65 for the rules on older
- * patients. A birth date with a masked month or day (see maskedBirth) gives the band when every date it can be falls in the same
+ * patients. The birth date is read as birthDate reads it (7 digits ROC, 6 digits ROC without its leading 0, 8 digits Western).
+ * A birth date with a masked month or day (see maskedBirth) gives the band when every date it can be falls in the same
  * one, as a known year mostly does; otherwise, and for any other unreadable birth date, its shape. A blank birth date, an
  * unreadable visit date or a birth after the visit gives a blank.
  */
 export function ageBand(birthRoc: string, visitRoc: string): string {
   let births: string[], visit: string;
-  try { births = [rocDate(birthRoc.trim())]; } catch {
+  try { births = [birthDate(birthRoc)]; } catch {
     const masked = maskedBirth(birthRoc);
     if (!masked) return birthRoc.trim() ? birthShape(birthRoc) : '';
     births = masked.dates;
   }
   try { visit = rocDate(visitRoc.trim()); } catch { return ''; }
   const bands = new Set(births.filter(birth => birth <= visit)
-    .map(birth => band(Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0))));
+    .map(birth => bandOfAge(Number(visit.slice(0, 4)) - Number(birth.slice(0, 4)) - (visit.slice(5) < birth.slice(5) ? 1 : 0))));
   if (!bands.size) return '';
   return bands.size === 1 ? [...bands][0] : birthShape(birthRoc);
 }
@@ -205,13 +224,24 @@ export function sexOf(idNumber: string): Sex {
 export const sexMark = (sex: Sex) => sex && `SEX${sex}`;
 export const markedSex = (field: string): Sex => ({ SEXM: 'M', SEXF: 'F' } as const)[field.trim().toUpperCase()] ?? '';
 /**
+ * Field 7's 就醫科別 as the check reads it: the 2-character NHI code (02, AB), or a 4-character one led by a letter and padded with
+ * 00 (AB00); '' for anything else, which leaves the department unknown. 3 characters (146, 0NB) are a hospital's own code. So
+ * are some 4-character codes led by a digit: one hospital writes the NHI code and a sub-code of its own (1300, 1302), another
+ * its own 2 characters and 00, which read as NHI codes that do not fit the prescriptions (heart and stroke patients under
+ * 04 兒科). Nothing in the code tells the two apart, so a digit-led 4-character code is unknown too. Reading its last 2
+ * characters does not help: they are 00 (不分科) or the sub-code. docs/rx-samples-apps-script.gs has the same rule.
+ */
+export function nhiDepartment(value: string): string {
+  const code = value.trim().toUpperCase();
+  return code.length === 2 || /^[A-Z][0-9A-Z]00$/.test(code) ? code.slice(0, 2) : '';
+}
+/**
  * What the prescription check reads, each field trimmed and upper-cased as hospitals write either case: field 12's #-separated
- * diagnoses without dots, field 7's 就醫科別, field 10's 給藥日份, each drug's code, frequency, route and 總量. The 就醫科別 has 2 characters, or 4 when a
- * hospital pads it (AB00, 0100); any other length is the hospital's own code (146, 0NB) and leaves the department unknown.
+ * diagnoses without dots, field 7's 就醫科別 (nhiDepartment), field 10's 給藥日份, each drug's code, frequency, route and 總量.
  */
 export function rxFacts(fields: string[], age: string, sex: Sex): RxFacts {
   const f = fields.map(value => value.trim().toUpperCase());
-  const dept = f[6].length === 2 || (f[6].length === 4 && f[6].endsWith('00')) ? f[6].slice(0, 2) : '';
+  const dept = nhiDepartment(f[6]);
   const drugs = [];
   for (let i = 14; i < f.length; i += 5) drugs.push({ code: f[i], frequency: f[i + 2], route: f[i + 3], total: f[i + 4] });
   return { dx: f[11].split('#').filter(code => code.trim()).map(normCode), dept, age, sex, days: f[9], drugs };

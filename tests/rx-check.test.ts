@@ -44,7 +44,10 @@ const verdicts = (rx: RxFacts, use = rules) => checkPrescription(rx, drugs, use)
 let rx = qr('e11.9#i10#', ['testmetf01 ', 'TESTCLOP01'], { 7: 'ab00' });
 assert.deepEqual(rx, { dx: ['E119', 'I10'], dept: 'AB', age: 'AGE65-69', sex: 'M', days: '28',
   drugs: [{ code: 'TESTMETF01', frequency: 'BID', route: 'PO', total: '56' }, { code: 'TESTCLOP01', frequency: 'BID', route: 'PO', total: '56' }] });
-for (const [dept, read] of [['AB', 'AB'], ['01', '01'], ['0100', '01'], ['AB01', ''], ['146', ''], ['0NB', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 7: dept }).dept, read, dept);
+// A 4-character code led by a digit is a hospital's own: one pads the NHI code with a sub-code (1302), another puts its own code
+// before 00 (0400 on an adult's heart prescription), so neither its first nor its last 2 characters are read.
+for (const [dept, read] of [['AB', 'AB'], ['01', '01'], ['AB00', 'AB'], ['ag00', 'AG'], ['0100', ''], ['0400', ''], ['1302', ''], ['0C00', ''], ['0204', ''],
+  ['AB01', ''], ['146', ''], ['0NB', ''], ['', '']]) assert.equal(qr('I10', ['TESTSTAT01'], { 7: dept }).dept, read, dept);
 assert.deepEqual(qr('', ['TESTSTAT01']).dx, []);
 assert.deepEqual(qr(' # E11 ##', ['TESTSTAT01']).dx, ['E11']);
 // Sex from the ID number's second character: 身分證 1 or 2, 統一證號 8 or 9 and the older A–D; another character or no ID is unknown.
@@ -142,6 +145,11 @@ assert.deepEqual(combinedNotes(qr('F41.1#N40', ['TESTALPR01', 'TESTTAMS01']), qr
   ['0 TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', '0 TESTALPR01 黃 T06 測試提示己（AGE65-69；同處方：G04CA02）']);
 assert.deepEqual(combinedNotes(qr('F41.1', ['TESTALPR01']), qr('I10', ['TESTAMLO01'], { 17: 'QDHS' })),
   ['0 TESTALPR01 灰 T05 無法判斷：AGE65-69 跨過 67 歲', '0 TESTALPR01 黃 T06 測試提示己（AGE65-69；併用：第 2 張 C08CA01）'], 'the frequency on the other prescription counts');
+// The age band: the first prescription's that has one read from a birth date, before another's unreadable shape.
+assert.deepEqual(combinedNotes(qr('F41.1', ['TESTALPR01'], { 6: '民國五十年' }), qr('I10', ['TESTSTAT01'], { 6: '0450101' })),
+  ['0 TESTALPR01 灰 T03 測試提示丙（AGE70-79）', '0 TESTALPR01 黃 T05 測試提示戊（AGE70-79）']);
+assert.deepEqual(combinedNotes(qr('F41.1', ['TESTALPR01'], { 6: '民國五十年' }), qr('I10', ['TESTSTAT01'], { 6: '' })),
+  ['0 TESTALPR01 灰 T03 無法讀取年齡', '0 TESTALPR01 灰 T05 無法讀取年齡'], 'no band anywhere: the shape, which cannot be read');
 // Explained by another prescription's diagnosis or drug; the department is the drug's own prescription's.
 result = combined(qr('I10', ['TESTMETF01'], { 7: '02' }), qr('E11.9', ['TESTPPI001']), qr('I25.10', ['TESTCLOP01'], { 7: '02' }));
 assert.deepEqual(result.drugs.map(drug => `${drug.part} ${drug.verdict} ${drug.reason}`),

@@ -416,7 +416,8 @@ export function dailyMg(caution: Caution, rx: RxFacts, drugs: Map<string, DrugIn
  * another, and an ingredient on two prescriptions is repeated, even under the same 健保碼 (on one prescription a repeated code
  * is the same drug at two times of day; on two it is the drug given twice). Each drug keeps its own prescription's department.
  * A reason that leans on another prescription's diagnosis or drug names that prescription (labels.part). The age band and sex are
- * the first prescription's that has them. One prescription is checked exactly as the prototype checks it.
+ * the first prescription's that has them: a band read from a birth date before an unreadable one's shape (AGE?999999), so one
+ * hospital's odd birth date does not hide the age another gives. One prescription is checked exactly as the prototype checks it.
  */
 export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo>, rules: Rules, labels: Labels = PLAIN): RxCheck {
   const many = parts.length > 1, partName = labels.part ?? ((index: number) => `第 ${index + 1} 張`);
@@ -425,7 +426,7 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
   const from = (map: Map<string, number[]>, key: string, index: number) => { const list = map.get(key) ?? []; if (!list.includes(index)) map.set(key, [...list, index]); };
   parts.forEach((part, index) => { for (const code of part.dx) from(dxFrom, code, index); for (const { code } of part.drugs) from(codeFrom, code, index); });
   const dx = many ? [...dxFrom.keys()] : parts[0]?.dx ?? [];
-  const age = parts.find(part => part.age)?.age ?? '', sex = parts.find(part => part.sex)?.sex ?? '';
+  const age = (parts.find(part => /^AGE\d/.test(part.age)) ?? parts.find(part => part.age))?.age ?? '', sex = parts.find(part => part.sex)?.sex ?? '';
   /** 第 2 張 before what is not on the drug's own prescription; nothing for a single prescription. */
   const elsewhere = (on: number[], part: number) => many && !on.includes(part) ? `${on.map(partName).join('、')} ` : '';
   const list = parts.flatMap((rx, part) => rx.drugs.map(drug => ({ ...drug, part, dept: rx.dept })));

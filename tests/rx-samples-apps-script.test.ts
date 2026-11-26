@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { nhiDepartment } from '../src/prescription-qr';
 import { deidentify, failureLine } from '../src/prescription-sample';
 import { sampleOf, sampleRecords, SAMPLE_FORMAT } from '../src/rx-sample';
 import { ruleId } from '../src/rx-ids';
@@ -156,6 +157,8 @@ assert.deepEqual(Array.from(gs.call<string[]>('mergedOf', ['C-056黃', 'C-1000�
 // with C-017黃 after; the script's ruleId is src/rx-ids.ts's.
 assert.deepEqual(['C17黃', 'C-017黃', 'C05灰', '同成分重複黃', 'T01紅'].map(key => gs.call<string>('cautionKey', key)), ['C-017黃', 'C-017黃', 'C-005灰', '同成分重複黃', 'T01紅']);
 for (const id of ['C17', 'C184', 'I24', 'SAB', 'X1', 'Q10', 'C-017', 'P20261109-01', '']) assert.equal(gs.call<string>('ruleId', id), ruleId(id), id);
+// The weekly summary's 院內科別代碼 are the codes the page leaves unknown (nhiDepartment in src/prescription-qr.ts).
+for (const dept of ['AB', '02', 'AB00', 'ab00', '0100', '0400', '1302', '0C00', 'AB01', '146', '0nj', '']) assert.equal(gs.call<string>('nhiDepartment', dept), nhiDepartment(dept), dept);
 assert.deepEqual(gs.sheet('失敗').rows.slice(1).map(row => row[3]), ['伺服器拒收：第 4 欄（姓名）不是空白', '失敗：測試原因，欄位數 3']);
 assert.ok(!gs.sheets.some(s => s.rows.some(row => row.some(value => value.includes(';測試;')))), 'the rejected line, name and all, never reaches a sheet');
 for (const secret of ['A223456789', '0650101', 'TESTNOTE01', '0099']) assert.ok(!JSON.stringify(gs.sheets.map(s => s.rows)).includes(secret), secret);
@@ -207,6 +210,35 @@ gs.call('weekly');
 const patientSection = gs.docs[2].text.split('## 同一病人的多張處方')[1].split('\n## ')[0];
 assert.match(patientSection, /；1 位病人）\n1\. 批次 \S+・2 張・AGE50-59・SEXF\n {3}- \[未判定\] 院所 0303030303・[^\n]*\n {5}行：0303030303;[^\n]*\n {3}- \[未判定\] 院所 0404040404・[^\n]*・合併多出 同成分重複黃\n {5}行：0404040404;/);
 assert.ok(!patientSection.includes('0505050505'));
+// A digit-led 4-character 就醫科別 is listed with the hospital's own codes; a letter-led one padded with 00 is an NHI code.
+const departments = load();
+departments.call('setup');
+const [deptRecord] = sampleRecords([sampleOf(qr({ 7: '0400' })), sampleOf(qr({ 7: 'AB00', 8: '1151102' })), sampleOf(qr({ 7: '146', 8: '1151103' }))], [], undefined, 't', 't');
+departments.call('doPost', { postData: { contents: JSON.stringify(deptRecord) } });
+departments.call('weekly');
+const deptSection = departments.docs[0].text.split('## 院內科別代碼')[1].split('\n## ')[0];
+assert.match(deptSection, /- 0400（院所 0101010101） ×1/);
+assert.match(deptSection, /- 146（院所 0101010101） ×1/);
+assert.ok(!deptSection.includes('AB00'), deptSection);
+// The same prescription in another case (a scanner with Caps Lock on, before the page upper-cased lines), and one sent with its
+// first QR only, then with its second QR joined: each counts once, the longer line kept. A shorter line already exported stays.
+const repeats = load();
+repeats.call('setup');
+const firstOnly = deidentify(qr({ 8: '1151103' }, ['TESTCODE01', 'TESTCODE02']));
+const joined = `${firstOnly}TESTCODE03;1;QD;PO;28;`;
+const lower = deidentify(qr({ 8: '1151104' })).replace(/[A-Z]/g, c => c.toLowerCase()).replace('sexf', 'SEXF').replace('age50-59', 'AGE50-59');
+const repeatPost = (lines: string[]) => repeats.call('doPost', { postData: { contents: JSON.stringify({ format: SAMPLE_FORMAT, version: 1, app: 't', sent: 't', rules: '',
+  prescriptions: lines.map(line => ({ line, qrs: 1 })), failed: [] }) } });
+repeatPost([lower, firstOnly]);
+repeatPost([lower.toUpperCase(), joined]);
+repeats.call('weekly');
+assert.deepEqual(repeats.sheet('樣本').rows.slice(1).map(row => at(row, '重複於')), ['', '5', '2', '']);
+assert.deepEqual(repeats.root.folders[0].files.map(file => file.text), [`${lower}\n${joined}\n`]);
+assert.match(repeats.docs[0].text, /收到 4 張，重複 2 張（[^）]*只差英文大小寫[^）]*第 1 個 QR）/);
+// Next week the first QR alone again (another visit) repeats its earlier row; the joined line again repeats the joined row.
+repeatPost([firstOnly, joined]);
+repeats.call('weekly');
+assert.deepEqual(repeats.sheet('樣本').rows.slice(5).map(row => at(row, '重複於')), ['3', '5']);
 // A sheet made before 對照檔查無 and 合併多出 gets the two names on the next write; its rows stay as they were.
 const older = load();
 older.call('setup');

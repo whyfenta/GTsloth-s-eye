@@ -27,7 +27,7 @@ for (const [id, kept] of [['A128***212', 'SEXM'], ['B2********', 'SEXF'], ['a9**
   assert.ok(!deidentify(qr({ 5: id })).includes(id.slice(2, 4)), `${id} 字號不可輸出`);
 }
 // Fields 3, 7 and 11 keep up to 4 letters or digits.
-for (const [value, kept] of [['', ''], ['1', '1'], ['AB12', 'AB12'], ['ab9', 'ab9'], ['ABCDE', ''], ['12345', ''], ['12-3', ''], [' 12', ''], ['測', ''], ['１２', '']]) {
+for (const [value, kept] of [['', ''], ['1', '1'], ['AB12', 'AB12'], ['ab9', 'AB9'], ['ABCDE', ''], ['12345', ''], ['12-3', ''], [' 12', ''], ['測', ''], ['１２', '']]) {
   for (const n of [3, 7, 11]) assert.equal(field(qr({ [n]: value }), n), kept, `第 ${n} 欄 ${value}`);
 }
 // Field 13 is kept only when it repeats field 1.
@@ -66,8 +66,16 @@ assert.deepEqual([ageBand('0500228', '1150227'), ageBand('0500228', '1150228')],
 for (const birth of ['', '   ', '1150102']) assert.equal(ageBand(birth, visit), '', birth);
 assert.equal(ageBand('1050101', '1150230'), '');
 // A birth date that cannot be read leaves its shape only: digits 9, letters A, other non-ASCII X, symbols kept; past 12 characters, the length.
-for (const [birth, shape] of [['19610101', 'AGE?99999999'], ['1961/01/01', 'AGE?9999/99/99'], ['050/01/01', 'AGE?999/99/99'], ['民國50年1月1日', 'AGE?XX99X9X9X'],
-  ['０５００１０１', 'AGE?XXXXXXX'], ['1051301', 'AGE?9999999'], ['1050230', 'AGE?9999999'], ['0000101', 'AGE?9999999'], ['501231', 'AGE?999999'], ['TESTVAL', 'AGE?AAAAAAA'],
+// Two other forms are read: 6 digits, a ROC date without its leading 0 (a number), and 8 digits of a Western date from 19 or 20.
+for (const [birth, band] of [['501231', 'AGE60-64'], ['500101', 'AGE65-69'], ['0501231', 'AGE60-64'], ['19610101', 'AGE65-69'], ['19611231', 'AGE60-64'],
+  ['20160101', 'AGE10-19'], [' 19610101 ', 'AGE65-69']]) assert.equal(ageBand(birth, visit), band, birth);
+// Not a date in that form stays a shape: a 0 year, 02/30, a Western year before 1900, and a ROC date padded to 8 digits, which is
+// never read as the Western year 0112.
+for (const [birth, shape] of [['000101', 'AGE?999999'], ['500230', 'AGE?999999'], ['18991231', 'AGE?99999999'], ['19610230', 'AGE?99999999'],
+  ['01120315', 'AGE?99999999'], ['501301', 'AGE?999999']]) assert.equal(ageBand(birth, visit), shape, birth);
+assert.equal(ageBand('20260102', visit), '', 'a birth after the visit is blank, as for a ROC date');
+for (const [birth, shape] of [['1961/01/01', 'AGE?9999/99/99'], ['050/01/01', 'AGE?999/99/99'], ['民國50年1月1日', 'AGE?XX99X9X9X'],
+  ['０５００１０１', 'AGE?XXXXXXX'], ['1051301', 'AGE?9999999'], ['1050230', 'AGE?9999999'], ['0000101', 'AGE?9999999'], ['TESTVAL', 'AGE?AAAAAAA'],
   ['1961-01-01AM', 'AGE?9999-99-99AA'], ['1961-01-01 AM', 'AGE?len13'], ['1961-01-01T00:00:00', 'AGE?len19'], ['050\n0101', 'AGE?999X9999']]) {
   assert.equal(ageBand(birth, visit), shape, birth);
   const line = deidentify(qr({ 6: birth }));
@@ -75,7 +83,8 @@ for (const [birth, shape] of [['19610101', 'AGE?99999999'], ['1961/01/01', 'AGE?
   assert.equal(splitFields(line).length, fields.length);
   for (const original of [birth, birth.trim(), '1961', '民國']) assert.ok(!line.includes(original), `${birth} 原值不可輸出`);
 }
-assert.equal(ageBand('19610101', '1150230'), 'AGE?99999999');
+assert.equal(ageBand('1961/01/01', '1150230'), 'AGE?9999/99/99');
+assert.equal(ageBand('19610101', '1150230'), '', 'a readable birth date with an unreadable visit date is blank');
 // Some hospitals mask the month or day with **: the band when every date it can be falls in one, else the shape as above.
 for (const [birth, at, kept] of [['067/**/17', '1151104', 'AGE40-49'], ['067**17', '1151104', 'AGE40-49'], ['067/11/**', '1151104', 'AGE40-49'],
   ['067/**/**', '1151104', 'AGE40-49'], ['050/**/**', '1150101', 'AGE?999/**/**'], ['050/01/**', '1150101', 'AGE?999/99/**'], ['050/**/01', '1151231', 'AGE65-69'],
@@ -131,6 +140,12 @@ for (const text of [short, qr({ 15: '' }), qr({ 1: '測試' })]) {
 }
 console.log('prescription sample failure lines passed');
 
+// A keyboard scanner with Caps Lock on inverts every letter: the line is the same, and so is the rescan's key.
+const inverted = (text: string) => text.replace(/[A-Za-z]/g, c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase());
+assert.equal(deidentify(inverted(qr())), expected);
+assert.equal(deidentify(qr({ 15: 'testcode01', 17: 'bid', 18: 'po', 12: 'testdx.1#' })), expected.replace('TESTDX.1#TESTDX2#', 'TESTDX.1#'));
+assert.equal(deidentifyDrugs('testcode03;1;qd;po;28;'), 'TESTCODE03;1;QD;PO;28;');
+assert.equal(await scanKey(inverted(qr())), await scanKey(qr()));
 // A rescan is matched against the scanned text (by its digest), not against the de-identified line.
 const key = await scanKey(qr());
 assert.match(key, /^[0-9a-f]{64}$/);
@@ -141,6 +156,7 @@ assert.notEqual(await scanKey(other), key);
 const log = new SampleLog();
 assert.deepEqual(log.record(key, qr()), { state: 'added', index: 0 });
 assert.deepEqual(log.record(key, qr()), { state: 'duplicate', index: 0 });
+assert.deepEqual(log.record(await scanKey(inverted(qr())), inverted(qr())), { state: 'duplicate', index: 0 }, 'the same QR with Caps Lock on');
 assert.deepEqual(log.record(await scanKey(other), other), { state: 'added', index: 1 });
 const shortKey = await scanKey(short);
 assert.deepEqual(log.record(shortKey, short), { state: 'failed', index: 2 });
@@ -161,6 +177,10 @@ assert.deepEqual(reloaded.record(await scanKey(later), later), { state: 'added',
 assert.deepEqual(reloaded.record(await scanKey(later), later), { state: 'duplicate', index: 4 });
 reloaded.clear();
 assert.deepEqual([reloaded.text(), reloaded.collected], ['', 0]);
+// A line saved before lines were upper-cased still matches a rescan.
+reloaded.restore([expected.toLowerCase()]);
+assert.deepEqual(reloaded.record(key, qr()), { state: 'duplicate', index: 0 });
+reloaded.clear();
 // A prescription with many drugs has a drugs-only second QR: it joins the line before it, counted per institution.
 const drugsQR = 'TESTCODE03;1;;PO;28;TESTCODE04;X1;QD;OU;1;';
 assert.equal(deidentifyDrugs(drugsQR), drugsQR);

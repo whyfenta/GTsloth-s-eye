@@ -1,7 +1,7 @@
 import { addDays, taiwanToday, type DateRange } from './arithmetic-model';
 import { loadRoster, ROSTER_SOURCE, unknownInstitution } from './institutions';
 import { multiQRNote, printsMultiQR } from './multi-qr';
-import type { DrugsQR, SlipQR } from './prescription-qr';
+import { bandOfAge, type DrugsQR, type SlipQR } from './prescription-qr';
 import { loadProducts } from './products';
 import type { RxFacts } from './rx-check';
 import { rxCheckOn } from './rx-check-config';
@@ -20,7 +20,8 @@ interface Drug { code: string; total: string; missing: boolean; name: string; qu
 // more: the follow-up QRs of drugs only, so a rescan of one is not added twice. qrs: how many QR codes the card was read from. sample: the de-identified line sent when the
 // slip is printed (only with samples on), and sent once that request has gone out. patient: the 科別, age band and diagnoses under the name.
 // person: the ID number, name and birth date as scanned, which tell the prescriptions of one patient (the name field can be edited).
-interface Item extends SlipEntry { key: string; institution: string; person: Person; drugs: Drug[]; firstDrugs: number; more: string[]; qrs: number; rx: RxFacts; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
+// qrAge: the age band the QR gives (rx.age until an age is typed); typedAge: the age typed on the card when the QR gives none.
+interface Item extends SlipEntry { key: string; institution: string; person: Person; drugs: Drug[]; firstDrugs: number; more: string[]; qrs: number; rx: RxFacts; qrAge: string; typedAge?: number; element: HTMLLIElement; heading: HTMLElement; state: HTMLElement; hospitalNote: HTMLElement;
   patient: HTMLDListElement; drugList: HTMLFieldSetElement; check: HTMLElement; counts: HTMLInputElement[]; visits: HTMLInputElement[]; sample?: PendingSample; sent: boolean }
 type Row = 'second' | 'third';
 interface TripRow { row: Row; element: HTMLElement; start: HTMLInputElement; end: HTMLInputElement; count: HTMLElement; reset: HTMLButtonElement; hint: HTMLElement }
@@ -364,7 +365,12 @@ function patientOf(item: Item): number[] {
  */
 function showChecks() {
   if (!rxOn) return;
-  for (const item of items) renderPatient(item.patient, item.rx, rxData);
+  // An age band the QR does not give can be typed, for the card's check only; the sample keeps the QR's.
+  for (const item of items) renderPatient(item.patient, item.rx, rxData, /^AGE\d/.test(item.qrAge) ? undefined : { years: item.typedAge, set: years => {
+    item.typedAge = years;
+    item.rx.age = years === undefined ? item.qrAge : bandOfAge(years);
+    showChecks();
+  } });
   if (!rxData) {
     for (const item of items) {
       item.check.replaceChildren(rxError ? make('p', 'error', rxError) : make('p', 'hint', '處方警示資料載入中…'));
@@ -450,12 +456,13 @@ export function addPrescription(qr: SlipQR, scanned = '', camera = false, qrs = 
   const restarted = printed;
   if (printed) clearSlip();
   status.textContent = '';
-  const key = [qr.institution, qr.idNumber, qr.name, qr.date, qr.days, ...qr.drugs.map(drug => drug.code)].join('|');
+  // In one case: the same QR scanned with Caps Lock on (every letter inverted) is the same prescription, not a second card.
+  const key = [qr.institution, qr.idNumber, qr.name, qr.date, qr.days, ...qr.drugs.map(drug => drug.code)].join('|').toUpperCase();
   const existing = items.findIndex(item => item.key === key);
   if (existing >= 0) return { message: `這張處方已在憑單第 ${existing + 1} 張，不重複加入。` };
   // The owed quantity is whatever the store is short of, so it is typed, not taken from the QR total.
   const item: Item = { key, institution: qr.institution, person: { idNumber: qr.idNumber, name: qr.name, birth: qr.birth }, date: qr.date, days: qr.days, count: 3, name: qr.name, idNumber: qr.idNumber, birth: qr.birth, hospital: '',
-    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], qrs, rx: qr.rx,
+    drugs: qr.drugs.map(drug => ({ ...drug, missing: false, name: '', quantity: '', note: '', products: [] })), firstDrugs: qr.drugs.length, more: [], qrs, rx: qr.rx, qrAge: qr.rx.age,
     element: make('li', 'slip-item'), heading: make('strong'), state: make('p', 'slip-item-state'), hospitalNote: make('p', 'hint slip-hospital-note'),
     patient: make('dl', 'slip-patient'), drugList: make('fieldset', 'slip-drugs'), check: make('section', 'slip-rx-check'), counts: [], visits: [], sent: false,
     ...(samples && scanned ? { sample: sampleOf(scanned, qrs) } : {}) };
@@ -492,7 +499,7 @@ export function addDrugs(qr: DrugsQR, scanned = ''): Scanned {
   const item = items.at(-1);
   if (!item || printed) return { message: '這張 QR 只有藥品，是處方的第 2 個 QR。請先掃同一張處方的第 1 個 QR（有姓名與日期的那個），再掃這個。' };
   const index = items.length;
-  const key = qr.drugs.map(drug => `${drug.code}:${drug.total}`).join('|');
+  const key = qr.drugs.map(drug => `${drug.code}:${drug.total}`).join('|').toUpperCase();
   if (item.more.includes(key)) return { message: `這個藥品 QR 已加入第 ${index} 張，不重複加入。` };
   item.more.push(key);
   item.qrs++;

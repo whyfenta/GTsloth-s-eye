@@ -9,7 +9,18 @@ const kept = [1, 2, 8, 10, 12];
 /** Fields 3, 7 and 11 are of unknown use: a short code is kept, anything longer may identify the patient. */
 const shortCode = (value: string) => /^[0-9A-Za-z]{1,4}$/.test(value) ? value : '';
 
-/** One prescription as one line in the same ;-separated layout. Every field is blank unless a rule keeps it, so nothing moves and nothing unlisted leaks. */
+/**
+ * Letters in one case. A keyboard scanner typing with Caps Lock on inverts every letter (BID → bid, Tab → tAB), so the
+ * same QR scanned with it, without it or by the camera gives the same line. Nothing in a line tells by case: codes, frequencies,
+ * routes and diagnoses are read upper-cased (rxFacts), field 14 keeps only the 過敏史 text. Only a-z: no other character, and so
+ * no field's length, changes.
+ */
+export const sameCase = (text: string) => text.replace(/[a-z]+/g, letters => letters.toUpperCase());
+/**
+ * One prescription as one line in the same ;-separated layout, the fields kept from the scan upper-cased (sameCase; fields 5 and 6
+ * are the page's own, SEXM and AGE?len13 as they are). Every field is blank unless a rule keeps it, so nothing moves and nothing
+ * unlisted leaks.
+ */
 export function deidentify(scanned: string, scannedAs?: string): string {
   const { fields } = parsePrescriptionLayout(scanned, scannedAs);
   for (const n of kept) if (/[^\x20-\x7E]/.test(fields[n - 1])) throw new Error(`第 ${n} 欄出現中文或全形字，可能是不同院所的 QR 格式。`);
@@ -23,23 +34,23 @@ export function deidentify(scanned: string, scannedAs?: string): string {
   // only the allergy part stays, cut at its first comma or ;, so the line keeps its fields.
   line[13] = fields[13].split(/[,;]/).filter(part => /^\s*過敏史[:：]/.test(part)).join(',');
   if (line.some(value => /[\r\n\u2028\u2029]/.test(value))) throw new Error('保留欄位含換行，無法輸出單行樣本。');
-  return line.join(';') + ';';
+  return line.map((value, i) => i === 4 || i === 5 ? value : sameCase(value)).join(';') + ';';
 }
-/** A prescription's drugs-only second QR, as the drug fields to append to its line; undefined for any other scan. Drug fields are kept as scanned, as in deidentify. */
+/** A prescription's drugs-only second QR, as the drug fields to append to its line; undefined for any other scan. Drug fields are kept as scanned and upper-cased, as in deidentify. */
 export function deidentifyDrugs(scanned: string, scannedAs?: string): string | undefined {
   const fields = parseDrugsLayout(scanned, scannedAs)?.fields;
   if (!fields) return undefined;
   if (fields.some(value => /[\r\n\u2028\u2029]/.test(value))) throw new Error('保留欄位含換行，無法輸出單行樣本。');
-  return fields.join(';') + ';';
+  return sameCase(fields.join(';') + ';');
 }
 /** A rejected scan is recorded by reason and field count only, never by its text. */
 export function failureLine(scanned: string, error: unknown): string {
   const reason = error instanceof Error ? error.message.replace(/。$/, '') : '無法解析';
   return `${FAILED}${reason}，欄位數 ${splitFields(scanned).length}`;
 }
-/** SHA-256 of the scanned text, so a rescan is matched against the original without keeping it. */
+/** SHA-256 of the scanned text with its letters in one case (sameCase), so a rescan, Caps Lock on or off, is matched against the original without keeping it. */
 export async function scanKey(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sameCase(text)));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
@@ -65,8 +76,9 @@ export class SampleLog {
       line = drugs ?? deidentify(scanned);
     } catch (error) { return this.fail(key, scanned, error); }
     if (drugs) return this.append(key, scanned, drugs);
-    // A rescan of a prescription collected before a reload can only be matched by its de-identified line, which a second QR has made longer.
-    const restored = this.entries.findIndex(entry => !entry.key && entry.ok && (entry.line === line || entry.qrs > 1 && entry.line.startsWith(line)));
+    // A rescan of a prescription collected before a reload can only be matched by its de-identified line, which a second QR has made
+    // longer; a line saved before lines were upper-cased is compared in one case.
+    const restored = this.entries.findIndex(entry => !entry.key && entry.ok && (sameCase(entry.line) === sameCase(line) || entry.qrs > 1 && sameCase(entry.line).startsWith(sameCase(line))));
     if (restored >= 0) return { state: 'duplicate', index: restored };
     this.entries.push({ line, ok: true, key, qrs: 1 });
     return { state: 'added', index: this.entries.length - 1 };
@@ -76,7 +88,7 @@ export class SampleLog {
     const index = this.entries.length - 1;
     const last = this.entries[index];
     if (!last?.ok) return this.fail(key, scanned, new Error('只有藥品的第 2 個 QR，但前一張不是成功收下的處方'));
-    if (last.parts?.includes(key) || last.qrs > 1 && last.line.endsWith(`;${drugs}`)) return { state: 'duplicate', index };
+    if (last.parts?.includes(key) || last.qrs > 1 && sameCase(last.line).endsWith(`;${drugs}`)) return { state: 'duplicate', index };
     last.line += drugs;
     last.qrs++;
     (last.parts ??= []).push(key);
