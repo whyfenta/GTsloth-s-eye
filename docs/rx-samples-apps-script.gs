@@ -2,7 +2,7 @@
  * 處方警示 · 處方樣本接收端與每週整理（Google Apps Script，綁定在「GTsloth 掃碼樣本（自動收集）」試算表上）。
  * 憑單頁列印時 POST 一份 gtsloth-rx-samples JSON（src/rx-sample.ts）：每張處方是收集頁同格式的去識別化行，附上當時規則的判定摘要。
  * 這裡逐行再檢查一次去識別化，合格的寫進「樣本」，其餘只在「失敗」記原因、不記內容。
- * 每週一 weekly()：與先前的行比對去掉重複，把不重複的行匯出成 .txt 到同資料夾的「驗證用」，
+ * 每週一 weekly()：與先前的行比對去掉重複（英文大小寫不計；只有第 1 個 QR 的行，遇到同一張接上第 2 個 QR 的行也算重複），把不重複的行匯出成 .txt 到同資料夾的「驗證用」，
  * 並在「每週檢查」寫一份「週檢查資料_日期」文件給每週檢查（docs/rx-samples-weekly-review.md）讀。
  * 「對照檔查無」「合併多出」兩欄在最後，舊的試算表在下一次寫入時自動補上欄名，舊的列留白。
  * 設定步驟見 README「處方樣本試算表」。
@@ -98,6 +98,21 @@ function ruleId(id) {
 }
 /** A caution as the weekly summary counts it, number and level (C17黃 → C-017黃): rows from before 115/11/21 count with the later ones. */
 const cautionKey = key => { const match = /^([CIDK]\d+)([紅黃灰])$/.exec(key); return match ? ruleId(match[1]) + match[2] : key; };
+/**
+ * Field 7's 就醫科別 as the page reads it (nhiDepartment in src/prescription-qr.ts, which the tests compare it with): 2 characters,
+ * or 4 led by a letter and ending in 00 (AB00); '' for a hospital's own code (146, 0NB, and 4 characters led by a digit: 0400).
+ */
+function nhiDepartment(value) {
+  const code = String(value).trim().toUpperCase();
+  return code.length === 2 || /^[A-Z][0-9A-Z]00$/.test(code) ? code.slice(0, 2) : '';
+}
+/**
+ * A line as the weekly check compares it, letters in one case: a keyboard scanner with Caps Lock on inverts them, so the same
+ * prescription came as two lines (sameCase in src/prescription-sample.ts: the page upper-cases lines since P20261116-06; rows received before stay as they came).
+ */
+const sameCase = line => String(line).replace(/[a-z]+/g, letters => letters.toUpperCase());
+/** Fields 1–14 of a line: the prescription without its drugs. */
+const headOf = line => line.split(';').slice(0, 14).join(';');
 /** A failure line names a reason and a field count, nothing scanned. */
 const failureProblem = text => typeof text === 'string' && /^失敗：[^;\r\n\u2028\u2029]{1,160}，欄位數 \d{1,5}$/.test(text) ? '' : '失敗行格式不符';
 
@@ -140,14 +155,26 @@ function summarize() {
   const values = samples.getDataRange().getValues().slice(1).map(row => row.map(String));
   const failureValues = failuresSheet.getDataRange().getValues().slice(1).map(row => row.map(String));
   const col = name => SAMPLES.indexOf(name);
-  const seen = {}; const known = {};
+  // A repeat is the same line in one case (sameCase), not the same 內容摘要: that digest is of the line as received.
+  const lines = values.map(row => sameCase(row[col('去識別化內容')]));
+  const seen = {}; const known = {}; const heads = {};
   const fresh = [];
   values.forEach((row, i) => {
-    if (row[col('匯出檔')]) { if (!seen[row[col('內容摘要')]]) seen[row[col('內容摘要')]] = i + 2; known[row[col('醫事機構代碼')]] = true; return; }
-    const repeat = seen[row[col('內容摘要')]];
-    if (!repeat) seen[row[col('內容摘要')]] = i + 2;
+    (heads[headOf(lines[i])] = heads[headOf(lines[i])] || []).push(i);
+    if (row[col('匯出檔')]) { if (!seen[lines[i]]) seen[lines[i]] = i + 2; known[row[col('醫事機構代碼')]] = true; return; }
+    const repeat = seen[lines[i]];
+    if (!repeat) seen[lines[i]] = i + 2;
     fresh.push({ index: i, repeat: repeat || '', row: sampleOfRow(row) });
   });
+  // A prescription with a second QR sent first with its first QR only (printed before the second was scanned, or another visit):
+  // its line starts the line of the two joined, fields 1–14 and its drugs. Only the longer one counts; a shorter row exported in
+  // an earlier week stays in that week's file.
+  for (const item of fresh) {
+    if (item.repeat) continue;
+    const line = lines[item.index];
+    const longer = heads[headOf(line)].find(j => lines[j].length > line.length && lines[j].startsWith(line));
+    if (longer !== undefined) item.repeat = longer + 2;
+  }
   const failures = failureValues.map((row, i) => ({ index: i, text: row[3], done: row[4] })).filter(item => !item.done);
   const now = stamp(new Date());
   if (!fresh.length && !failures.length) {
@@ -220,7 +247,7 @@ function report(input) {
     if (row.merged.length) combined++;
     row.merged.forEach(key => count(merged, cautionKey(key)));
     const dept = row.dept.trim().toUpperCase();
-    if (dept && !(dept.length === 2 || (dept.length === 4 && dept.endsWith('00')))) count(depts, `${dept}（院所 ${row.institution}）`);
+    if (dept && !nhiDepartment(dept)) count(depts, `${dept}（院所 ${row.institution}）`);
     const dx3 = {};
     row.dx.split('#').map(code => code.replace(/\./g, '').trim().toUpperCase().slice(0, 3)).filter(Boolean).forEach(code => { dx3[code] = true; });
     for (const item of row.unexplained) {
@@ -239,7 +266,7 @@ function report(input) {
 
   out.push('GTsloth 處方樣本 週檢查資料', `期間：${input.from} ～ ${input.to}（上次整理後收到的全部資料）`, `整理時間：${input.made}`, '');
   out.push('## 總覽');
-  out.push(`收到 ${input.samples.length} 張，重複 ${input.samples.length - total} 張（同一張處方再次領藥或重印），不重複 ${total} 張；失敗 ${input.failures.length} 行。`);
+  out.push(`收到 ${input.samples.length} 張，重複 ${input.samples.length - total} 張（同一張處方再次領藥或重印、只差英文大小寫，或先只送了第 1 個 QR），不重複 ${total} 張；失敗 ${input.failures.length} 行。`);
   out.push(`院所 ${Object.keys(institutions).length} 家，其中先前沒出現過的 ${newInstitutions.length} 家。`);
   out.push(`最高等級：紅 ${levels.紅} 張、黃 ${levels.黃} 張（黃紅比例 ${rate || '無'}）、灰 ${levels.灰} 張、無提示 ${levels['']} 張；沒有判定摘要（規則資料未載入）${unchecked} 張。`);
   out.push(`規則版本：${tally(rules) || '無'}`);
@@ -293,7 +320,7 @@ function report(input) {
   section('對照檔查無此健保碼：健保品項查得到，六碼對照檔沒有（請補 sku-nhi-map.csv）', unmapped);
   section('對照檔查無此健保碼：健保品項也查無（院所自訂碼、特材或品項表過舊；對照檔補不了）', unmappedOther);
   section('查無或舊的診斷碼（查無：表中沒有；類別：只查到前幾碼；舊碼：2014 版已刪除）', unknownDx);
-  section('院內科別代碼（不是健保 2 碼，判定時當作科別未知）', depts);
+  section('院內科別代碼（不是健保 2 碼或字母開頭補 00 的 4 碼，判定時當作科別未知）', depts);
   section('新院所（先前沒出現過的醫事機構代碼，張數）', newInstitutions.reduce((map, code) => { map[code] = institutions[code]; return map; }, {}));
   section('失敗原因（含欄位數）', reasons);
   section('有第 2 個 QR 的院所（張數）', multi);

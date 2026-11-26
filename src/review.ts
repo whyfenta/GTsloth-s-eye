@@ -175,6 +175,7 @@ const conditionWords = (cond: NonNullable<Item['conds']>[number]): string | Node
   if (cond.kind === '未診斷') { const box = el('div'); box.append('本次沒有下列診斷：', dxChips(cond.dx)); return box; }
   if (cond.kind === '科別外') return `就醫科別不是 ${codes(text).join('、')}`;
   if (cond.kind === '日量') return `每日用量超過 ${text.replace('>', '')} 個單位（總量÷給藥日份）`;
+  if (cond.kind === '日劑量') return `每日劑量超過 ${text.replace('>', '').replace(' MG', ' mg').replace(' MCG', ' µg')}（每顆含量×總量÷給藥日份，同處方同類品項合計）`;
   if (cond.kind === '同處方') return drugList(cond.atc);
   if (cond.kind === '年齡') return /^\d+-\d+$/.test(text) ? `${text.replace('-', '–')} 歲` : text.startsWith('<') ? `未滿 ${text.slice(1)} 歲` : `${text.replace('>=', '')} 歲以上`;
   if (cond.kind === '性別') return `${text}性`;

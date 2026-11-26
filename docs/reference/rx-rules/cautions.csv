@@ -17,7 +17,7 @@ C-016,臨床,N02A,,同處方,N05BA N05CD N05CF N03AE01,黃,鴉片類＋BZD／Z-d
 C-017,臨床,N05BA N05CD N05CF N03AE01,CHLORDIAZEPOXIDE,年齡+同處方,>=65;G04CA C02CA C02@HS C03@HS C07@HS C08@HS C09@HS,黃,65 歲以上使用 BZD／Z-drug，同處方有 α 阻斷劑或睡前服用的降血壓藥：姿勢性低血壓，跌倒風險更高,藥師審核意見（C-009 升一級）
 C-018,孕哺,G04CB G04CA52,,性別+年齡,女;10-49,紅,懷孕：5α 還原酶抑制劑懷孕禁用（舊制 X），可能懷孕的女性不應服用或接觸此藥（男胎生殖器異常），請確認處方對象,仿單禁忌（懷孕分級 X）；藥師審核意見
 C-019,臨床,N02A,,同處方,N02BF,黃,鴉片類＋gabapentin／pregabalin 同時使用：嚴重嗜睡、呼吸抑制（由鴉片類轉換或用來減少鴉片類劑量時例外，仍需留意）,FDA 2019 安全通訊；Beers 2023 表 5
-C-020,臨床,,CLOPIDOGREL,同處方,A02BC01 A02BC05,灰,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等,仿單警語（Plavix）
+C-020,臨床,,CLOPIDOGREL,同處方,A02BC01 A02BC05,黃,Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降（仿單不建議併用）；仍需胃保護時可改用 pantoprazole 等影響較小的 PPI 或 famotidine（cimetidine 也抑制 CYP2C19，不宜替代）,仿單警語（Plavix 5.1、7.2；國內 clopidogrel 仿單）
 C-021,臨床,J01MA,,同處方,H02AB,灰,Fluoroquinolone＋全身性類固醇：肌腱炎、肌腱斷裂風險增加,FDA 黑框警語
 C-022,臨床,J01MA,,年齡+同處方,>=60;H02AB,黃,60 歲以上使用 fluoroquinolone＋全身性類固醇：肌腱斷裂風險更高，請提醒腳跟或肌腱疼痛時停藥回診,FDA 黑框警語（C-021 升一級）
 C-023,臨床,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,,同處方,M01AA M01AB M01AC M01AE M01AG M01AH M01AX01 M01AX02 M01AX07 M01AX17 M01AX91,黃,同處方兩種以上 NSAID：腸胃道出血與腎毒性增加，療效沒有增加,仿單（naproxen、meloxicam 等）
@@ -54,15 +54,15 @@ C-053,臨床,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02
 C-054,臨床,G04BD12,,診斷,R33,黃,Mirabegron＋尿滯留：可能加重尿滯留，請詢問排尿狀況,仿單警語（國內仿單 2026-04 版）
 C-055,臨床,G04BD12,,診斷,H40.2,灰,Mirabegron＋隅角閉鎖性青光眼：不是抗膽鹼藥，這類病人的資料有限，可視需要確認,藥師決定
 C-056,臨床,C02CA01 C02CA04 G04CA03,,診斷+年齡,R55;>=65,黃,65 歲以上 α1 阻斷劑（doxazosin、prazosin、terazosin）＋昏厥：可能引發姿勢性低血壓而昏厥,Beers 2023 表 3
-C-057,臨床,M04AB03,,診斷,B15-B19 K70-K77,黃,Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能,仿單警語（台灣仿單待核對）
-C-058,臨床,C01BC,,診斷,I50 I11.0 I13.0 I13.2,紅,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單警語（國內仿單引用 CAST：結構性心臟病）；禁忌條文待核對；藥師決定升為紅色（115/11/12）
-C-059,臨床,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌；Beers 2023 表 3
+C-057,臨床,M04AB03,,診斷,B15-B19 K70-K77 Z94.4,黃,Benzbromarone＋肝炎、肝病或肝臟移植後：有肝毒性報告，請確認肝功能,仿單禁忌（嚴重肝功能不良）與警語（國內仿單 2026-06 版）；Z94.4 依藥師審核意見
+C-058,臨床,C01BC,,診斷,I50 I11.0 I13.0 I13.2,紅,Propafenone／flecainide＋心衰竭：可能使心衰竭惡化並致心律不整,仿單警語（國內仿單引用 CAST：結構性心臟病）；美國仿單（propafenone 禁忌含心衰竭，flecainide 警語）；心衰竭指引（2026 歐洲版：射出分率低下避免 propafenone、flecainide）；藥師決定升為紅色（115/11/12）
+C-059,臨床,B01AC23,,診斷,I50 I11.0 I13.0 I13.2 N18.5 N18.6,黃,Cilostazol＋心衰竭或末期腎病：心衰竭禁用，重度腎功能不全不建議,仿單禁忌（美國仿單黑框：任何程度的心衰竭禁用；國內仿單待核對）；Beers 2023 表 3
 C-060,臨床,B01AA B01AE B01AF,,同處方,B01AC04 B01AC06,灰,口服抗凝血劑＋aspirin／clopidogrel：出血風險增加，請確認合併療程的期限,指引（ESC／ACC）
-C-061,臨床,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel,指引（ESC 2023 ACS）
+C-061,臨床,B01AA B01AE B01AF,,同處方,B01AC22 B01AC24,黃,口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel；請詢問有無黑便、牙齦出血、血尿或頭暈無力（貧血）等出血徵兆,指引（ESC 2023 ACS）；美國仿單（病人用藥指南）
 C-062,臨床,C08DA C08DB,,同處方,C07,灰,Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯,仿單警語
 C-063,臨床,R06AA R06AB R06AD R06AE05,,年齡,>=65,灰,65 歲以上使用第一代抗組織胺／meclizine：抗膽鹼作用（意識混亂、便秘、尿滯留），老人應避免,Beers 2023 表 2
-C-064,臨床,A10BB A10BD02 A10BD04 A10BD06,,年齡,>=65,灰,65 歲以上使用磺醯尿素類：低血糖風險,Beers 2023 表 2
-C-065,臨床,C09,,診斷,E87.5,灰,ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀,仿單警語
+C-064,臨床,A10BB A10BD02 A10BD04 A10BD06,,年齡,>=65,黃,65 歲以上使用磺醯尿素類：低血糖風險，請確認進食是否正常規律，並詢問有無冒冷汗、手抖、心悸、頭暈、意識混亂等低血糖症狀,Beers 2023 表 2；ADA；仿單警語
+C-065,臨床,C09,,診斷,E87.5,黃,RAS 抑制劑（ACEI／ARB 等）＋高血鉀：可能使血鉀更高，請確認最近血鉀值，以及醫師是否已知並在處理,仿單警語
 C-066,臨床,N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,,年齡+同類數,>=65;>=3 N03 N02BF N06AA N06AB N06AX16 N06AX17 N06AX21 N06AX23 N05AA N05AB N05AC N05AD N05AE N05AF N05AG N05AH N05AL N05AX N05BA N05CD N05CF N02A M03B,黃,65 歲以上同時使用 3 種以上中樞神經藥（抗癲癇、抗憂鬱、抗精神病、BZD／Z-drug、鴉片類、肌肉鬆弛劑）：跌倒與骨折風險增加,Beers 2023 表 5
 C-067,臨床,A10A,,未同處方,=NAN02A1000ZZ,黃,胰島素沒有同時開注射針頭：處方不尋常，請確認病人是否還有針頭或由其他處方領取,藥師決定（115/11/10）
 C-068,臨床,B01AE07,,腎功能,<30,黃,Dabigatran＋腎功能 eGFR<30：禁用或避免（出血風險）,仿單禁忌；Beers 2023 表 6；給付規定 2.1.5（排除肌酸酐清除率 <30）
@@ -182,3 +182,12 @@ C-181,孕哺,J01AA12 J01MA02 P01AB02 J01XD02,,性別+年齡,女;10-49,黃,哺乳
 C-182,孕哺,N02BF02 N05BA12 N07XX08,TRAMADOL,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
 C-183,孕哺,D11AH08 L04AF01 L04AJ02 L04AJ07 L04AJ08 L04AJ09 R05CB05 V03AF01,,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
 C-184,孕哺,,CODEINE,性別+年齡,女;10-49,黃,哺乳：美國仿單建議用藥期間不要哺乳，請確認是否在哺乳,美國仿單 8.2
+C-185,臨床,C03A C03B C03EA C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54,,同處方,M04A,灰,Thiazide 類利尿劑（含降血壓複方）＋痛風用藥（降尿酸藥、colchicine）：thiazide 會使血中尿酸上升、可能誘發痛風發作；痛風病人若血壓控制允許，可與處方醫師聯繫討論改用其他降血壓藥（例如 losartan 單方；含 HCTZ 的 losartan 複方仍含 thiazide）,仿單警語（HCTZ：高尿酸血症、誘發急性痛風）；ACR 2020 痛風
+C-186,臨床,N06AB10,,同處方,N05AH04,黃,Escitalopram＋quetiapine：併用可能增加 QT 延長與心律不整風險，請確認能否改用替代藥，並依個別風險確認心電圖及血鉀、血鎂；請詢問病人服藥期間有無頭暈、心悸或昏厥，出現時應儘快就醫,美國 quetiapine 仿單 5.12（QT 延長）、escitalopram 仿單 6（心電圖）；citalopram 仿單 5.2、17（頭暈、心悸、昏厥）
+C-187,臨床,C10AA07,,同處方,C10AB04,黃,Rosuvastatin＋gemfibrozil：肌病變、橫紋肌溶解風險增加，應避免併用。若經評估仍需併用，請核對 rosuvastatin 劑量（美國仿單起始 5 mg／日，上限 10 mg／日），並提醒病人出現不明原因的肌肉疼痛、壓痛或無力（尤其伴隨發燒或全身不適）或深色尿時儘快就醫,美國 rosuvastatin 仿單 2.6、7.1、12.3（gemfibrozil 抑制 OATP1B1，rosuvastatin AUC 1.9 倍；gemfibrozil 單用也會造成肌病變）
+C-188,臨床,C10AA07,,同處方,C10AB05,黃,Rosuvastatin＋fenofibrate：併用增加肌病變與橫紋肌溶解風險。請確認併用效益與風險，開始或加量後留意不明原因的肌肉疼痛或無力,美國 Crestor 仿單（Fenofibrates）
+C-189,臨床,N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,,年齡+同類數,>=65;>=2 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03,黃,65 歲以上同時使用 2 種以上強抗膽鹼藥（Beers 表 7）：認知功能下降、譫妄、跌倒或骨折風險增加，請評估能否減少抗膽鹼藥,Beers 2023 表 5
+C-190,臨床,C01AA05,,年齡+日劑量,>=65;>0.125 MG,黃,65 歲以上 digoxin 每日超過 0.125 mg：老人腎功能下降易蓄積中毒，Beers 建議避免較高劑量；請確認腎功能，並留意噁心、食慾不振、視覺異常等中毒徵兆,Beers 2023 表 2
+C-191,臨床,C08DA C08DB,,年齡+同處方,>=65;C07,黃,65 歲以上 β 阻斷劑＋diltiazem／verapamil：老人較易心搏過緩與房室傳導阻滯，請詢問有無頭暈、昏厥、異常疲倦或脈搏過慢,美國仿單（verapamil 7.4、diltiazem）；藥師審核意見（C-062 升一級）
+C-192,臨床,C08DA C08DB,,診斷,I50 I11.0 I13.0 I13.2,黃,Diltiazem／verapamil＋心衰竭：射出分率低下的心衰竭應避免（可能使心衰竭惡化）,Beers 2023 表 3；心衰竭指引（2026 歐洲版：射出分率低下不建議 verapamil、diltiazem）
+C-193,臨床,B01AC04 B01AC05 B01AC06 B01AC07 B01AC22 B01AC23 B01AC24 B01AC30 N02BA01,,診斷,I60-I62,黃,抗血小板藥＋非創傷性顱內出血（蜘蛛膜下腔、腦內、硬腦膜下出血）：慢箋上多為病史，請確認出血已穩定、醫師知悉並評估過使用；ticagrelor 禁用於顱內出血病史、prasugrel 禁用於中風病史,美國仿單（clopidogrel 禁忌：活動性出血如顱內出血；ticagrelor 禁忌：顱內出血病史；prasugrel 禁忌：中風病史）；藥師審核意見（慢箋多為病史，維持黃色）

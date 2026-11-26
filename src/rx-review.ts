@@ -4,7 +4,7 @@
  * prescriptions a caution would have caught had it looked inside combination products. Pure functions: no DOM, no network, no files.
  */
 import { markedSex, rxFacts, splitFields } from './prescription-qr';
-import { ageWithin, atcHit, checkPrescription, kidneyBelow, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
+import { ageWithin, atcHit, checkPrescription, dailyMg, kidneyBelow, DEPARTMENTS, dxLabel, icdHits, ingredientBases, type Caution, type Condition, type DrugInfo, type Level, type RxFacts } from './rx-check';
 import type { RxData } from './rx-data';
 import { sampleCheck } from './rx-sample';
 
@@ -46,7 +46,7 @@ type Match = 'direct' | 'combo' | 'unknown' | '';
 const conditionLabel = (condition: Condition) => condition.kind === '年齡'
   ? `年齡${condition.min !== undefined && condition.below !== undefined ? `${condition.min}-${condition.below - 1}` : condition.below !== undefined ? `<${condition.below}` : `>=${condition.min}`}`
   : condition.kind === '性別' ? `性別${condition.sex === 'M' ? '男' : '女'}` : condition.kind === '腎功能' ? `腎功能<${condition.below}`
-  : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind === '日量' ? `日量>${condition.above}`
+  : condition.kind === '同類數' ? `同類數>=${condition.min}` : condition.kind === '日量' ? `日量>${condition.above}` : condition.kind === '日劑量' ? `日劑量>${condition.above}MG`
   : condition.kind === '科別外' ? `科別外${condition.departments.join(' ')}` : condition.kind;
 export interface CautionCoverage {
   id: string; level: Level;
@@ -82,7 +82,7 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
       atcHit(info.atc, caution.atc) || (caution.keyword && info.ingredients.toUpperCase().includes(caution.keyword)) ? 'direct'
         : caution.atc.length && inside(code, info).some(atc => atcHit(atc, caution.atc)) ? 'combo' : '';
     // A condition for one drug of the prescription (self), or for the prescription as a whole (self '').
-    const holds = (condition: Condition, self: string): Match => {
+    const holds = (condition: Condition, self: string, caution: Caution): Match => {
       switch (condition.kind) {
         case '診斷': return icdHits(rx.dx, condition.icd).length ? 'direct' : '';
         case '年齡': { const within = ageWithin(rx.age, condition); return within === undefined ? 'unknown' : within ? 'direct' : ''; }
@@ -110,6 +110,10 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
           const amounts = rx.drugs.filter(drug => !self || drug.code === self).map(drug => Number(drug.total) / Number(rx.days));
           return !amounts.length || amounts.some(amount => !Number.isFinite(amount)) ? 'unknown' : amounts.some(amount => amount > condition.above) ? 'direct' : '';
         }
+        case '日劑量': {
+          const { codes: named, mg } = dailyMg(caution, rx, data.drugs);
+          return !named.length || (self && named[0] !== self) ? '' : mg === undefined ? 'unknown' : mg > condition.above ? 'direct' : '';
+        }
       }
     };
     data.rules.cautions.forEach((caution, k) => {
@@ -119,14 +123,14 @@ export function ruleCoverage(lines: string[], data: RxData, index = componentInd
       if (matches.some(({ match }) => match === 'direct')) row.drug++;
       else if (matches.some(({ match }) => match === 'combo')) row.drugCombo++;
       caution.conditions.forEach((condition, c) => {
-        const match = holds(condition, '');
+        const match = holds(condition, '', caution);
         if (match === 'direct') row.conditions[c].holds++;
         else if (match === 'combo') row.conditions[c].combo++;
       });
       if (shown.has(caution.id)) return;
       const missed = matches.some(({ code, match }) => {
         if (!match) return false;
-        const outcomes = caution.conditions.map(condition => holds(condition, code));
+        const outcomes = caution.conditions.map(condition => holds(condition, code, caution));
         return !outcomes.includes('') && (match === 'combo' || outcomes.includes('combo'));
       });
       if (missed) row.comboMisses.push(i);
