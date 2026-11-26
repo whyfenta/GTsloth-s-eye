@@ -34,6 +34,11 @@
    "id": "2026-11-18",
    "title": "懷孕與哺乳（115/11/18 加入，免審）",
    "note": "適齡女性（10–49 歲）的懷孕與哺乳警示。成分逐一以 openFDA 美國仿單篩選（第 4 節、黑框、8.1–8.3），另對照舊制懷孕分級 X；方法與看了沒收的藥見 rx-rules.md「懷孕與哺乳」。依明確標準篩出，直接結案。"
+  },
+  {
+   "id": "2026-11-27",
+   "title": "115/11/26 審核意見結案",
+   "note": "達門檻但附修改意見的項目，蒐證後依意見修改並結案；另依提案加入的新規則。"
   }
  ],
  "rules": [
@@ -603,6 +608,31 @@
     "at": "2026-11-01",
     "n": 1
    }
+  },
+  {
+   "id": "I-109",
+   "table": "indications",
+   "key": "N03AX11",
+   "fp": "4cdaa68968a6",
+   "text": "N03AX11 Topiramate：G43（仿單）",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261116-02：1 張 topiramate 配慢性偏頭痛，因為抗癲癇藥屬高警訊藥而給黃色。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案原樣加入（2 位同意）。國內 topiramate 直接釋放劑型（妥泰）的適應症含預防偏頭痛；審核者附的兩篇文獻（Naegel 2010、Silberstein 2017）已核對。持續性釋放膠囊（Trokendi XR）的國內適應症不含偏頭痛，ATC 相同分不出，寫在備註。",
+   "links": [
+    {
+     "t": "Naegel 2010（Neuropsychiatr Dis Treat）",
+     "u": "https://doi.org/10.2147/ndt.s6459"
+    },
+    {
+     "t": "Silberstein 2017（Headache）",
+     "u": "https://doi.org/10.1111/head.12997"
+    }
+   ]
   },
   {
    "id": "I-041",
@@ -1703,10 +1733,26 @@
    "id": "C-020",
    "table": "cautions",
    "key": "C-020",
-   "fp": "b0058e1cfaff",
-   "text": "C-020 CLOPIDOGREL 同處方 A02BC01 A02BC05 → 灰：Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等",
+   "fp": "0ce3b40b3b59",
+   "text": "C-020 CLOPIDOGREL 同處方 A02BC01 A02BC05 → 黃：Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降（仿單不建議併用）；仍需胃保護時可改用 pantoprazole 等影響較小的 PPI 或 famotidine（cimetidine 也抑制 CYP2C19，不宜替代）",
    "batch": "2026-11-03",
-   "changed": "2026-11-03T00:00:00.000Z"
+   "changed": "2026-11-03T00:00:00.000Z",
+   "prev": "C-020 CLOPIDOGREL 同處方 A02BC01 A02BC05 → 灰：Clopidogrel＋omeprazole／esomeprazole：抑制 CYP2C19 使 clopidogrel 抗血小板作用下降，可考慮改用 pantoprazole 等",
+   "outcome": "115/11/26 依審核意見升為黃色（2 位同意）：美國仿單寫避免併用 omeprazole／esomeprazole，國內仿單寫不鼓勵併用並建議 pantoprazole；提示另寫替代做法（pantoprazole 等影響較小的 PPI 或 famotidine，cimetidine 也抑制 CYP2C19 不宜替代），避免讀成停用胃保護（COGENT：PPI 明顯減少腸胃出血，心血管事件沒有差異）。",
+   "links": [
+    {
+     "t": "Plavix 美國仿單 5.1、7.2",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=01b14603-8f29-4fa3-8d7e-9d523f802e0b"
+    },
+    {
+     "t": "國內 clopidogrel 仿單",
+     "u": "https://ksph.kcg.gov.tw/7/dfiles_pdf/Clopidogrel.pdf"
+    },
+    {
+     "t": "COGENT（NEJM 2010）",
+     "u": "https://doi.org/10.1056/NEJMoa1007964"
+    }
+   ]
   },
   {
    "id": "C-021",
@@ -1966,7 +2012,22 @@
    "fp": "f60195d3d64b",
    "text": "C-042 N05BA N05CD N05CF N03AE01 診斷 F01-F03 G30 G31.0 G31.1 G31.83 R41.81 → 黃：BZD／Z-drug＋失智症或認知障礙：可能使認知功能惡化、引發譫妄與跌倒，老人應避免（含 chlordiazepoxide 的胃腸複方也算）",
    "batch": "2026-11-04",
-   "changed": "2026-11-04T00:00:00.000Z"
+   "changed": "2026-11-04T00:00:00.000Z",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 照原樣結案（2 位同意）。審核意見建議著重單方 BZD、不管含 chlordiazepoxide 的胃腸複方；查證後不採納：Beers 2023 表 2 明列 chlordiazepoxide（單方或與 clidinium、amitriptyline 的複方），表 3 失智症避免的是整類 BZD；複方每錠 2.5–5 mg，一天 3 錠已超過美國仿單的老人起始量（每日 10 mg 以下），且長效、活性代謝物在老人蓄積。拿掉關鍵字後，健保仍給付的制酸胃腸複方（ATC A02AG，21 個品項）沒有任何規則會提示（C-052 只認 A03CA02）。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    },
+    {
+     "t": "chlordiazepoxide 美國仿單（老人劑量）",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1eb5eb7a-8c5f-43a3-9b9f-6321cdb6f6c7"
+    }
+   ]
   },
   {
    "id": "C-043",
@@ -2206,15 +2267,23 @@
    "id": "C-057",
    "table": "cautions",
    "key": "C-057",
-   "fp": "d939d27043e2",
-   "text": "C-057 M04AB03 診斷 B15-B19 K70-K77 → 黃：Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能",
+   "fp": "985ec6222c65",
+   "text": "C-057 M04AB03 診斷 B15-B19 K70-K77 Z94.4 → 黃：Benzbromarone＋肝炎、肝病或肝臟移植後：有肝毒性報告，請確認肝功能",
    "batch": "2026-11-10",
    "changed": "2026-11-10T06:08:05.299Z",
    "why": "155 張有 2 張（2 院所）benzbromarone 配 B 型肝炎；多國因肝毒性撤市或限制，台灣仿單待核對。",
    "approved": {
     "at": "2026-11-16",
     "n": 2
-   }
+   },
+   "prev": "C-057 M04AB03 診斷 B15-B19 K70-K77 → 黃：Benzbromarone＋肝炎或肝病：有肝毒性報告，請確認肝功能",
+   "outcome": "115/11/26 依提案 P20261111-05 的審核意見加入 Z94.4（肝臟移植狀態），提示補上肝臟移植後（2 位同意）；依據改為國內仿單 2026-06 版的禁忌（嚴重肝功能不良）與警語。移植後高尿酸常見，benzbromarone 有猛爆性肝炎報告，理由是保護移植肝；和 ciclosporin 沒有查到明顯交互作用。",
+   "links": [
+    {
+     "t": "Stamp 2005：移植後高尿酸與 benzbromarone 肝毒性監測",
+     "u": "https://doi.org/10.2165/00003495-200565180-00004"
+    }
+   ]
   },
   {
    "id": "C-058",
@@ -2263,11 +2332,23 @@
    "id": "C-061",
    "table": "cautions",
    "key": "C-061",
-   "fp": "1436d410f9a8",
-   "text": "C-061 B01AA B01AE B01AF 同處方 B01AC22 B01AC24 → 黃：口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel",
+   "fp": "7bbf891e30e1",
+   "text": "C-061 B01AA B01AE B01AF 同處方 B01AC22 B01AC24 → 黃：口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel；請詢問有無黑便、牙齦出血、血尿或頭暈無力（貧血）等出血徵兆",
    "batch": "2026-11-10",
    "changed": "2026-11-10T06:08:05.299Z",
-   "why": "155 張有 1 張 warfarin＋ticagrelor（第 102 行）。ESC 2023 ACS 指引：與口服抗凝血劑併用時不建議 ticagrelor、prasugrel，P2Y12 抑制劑用 clopidogrel（本次未能上網核對原文）。"
+   "why": "155 張有 1 張 warfarin＋ticagrelor（第 102 行）。ESC 2023 ACS 指引：與口服抗凝血劑併用時不建議 ticagrelor、prasugrel，P2Y12 抑制劑用 clopidogrel（本次未能上網核對原文）。",
+   "prev": "C-061 B01AA B01AE B01AF 同處方 B01AC22 B01AC24 → 黃：口服抗凝血劑＋ticagrelor／prasugrel：出血風險高，指引建議與抗凝血劑併用時 P2Y12 抑制劑用 clopidogrel",
+   "outcome": "115/11/26 依審核意見在提示加註出血徵兆（黑便、牙齦出血、血尿、頭暈無力）（2 位同意）；ticagrelor、prasugrel 與各口服抗凝血劑的美國病人用藥指南都列這些徵兆。",
+   "links": [
+    {
+     "t": "Brilinta 美國仿單（病人用藥指南）",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1547e2b6-8858-178e-e063-6394a90abb23"
+    },
+    {
+     "t": "Eliquis 美國仿單（病人用藥指南）",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1523ab32-2c2c-6501-e063-6394a90aa0b3"
+    }
+   ]
   },
   {
    "id": "C-062",
@@ -2277,7 +2358,12 @@
    "text": "C-062 C08DA C08DB 同處方 C07 → 灰：Beta 阻斷劑＋diltiazem／verapamil：心搏過緩與房室傳導阻滯",
    "batch": "2026-11-10",
    "changed": "2026-11-10T06:08:05.299Z",
-   "why": "155 張有 1 張 propranolol＋diltiazem。"
+   "why": "155 張有 1 張 propranolol＋diltiazem。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 結案（2 位同意）。依審核意見另加 C-191：65 歲以上升為黃色（老人較常有潛在傳導疾病，verapamil 仿單有完全房室傳導阻滯的通報）；未滿 65 歲照這條維持灰色（diltiazem 仿單寫併用通常可耐受）。"
   },
   {
    "id": "C-063",
@@ -2297,21 +2383,41 @@
    "id": "C-064",
    "table": "cautions",
    "key": "C-064",
-   "fp": "99061b502af3",
-   "text": "C-064 A10BB A10BD02 A10BD04 A10BD06 年齡 >=65 → 灰：65 歲以上使用磺醯尿素類：低血糖風險",
+   "fp": "b9bef2505de0",
+   "text": "C-064 A10BB A10BD02 A10BD04 A10BD06 年齡 >=65 → 黃：65 歲以上使用磺醯尿素類：低血糖風險，請確認進食是否正常規律，並詢問有無冒冷汗、手抖、心悸、頭暈、意識混亂等低血糖症狀",
    "batch": "2026-11-10",
    "changed": "2026-11-10T06:08:05.299Z",
-   "why": "155 張有 2 張 65 歲以上 glimepiride；台灣臨床常見，只給灰色。"
+   "why": "155 張有 2 張 65 歲以上 glimepiride；台灣臨床常見，只給灰色。",
+   "prev": "C-064 A10BB A10BD02 A10BD04 A10BD06 年齡 >=65 → 灰：65 歲以上使用磺醯尿素類：低血糖風險",
+   "outcome": "115/11/26 依審核意見升為黃色，並加註確認進食與低血糖症狀（2 位同意）：Beers 2023 表 2 自 2023 年起把所有磺醯尿素類列為避免（低血糖證據品質高、強建議），ADA 2026 第 13 章要求老人每次回診確認低血糖與進食。這批 923 張樣本命中 21 張，黃紅比例因此多約 2 個百分點。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    },
+    {
+     "t": "ADA 2026 第 13 章（老人）",
+     "u": "https://doi.org/10.2337/dc26-S013"
+    }
+   ]
   },
   {
    "id": "C-065",
    "table": "cautions",
    "key": "C-065",
-   "fp": "c75b30cfadc7",
-   "text": "C-065 C09 診斷 E87.5 → 灰：ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀",
+   "fp": "afc65616292f",
+   "text": "C-065 C09 診斷 E87.5 → 黃：RAS 抑制劑（ACEI／ARB 等）＋高血鉀：可能使血鉀更高，請確認最近血鉀值，以及醫師是否已知並在處理",
    "batch": "2026-11-10",
    "changed": "2026-11-10T06:08:05.299Z",
-   "why": "155 張有 1 張 olmesartan 配 E87.5。"
+   "why": "155 張有 1 張 olmesartan 配 E87.5。",
+   "prev": "C-065 C09 診斷 E87.5 → 灰：ACEI／ARB＋高血鉀：可能使血鉀更高，請確認血鉀",
+   "outcome": "115/11/26 依審核意見升為黃色（2 位同意），提示改為請確認最近血鉀值與醫師是否在處理；處方上已寫 E87.5（高血鉀症），藥師看不到檢驗值。ACEI／ARB 仿單是警語不是禁忌，所以不到紅色；和 C-012（醛固酮拮抗劑＋高血鉀，黃）一致。",
+   "links": [
+    {
+     "t": "Cozaar 美國仿單（高血鉀）",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=9949448f-c3b9-44ee-94ed-c1aca8c90f39"
+    }
+   ]
   },
   {
    "id": "C-066",
@@ -4428,6 +4534,213 @@
    "outcome": "懷孕與哺乳（明確標準）：Angus 115/11/18 決定這批依美國仿單與舊制懷孕分級的標準篩出，已證實且明確，不另經藥師審核；標準與篩選方法見 rx-rules.md「懷孕與哺乳」"
   },
   {
+   "id": "C-185",
+   "table": "cautions",
+   "key": "C-185",
+   "fp": "e09a5efb2cda",
+   "text": "C-185 C03A C03B C03EA C02L C07B C07C C07D C08G C09BA C09BX01 C09DA C09DX01 C09DX03 C09XA52 C09XA54 同處方 M04A → 灰：Thiazide 類利尿劑（含降血壓複方）＋痛風用藥（降尿酸藥、colchicine）：thiazide 會使血中尿酸上升、可能誘發痛風發作；痛風病人若血壓控制允許，可與處方醫師聯繫討論改用其他降血壓藥（例如 losartan 單方；含 HCTZ 的 losartan 複方仍含 thiazide）",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261110-05：4 張、2 家院所 thiazide 類或含 HCTZ 的降血壓複方，同處方有 benzbromarone 或 febuxostat。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案加入（2 位同意），提示依審核意見加上「可與處方醫師聯繫討論改用其他降血壓藥」，寫成討論而不是疑義處方：ACR 2020 的改藥建議是條件式、證據確定性很低。等級維持灰色。依據改為 HCTZ 仿單與 ACR 2020（提案引用的 STOPP v3 條文原文沒有讀到，不引用）。M04A 含 colchicine：開 colchicine 也表示有痛風。",
+   "links": [
+    {
+     "t": "ACR 2020 痛風指引",
+     "u": "https://doi.org/10.1002/acr.24180"
+    },
+    {
+     "t": "HCTZ 美國仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=03b7e52e-0003-47c3-af12-93ef00800b37"
+    }
+   ]
+  },
+  {
+   "id": "C-186",
+   "table": "cautions",
+   "key": "C-186",
+   "fp": "e37120abae01",
+   "text": "C-186 N06AB10 同處方 N05AH04 → 黃：Escitalopram＋quetiapine：併用可能增加 QT 延長與心律不整風險，請確認能否改用替代藥，並依個別風險確認心電圖及血鉀、血鎂；請詢問病人服藥期間有無頭暈、心悸或昏厥，出現時應儘快就醫",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261121-02：去重樣本 3 張 escitalopram 併用 quetiapine。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案加入（2 位同意），提示依審核意見加上詢問頭暈、心悸、昏厥：quetiapine 仿單要避免和其他延長 QTc 的藥併用；症狀衛教取自同族 citalopram 仿單 5.2、17。",
+   "links": [
+    {
+     "t": "Seroquel 美國仿單 5.12",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0584dda8-bc3c-48fe-1a90-79608f78e8a0"
+    },
+    {
+     "t": "Celexa 美國仿單 5.2",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=4259d9b1-de34-43a4-85a8-41dd214e9177"
+    }
+   ]
+  },
+  {
+   "id": "C-187",
+   "table": "cautions",
+   "key": "C-187",
+   "fp": "9cb4f7ad4940",
+   "text": "C-187 C10AA07 同處方 C10AB04 → 黃：Rosuvastatin＋gemfibrozil：肌病變、橫紋肌溶解風險增加，應避免併用。若經評估仍需併用，請核對 rosuvastatin 劑量（美國仿單起始 5 mg／日，上限 10 mg／日），並提醒病人出現不明原因的肌肉疼痛、壓痛或無力（尤其伴隨發燒或全身不適）或深色尿時儘快就醫",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261121-03：去重樣本 2 張 rosuvastatin 併用 gemfibrozil。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案加入（2 位同意），提示依審核意見加上肌痛、壓痛、無力與深色尿的衛教（Crestor 仿單 5.1：肌紅素尿致急性腎損傷）。審核者附在 P20261121-04 的機轉（gemfibrozil 抑制 OATP1B1、rosuvastatin 濃度上升）屬於這一條，寫進依據。",
+   "links": [
+    {
+     "t": "Crestor 美國仿單",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=325a5d0e-9a72-4015-9fcd-1655fb504cee"
+    },
+    {
+     "t": "Schneck 2004（gemfibrozil 使 rosuvastatin AUC 1.9 倍）",
+     "u": "https://doi.org/10.1016/j.clpt.2003.12.014"
+    }
+   ]
+  },
+  {
+   "id": "C-188",
+   "table": "cautions",
+   "key": "C-188",
+   "fp": "84a5c077c4aa",
+   "text": "C-188 C10AA07 同處方 C10AB05 → 黃：Rosuvastatin＋fenofibrate：併用增加肌病變與橫紋肌溶解風險。請確認併用效益與風險，開始或加量後留意不明原因的肌肉疼痛或無力",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261121-04：去重樣本 2 張 rosuvastatin 併用 fenofibrate。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案原樣加入（2 位同意）。審核意見寫的機轉 ① 是 gemfibrozil 的（抑制 OATP1B1），對 fenofibrate 不成立：Crestor 仿單 12.3 併用 fenofibrate 時 rosuvastatin AUC 不變、Cmax 1.2 倍，仿單也沒有劑量上限；機轉 ②（兩者都會造成肌病變）成立，提示原本就寫了。機轉 ① 改記在 C-187。",
+   "links": [
+    {
+     "t": "Crestor 美國仿單 7.1、12.3",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=325a5d0e-9a72-4015-9fcd-1655fb504cee"
+    }
+   ]
+  },
+  {
+   "id": "C-189",
+   "table": "cautions",
+   "key": "C-189",
+   "fp": "15169c35b096",
+   "text": "C-189 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 年齡+同類數 >=65;>=2 N06AA02 N06AA04 N06AA09 N06AA12 N06AB05 N06CA01 R06AA R06AB R06AD02 R06AE05 R06AE55 R06AX02 R06AX07 N05BB01 N04AA N04AC A03AA07 A03BA01 A03BA03 A03BB06 A03CA02 M03BC M03BX08 G04BD02 G04BD04 G04BD06 G04BD07 G04BD08 G04BD09 G04BD10 G04BD11 A03AB20 N05AA01 N05AB03 N05AB04 N05AH02 N05AH03 → 黃：65 歲以上同時使用 2 種以上強抗膽鹼藥（Beers 表 7）：認知功能下降、譫妄、跌倒或骨折風險增加，請評估能否減少抗膽鹼藥",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261109-08（同時 2 種以上強抗膽鹼藥要不要提示，2 位同意）。Beers 2023 表 5：併用超過一種抗膽鹼藥增加認知退化、譫妄與跌倒骨折風險，避免（Moderate／Strong）；藥品是表 7 的強抗膽鹼藥（C-052 那串加上 C-053 的抗精神病藥與 prochlorperazine）。審核者建議參考抗膽鹼負荷量表（ACB）計分：表 5 本身是數數量，各量表的分數不一致，ACB 1 分的常用心血管藥和認知退化沒有關聯，所以先照表 5 數數量，ACB 列為核對清單（R-22 僅供查證）。內容是新寫的，請表決。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    },
+    {
+     "t": "Salahudeen 2015（抗膽鹼量表系統性回顧）",
+     "u": "https://doi.org/10.1186/s12877-015-0029-9"
+    }
+   ]
+  },
+  {
+   "id": "C-190",
+   "table": "cautions",
+   "key": "C-190",
+   "fp": "95671a046814",
+   "text": "C-190 C01AA05 年齡+日劑量 >=65;>0.125 MG → 黃：65 歲以上 digoxin 每日超過 0.125 mg：老人腎功能下降易蓄積中毒，Beers 建議避免較高劑量；請確認腎功能，並留意噁心、食慾不振、視覺異常等中毒徵兆",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261109-07（每日劑量的檢查，2 位同意）。依審核意見「讀健保碼查藥檔劑量欄位計算」：判定程式新增條件 日劑量，每顆含量取自健保成分文字，乘總量÷給藥日份，同處方同類品項合計。第一條照 Beers 2023 表 2：digoxin 用於心房顫動或心衰竭時避免每日超過 0.125 mg（Strong）。給付中的 digoxin 錠只有 0.25 mg，每天半顆不提示；酏劑、注射劑算不出每日劑量，給灰色。內容是新寫的，請表決。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    }
+   ]
+  },
+  {
+   "id": "C-191",
+   "table": "cautions",
+   "key": "C-191",
+   "fp": "e16b50d3a0eb",
+   "text": "C-191 C08DA C08DB 年齡+同處方 >=65;C07 → 黃：65 歲以上 β 阻斷劑＋diltiazem／verapamil：老人較易心搏過緩與房室傳導阻滯，請詢問有無頭暈、昏厥、異常疲倦或脈搏過慢",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "C-062 的審核意見：65 歲以上可升黃。",
+   "outcome": "115/11/26 依 C-062 的審核意見加入（C-062 2 位同意）：條件和 C-062 相同再加 65 歲以上，所以 65 歲以上只顯示這條黃色。verapamil 美國仿單 7.4 有過度心搏過緩與完全房室傳導阻滯的通報、老人可能較敏感；Beers 2023 沒有這一組。",
+   "links": [
+    {
+     "t": "verapamil 美國仿單 7.4",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=18f6d349-8c5c-4443-ac65-16bf6619ecdc"
+    },
+    {
+     "t": "Zeltser 2004（藥物相關房室傳導阻滯）",
+     "u": "https://doi.org/10.1016/j.jacc.2004.03.057"
+    }
+   ]
+  },
+  {
+   "id": "C-192",
+   "table": "cautions",
+   "key": "C-192",
+   "fp": "1e3791715647",
+   "text": "C-192 C08DA C08DB 診斷 I50 I11.0 I13.0 I13.2 → 黃：Diltiazem／verapamil＋心衰竭：射出分率低下的心衰竭應避免（可能使心衰竭惡化）",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261110-02：1 張 diltiazem 配 I50（心臟衰竭）沒有提示。診斷碼和 C-058、C-059 相同：I50（心臟衰竭）、I11.0（高血壓性心臟病伴有心臟衰竭）、I13.0、I13.2（高血壓性心臟及慢性腎臟病伴有心臟衰竭）。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案原樣加入（2 位同意）；心衰竭指引已依 P20261109-09 改為使用中，依據引用得了。審核意見建議新增 ref 欄位：審核頁每條已有「出處」（這裡的 links），審核者每票也能附證據連結，不另開 CSV 欄位。",
+   "links": [
+    {
+     "t": "Beers 2023 原文（JAGS）",
+     "u": "https://doi.org/10.1111/jgs.18372"
+    },
+    {
+     "t": "2026 ESC 心衰竭指引（EHJ 47(38):5346–5457）",
+     "u": "https://doi.org/10.1093/eurheartj/ehag100"
+    }
+   ]
+  },
+  {
+   "id": "C-193",
+   "table": "cautions",
+   "key": "C-193",
+   "fp": "e52c24f9bf47",
+   "text": "C-193 B01AC04 B01AC05 B01AC06 B01AC07 B01AC22 B01AC23 B01AC24 B01AC30 N02BA01 診斷 I60-I62 → 黃：抗血小板藥＋非創傷性顱內出血（蜘蛛膜下腔、腦內、硬腦膜下出血）：慢箋上多為病史，請確認出血已穩定、醫師知悉並評估過使用；ticagrelor 禁用於顱內出血病史、prasugrel 禁用於中風病史",
+   "batch": "2026-11-27",
+   "changed": "2026-11-26T17:12:13.087Z",
+   "why": "每週檢查的提案 P20261116-01：1 張 aspirin 配 I61（非創傷性腦出血）沒有提示。列中的診斷碼：I60（非創傷性蜘蛛網膜下腔出血）、I61（非創傷性腦出血）、I62（其他和未明示側性之非外傷性顱內出血）。",
+   "approved": {
+    "at": "2026-11-26",
+    "n": 2
+   },
+   "outcome": "115/11/26 依提案加入（2 位同意），照審核意見維持黃色並在提示寫明慢箋上多為病史（RESTART 與 AHA/ASA 2022：有適應症時重新使用抗血小板藥是合理的）。查證後另作兩處修改：ticagrelor 禁用於顱內出血病史、prasugrel 禁用於中風病史（美國仿單禁忌），寫進提示；ATC 由 B01AC 改為列出抗血小板藥，排除同在 B01AC 的肺動脈高壓用藥（selexipag、treprostinil 等）。",
+   "links": [
+    {
+     "t": "Brilinta 美國仿單 4.1",
+     "u": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1547e2b6-8858-178e-e063-6394a90abb23"
+    },
+    {
+     "t": "RESTART（Lancet 2019）",
+     "u": "https://doi.org/10.1016/S0140-6736(19)30840-2"
+    },
+    {
+     "t": "AHA/ASA 2022 自發性腦出血指引",
+     "u": "https://doi.org/10.1161/STR.0000000000000407"
+    }
+   ]
+  },
+  {
    "id": "S-02",
    "table": "specialty",
    "key": "02",
@@ -5566,7 +5879,16 @@
   "V03AC02": "deferiprone",
   "V03AC03": "deferasirox",
   "V03AF01": "mesna",
-  "V03AF07": "rasburicase"
+  "V03AF07": "rasburicase",
+  "B01AC07": "dipyridamole",
+  "B01AC30": "抗血小板藥複方",
+  "C01AA05": "Digoxin",
+  "C03A": "thiazide 類利尿劑",
+  "C03B": "thiazide 類似利尿劑（indapamide 等）",
+  "C03EA": "thiazide 類利尿劑＋保鉀利尿劑",
+  "C10AA07": "Rosuvastatin",
+  "M04A": "抗痛風藥",
+  "N06AB10": "Escitalopram"
  },
  "proposals": [
   {
@@ -5580,6 +5902,33 @@
    ]
   },
   {
+   "id": "P20261109-07",
+   "title": "每日劑量的檢查（每日量 × 成分含量）",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-190"
+   ],
+   "note": "2 位同意。依審核意見以健保碼查成分含量計算：判定程式新增條件 日劑量（每顆含量×總量÷給藥日份，同處方同類品項合計），第一條 C-190（65 歲以上 digoxin 每日超過 0.125 mg，Beers 2023 表 2）進審核頁待審。單次極量做不到（QR 的每次用量各院寫法不同，程式不讀）；metformin 配腎功能的門檻沒有讀到原文，暫不加；劑量過低的提示不做（文獻中劑量過低的警示多半無效）。證據裡的 rivaroxaban 10 mg 配心房顫動已由 C-104 提示。"
+  },
+  {
+   "id": "P20261109-08",
+   "title": "同時 2 種以上強抗膽鹼藥要不要提示",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-189"
+   ],
+   "note": "2 位同意。照 Beers 2023 表 5 以數量判斷，加入 C-189（65 歲以上、表 7 的強抗膽鹼藥 2 種以上，黃色），內容是新寫的，進審核頁待審。審核意見建議參考 ACB 量表計分：量表彼此不一致、1 分的藥沒有證據，先作為核對清單（R-22 改為僅供查證）。"
+  },
+  {
+   "id": "P20261109-09",
+   "title": "依據來源清單：要不要加入 Beers 與仿單以外的準則與指引",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "note": "2 位同意：R-03 STOPP、R-04 PIM-Taiwan、R-06 風險溝通表、R-11 台灣高血壓、R-13 心衰竭、R-15 心房顫動、R-16 ADA、R-17 國內糖尿病、R-18 KDIGO、R-19 GINA 改為使用中。審核者附的 Beers 替代藥物清單（JAGS 2025;73(9):2657–2677）已讀全文補進 R-02，維持僅供查證；提示要加註替代藥時另提案。"
+  },
+  {
    "id": "P20261110-01",
    "title": "β 阻斷劑、diltiazem、verapamil 配第二、三度房室傳導阻滯或病竇症候群",
    "status": "已採用",
@@ -5590,6 +5939,26 @@
    ]
   },
   {
+   "id": "P20261110-02",
+   "title": "Diltiazem、verapamil 配心衰竭",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-192"
+   ],
+   "note": "2 位同意，依提案原樣加入；心衰竭指引改為使用中後依據才引用得了。ref 欄位：審核頁每條已有「出處」，不另開 CSV 欄位。"
+  },
+  {
+   "id": "P20261110-05",
+   "title": "Thiazide 類利尿劑（含降血壓複方）配降尿酸藥",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-185"
+   ],
+   "note": "2 位同意。提示依審核意見加上可與處方醫師聯繫討論改用其他降血壓藥（例如 losartan）；維持灰色；依據改為 HCTZ 仿單與 ACR 2020（新增 R-26）。"
+  },
+  {
    "id": "P20261110-06",
    "title": "SSRI 併用 SNRI（同類不同成分的抗憂鬱劑重複）",
    "status": "已採用",
@@ -5598,6 +5967,18 @@
    "rules": [
     "C-079"
    ]
+  },
+  {
+   "id": "P20261111-01",
+   "title": "心衰竭指引換到 ESC 2026 年版：讀原文後核對心衰竭的避免用藥與 C58、C59",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-058",
+    "C-059",
+    "C-192"
+   ],
+   "note": "2 位同意。書目：Eur Heart J 2026;47(38):5346–5457（PMID 42661420）。審核者指出的避免用藥（NSAID、非 DHP 類鈣離子阻斷劑、IC 類抗心律不整藥、glitazone）和查到的段落一致，cilostazol 不在 ESC 指引：C-059 依據改寫為美國仿單黑框與 Beers 2023 表 3；C-058 依據補美國仿單與 2026 心衰竭指引。另一個改變：HFrEF 改為射出分率低於 50%。全文在這個環境讀不到，表號與頁碼只核到書目範圍，已記在 R-13 備註。"
   },
   {
    "id": "P20261111-02",
@@ -5620,6 +6001,16 @@
    ]
   },
   {
+   "id": "P20261111-05",
+   "title": "C57（benzbromarone 配肝炎或肝病）：依據改成國內仿單",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-057"
+   ],
+   "note": "2 位同意；依據改成國內仿單 2026-06 版，並依審核意見加入 Z94.4（肝臟移植狀態）。"
+  },
+  {
    "id": "P20261111-06",
    "title": "C-058（propafenone／flecainide 配心衰竭）：國內仿單只查到警語，沒有查到禁忌條文",
    "status": "已採用",
@@ -5628,6 +6019,56 @@
    "rules": [
     "C-058"
    ]
+  },
+  {
+   "id": "P20261116-01",
+   "title": "抗血小板藥配 I60–I62（非創傷性蜘蛛網膜下腔出血…其他和未明示側性之非外傷性顱內出血）",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-193"
+   ],
+   "note": "2 位同意，照審核意見維持黃色、提示寫明慢箋多為病史；另把 ticagrelor、prasugrel 的仿單禁忌寫進提示，ATC 排除肺動脈高壓用藥。"
+  },
+  {
+   "id": "P20261116-02",
+   "title": "Topiramate 配 G43（偏頭痛）要不要算可解釋",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "I-109"
+   ],
+   "note": "2 位同意，依提案原樣加入；審核者附的文獻已核對。"
+  },
+  {
+   "id": "P20261121-02",
+   "title": "Escitalopram＋quetiapine：QT 延長",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-186"
+   ],
+   "note": "2 位同意；提示依審核意見加上詢問頭暈、心悸、昏厥。"
+  },
+  {
+   "id": "P20261121-03",
+   "title": "Rosuvastatin＋gemfibrozil：避免併用並核對劑量",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-187"
+   ],
+   "note": "2 位同意；提示依審核意見加上肌痛、無力、深色尿的衛教。"
+  },
+  {
+   "id": "P20261121-04",
+   "title": "Rosuvastatin＋fenofibrate：肌病變監測",
+   "status": "已採用",
+   "decided": "2026-11-26",
+   "rules": [
+    "C-188"
+   ],
+   "note": "2 位同意，依提案原樣加入；審核意見的 OATP1B1 機轉屬 gemfibrozil（記在 C-187），fenofibrate 不明顯提高 rosuvastatin 濃度。"
   }
  ]
 }

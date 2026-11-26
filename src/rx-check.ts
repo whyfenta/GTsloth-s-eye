@@ -87,7 +87,9 @@ export type Condition = { key: string } & ({ kind: '診斷'; icd: string[] }
   /** Holds when the drug's own prescription is from a known department other than these; an unknown department cannot be judged. */
   | { kind: '科別外'; departments: string[] }
   /** Holds when the drug's own 總量 (every line of its code on its prescription) over the 給藥日份 is more than this many a day. */
-  | { kind: '日量'; above: number });
+  | { kind: '日量'; above: number }
+  /** Holds when what the caution names on the drug's own prescription comes to more than this many mg a day (dailyMg); first drug only. */
+  | { kind: '日劑量'; above: number });
 export interface Caution { id: string; category: Category; atc: string[]; keyword: string; conditions: Condition[]; level: Level; message: string }
 export interface Rules { indications: Indication[]; coDrugs: CoDrug[]; cautions: Caution[]; specialty: Map<string, string[]>; lowRisk: string[]; highAlert: string[];
   /** settings.csv: the level of a repeated ingredient, and whether the department layer explains a drug. */
@@ -327,7 +329,11 @@ export function compileRules(tables: RuleTables): Rules {
         const match = /^>(\d+(?:\.\d+)?)$/.exec(part);
         return match ? { key, kind, above: Number(match[1]) } : bad('日量寫成 >1 這樣（總量除以給藥日份，每日超過幾個單位）。');
       }
-      return fail('條件類型', '要是診斷、未診斷、年齡、性別、同處方、未同處方、同類數、腎功能、科別外或日量，多種條件以 + 連接。');
+      if (kind === '日劑量') {
+        const match = /^>(\d+(?:\.\d+)?) (MG|MCG)$/.exec(part);
+        return match ? { key, kind, above: Number(match[1]) / (match[2] === 'MCG' ? 1000 : 1) } : bad('日劑量寫成 >0.125 MG 或 >125 MCG 這樣（每日超過幾毫克、微克）。');
+      }
+      return fail('條件類型', '要是診斷、未診斷、年齡、性別、同處方、未同處方、同類數、腎功能、科別外、日量或日劑量，多種條件以 + 連接。');
     });
     const caution: Caution = { id, category, atc, keyword, conditions, level: level(cell('等級'), why => fail('等級', why)), message: cell('提示') };
     const broken = agreementProblem(caution);
@@ -370,6 +376,40 @@ const covers = (wide: Caution, narrow: Caution) => wide.conditions.length > narr
 export function checkPrescription(rx: RxFacts, drugs: Map<string, DrugInfo>, rules: Rules, labels: Labels = PLAIN): RxCheck {
   return checkPrescriptions([rx], drugs, rules, labels);
 }
+/** A code's 總量 on one prescription over its 給藥日份; undefined when either is missing or not a positive number. */
+function dailyCount(rx: RxFacts, code: string): number | undefined {
+  const days = Number(rx.days), totals = rx.drugs.filter(drug => drug.code === code).map(drug => Number(drug.total));
+  return days > 0 && totals.length && totals.every(total => Number.isFinite(total) && total >= 0) && rx.drugs.every(drug => drug.code !== code || drug.total?.trim())
+    ? totals.reduce((sum, total) => sum + total, 0) / days : undefined;
+}
+const MG_PER: Record<string, number> = { MCG: 0.001, MG: 1, GM: 1000, G: 1000 };
+/**
+ * The mg in one unit (tablet, capsule) of a drug, from its 健保成分 text: DIGOXIN .25 MG is 0.25. For a combination, the part with
+ * the keyword (METFORMIN in SITAGLIPTIN … 50 MG+METFORMIN HCL 500 MG). Undefined for a strength per mL or gram (a liquid, a cream),
+ * a combination without a keyword to pick its part, or a text with no strength at its end.
+ */
+export function unitMg(ingredients: string, keyword = ''): number | undefined {
+  const parts = ingredients.toUpperCase().split('+').map(text => text.trim()).filter(text => !keyword || text.includes(keyword));
+  const match = parts.length === 1 ? /(?:^|\s)(\d*\.?\d+) ?(MCG|MG|GM|G)$/.exec(parts[0]) : null;
+  return match ? Number(match[1]) * MG_PER[match[2]] : undefined;
+}
+/**
+ * What a caution names (its ATC or keyword) on one prescription, in mg a day: each such code's unitMg times its 總量 over the 給藥日份,
+ * added up (metformin alone and in a combination). codes in prescription order, the note going on the first; mg undefined when any of
+ * them cannot be worked out.
+ */
+export function dailyMg(caution: Caution, rx: RxFacts, drugs: Map<string, DrugInfo>): { codes: string[]; mg?: number } {
+  const codes = [...new Set(rx.drugs.map(drug => drug.code))].filter(code => {
+    const info = drugs.get(code);
+    return !!info && (atcHit(info.atc, caution.atc) || (!!caution.keyword && info.ingredients.toUpperCase().includes(caution.keyword)));
+  });
+  let mg: number | undefined = 0;
+  for (const code of codes) {
+    const per = unitMg(drugs.get(code)!.ingredients, caution.keyword), count = dailyCount(rx, code);
+    mg = mg === undefined || per === undefined || count === undefined ? undefined : mg + per * count;
+  }
+  return { codes, mg: codes.length ? mg : undefined };
+}
 /**
  * One patient's prescriptions checked as one (several departments handed in together), as checkPrescription checks one: every
  * prescription's diagnoses can explain a drug or rule it out, a drug on one prescription can explain or interact with a drug on
@@ -389,13 +429,7 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
   /** 第 2 張 before what is not on the drug's own prescription; nothing for a single prescription. */
   const elsewhere = (on: number[], part: number) => many && !on.includes(part) ? `${on.map(partName).join('、')} ` : '';
   const list = parts.flatMap((rx, part) => rx.drugs.map(drug => ({ ...drug, part, dept: rx.dept })));
-  /** A code's 總量 on one prescription over its 給藥日份; undefined when either is missing or not a positive number. */
-  const daily = (code: string, part: number) => {
-    const rx = parts[part], days = Number(rx.days);
-    const totals = rx.drugs.filter(drug => drug.code === code).map(drug => Number(drug.total));
-    return days > 0 && totals.length && totals.every(total => Number.isFinite(total) && total >= 0) && rx.drugs.every(drug => drug.code !== code || drug.total?.trim())
-      ? totals.reduce((sum, total) => sum + total, 0) / days : undefined;
-  };
+  const daily = (code: string, part: number) => dailyCount(parts[part], code);
   // One ATC per distinct code: the same code twice does not explain itself. A code keeps every frequency it is given at.
   const atcs = new Map<string, string>(), frequencies = new Map<string, string[]>();
   for (const { code, frequency } of list) {
@@ -434,7 +468,7 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
       return { verdict: '灰', reason: dx.length ? '本次診斷與科別都無法解釋（預設收合）' : '處方沒有診斷碼' };
     };
     // Each condition holds, fails, or cannot be judged (undefined, with why); details join in the note's brackets.
-    const judge = (condition: Condition): { hit: boolean | undefined; detail: string; why?: string } => {
+    const judge = (condition: Condition, caution: Caution): { hit: boolean | undefined; detail: string; why?: string } => {
       switch (condition.kind) {
         case '診斷': { const hits = icdHits(dx, condition.icd); return { hit: hits.length > 0, detail: `本次：${dxText(hits)}` }; }
         case '年齡': {
@@ -472,13 +506,20 @@ export function checkPrescriptions(parts: RxFacts[], drugs: Map<string, DrugInfo
           return { hit: amount === undefined ? undefined : amount > condition.above,
             detail: `每日 ${amount === undefined ? '' : Math.round(amount * 100) / 100} 單位（總量÷給藥日份）`, why: '無法計算每日用量' };
         }
+        case '日劑量': {
+          // Once per prescription, on the first drug the caution names there; the others are added into its amount.
+          const { codes, mg } = dailyMg(caution, parts[part], drugs);
+          if (codes[0] !== code) return { hit: false, detail: '' };
+          return { hit: mg === undefined ? undefined : mg > condition.above,
+            detail: `每日 ${mg === undefined ? '' : Math.round(mg * 1000) / 1000} mg（含量×總量÷給藥日份${codes.length > 1 ? `，${codes.length} 個品項合計` : ''}）`, why: '無法計算每日劑量' };
+        }
       }
     };
     const fired: { caution: Caution; note: Note }[] = [];
     const ingredients = info.ingredients.toUpperCase();
     for (const caution of rules.cautions) {
       if (!(atcHit(atc, caution.atc) || (caution.keyword && ingredients.includes(caution.keyword)))) continue;
-      const outcomes = caution.conditions.map(judge);
+      const outcomes = caution.conditions.map(condition => judge(condition, caution));
       if (outcomes.some(outcome => outcome.hit === false)) continue;
       const unknown = outcomes.find(outcome => outcome.hit === undefined);
       fired.push({ caution, note: unknown ? { level: '灰', text: `${caution.id} ${unknown.why}` }

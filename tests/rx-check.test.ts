@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { parsePrescriptionSlip } from '../src/prescription-qr';
-import { cautionKinds, checkPrescription, checkPrescriptions, compileRules, dxLabel, kidneyBelow, kidneyStage, roughEgfr, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
+import { cautionKinds, checkPrescription, checkPrescriptions, compileRules, dxLabel, unitMg, kidneyBelow, kidneyStage, roughEgfr, dxParts, ingredientBases, ruleTable, RULE_FILES, type DrugInfo, type IcdEntry, type RuleTables, type RxFacts } from '../src/rx-check';
 import { rxCheckOn } from '../src/rx-check-config';
 
 // Synthetic prescriptions, drug codes and rule tables only; the ATC and ICD-10-CM codes are the public classifications.
@@ -294,6 +294,38 @@ assert.equal(rxCheckOn('?other=1', true), true);
   assert.deepEqual(checkPrescription(qr('F41.9', ['TESTALPR01'], { 7: '146' }), drugs, nhiDept).drugs[0].notes, [{ level: '灰', text: 'P05 無法判斷就醫科別' }]);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,科別外,神經科,黃,x,') })), /科別外寫成/);
   assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,A10A,,日量,1,黃,x,') })), /日量寫成/);
+}
+
+// 日劑量: the mg a day of what a caution names on the drug's own prescription, its strength from the 健保成分 text, added up over its
+// codes and noted once on the first; a strength per mL (a liquid) cannot be worked out.
+{
+  assert.equal(unitMg('DIGOXIN .25 MG'), 0.25);
+  assert.equal(unitMg('Metformin Hydrochloride 850 mg'), 850);
+  assert.equal(unitMg('BUDESONIDE 64 MCG'), 0.064);
+  assert.equal(unitMg('CALCIUM CARBONATE 1 GM'), 1000);
+  assert.equal(unitMg('DIGOXIN .05 MG/ML'), undefined, 'per mL');
+  assert.equal(unitMg('TRAMADOL HCL 37.5 MG+ACETAMINOPHEN 325 MG'), undefined, 'a combination needs a keyword');
+  assert.equal(unitMg('TRAMADOL HCL 37.5 MG+ACETAMINOPHEN 325 MG', 'ACETAMINOPHEN'), 325);
+  const dose = compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據',
+    'D01,臨床,C01AA05,,年齡+日劑量,>=65;>0.125 MG,黃,測試提示劑量,', 'D02,臨床,,METFORMIN,日劑量,>1500 MG,黃,測試提示合計,') }));
+  const doseDrugs = new Map<string, DrugInfo>([...drugs, ['TESTDIGO01', { atc: 'C01AA05', ingredients: 'DIGOXIN .25 MG' }],
+    ['TESTDIGL01', { atc: 'C01AA05', ingredients: 'DIGOXIN .05 MG/ML' }], ['TESTSIME01', { atc: 'A10BD07', ingredients: 'SITAGLIPTIN 50 MG+METFORMIN HCL 500 MG' }]]);
+  const notes = (rx: RxFacts) => checkPrescription(rx, doseDrugs, dose).drugs.map(drug => `${drug.code} ${drug.notes.map(note => `${note.level} ${note.text}`).join('｜')}`);
+  // One 0.25 mg tablet a day is above 0.125 mg; half a tablet (14 over 28 days) is not; 65 and over only.
+  assert.deepEqual(notes(qr('I48.91', ['TESTDIGO01'], { 19: '28' })), ['TESTDIGO01 黃 D01 測試提示劑量（AGE65-69；每日 0.25 mg（含量×總量÷給藥日份））']);
+  assert.deepEqual(notes(qr('I48.91', ['TESTDIGO01'], { 19: '14' })), ['TESTDIGO01 ']);
+  assert.deepEqual(notes(qr('I48.91', ['TESTDIGO01'], { 6: '0900101', 19: '28' })), ['TESTDIGO01 ']);
+  assert.deepEqual(notes(qr('I48.91', ['TESTDIGL01'])), ['TESTDIGL01 灰 D01 無法計算每日劑量'], 'an elixir');
+  assert.deepEqual(notes({ ...qr('I48.91', ['TESTDIGO01']), days: '' }), ['TESTDIGO01 灰 D01 無法計算每日劑量']);
+  // Metformin alone and inside a combination add up: 1000 mg is not above 1500, 1000 + 1000 is, and only the first carries it.
+  assert.deepEqual(notes(qr('E11.9', ['TESTMETF01'])), ['TESTMETF01 ']);
+  assert.deepEqual(notes(qr('E11.9', ['TESTMETF01', 'TESTSIME01'])), ['TESTMETF01 黃 D02 測試提示合計（每日 2000 mg（含量×總量÷給藥日份，2 個品項合計））', 'TESTSIME01 ']);
+  assert.deepEqual(notes(qr('E11.9', ['TESTMETF01', 'TESTMETF01'])), ['TESTMETF01 黃 D02 測試提示合計（每日 2000 mg（含量×總量÷給藥日份））', 'TESTMETF01 黃 D02 測試提示合計（每日 2000 mg（含量×總量÷給藥日份））'],
+    'the same code on two lines (QD AM and QD PM) adds up, as for 日量');
+  for (const written of ['>0.125', '0.125 MG', '>0.125MG', '>1 G']) {
+    assert.throws(() => compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', `U09,臨床,C01AA05,,日劑量,${written},黃,x,`) })), /日劑量寫成/, written);
+  }
+  assert.equal(compileRules(tables({ cautions: csv('編號,類別,ATC,成分關鍵字,條件類型,條件,等級,提示,依據', 'U09,臨床,C01AA05,,日劑量,>125 MCG,黃,x,') })).cautions[0].conditions[0].key.length > 0, true);
 }
 
 // The published assets match docs/reference: rerun `npm run rx-assets` after editing a table or refreshing a reference file.
